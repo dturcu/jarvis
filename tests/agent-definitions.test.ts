@@ -360,6 +360,47 @@ describe("all agents structural invariants", () => {
     expect(unique.size).toBe(ids.length);
   });
 
+  it("every agent has an explicit planner_mode", () => {
+    const validModes = ["single", "critic", "multi"];
+    for (const agent of ALL_AGENTS) {
+      expect(agent.planner_mode, `${agent.agent_id} missing planner_mode`).toBeDefined();
+      expect(validModes).toContain(agent.planner_mode);
+    }
+  });
+
+  it("experimental agents are correctly marked", () => {
+    const expectedExperimental = [
+      "content-engine",
+      "portfolio-monitor",
+      "garden-calendar",
+      "social-engagement",
+      "security-monitor",
+      "invoice-generator",
+      "email-campaign",
+      "meeting-transcriber",
+      "drive-watcher",
+    ];
+    const expectedProduction = [
+      "bd-pipeline",
+      "proposal-engine",
+      "evidence-auditor",
+      "contract-reviewer",
+      "staffing-monitor",
+    ];
+
+    for (const agentId of expectedExperimental) {
+      const agent = ALL_AGENTS.find(a => a.agent_id === agentId);
+      expect(agent, `${agentId} not found`).toBeDefined();
+      expect(agent!.experimental, `${agentId} should be experimental`).toBe(true);
+    }
+
+    for (const agentId of expectedProduction) {
+      const agent = ALL_AGENTS.find(a => a.agent_id === agentId);
+      expect(agent, `${agentId} not found`).toBeDefined();
+      expect(agent!.experimental, `${agentId} should NOT be experimental`).toBeFalsy();
+    }
+  });
+
   it("email-sending agents that are external-facing have critical severity", () => {
     const externalFacing = ["bd-pipeline", "proposal-engine"];
     for (const agent of ALL_AGENTS.filter(a => externalFacing.includes(a.agent_id))) {

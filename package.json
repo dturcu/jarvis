@@ -26,6 +26,7 @@
     "setup": "node scripts/setup-wizard.mjs",
     "setup:legacy": "tsx scripts/setup-jarvis.ts",
     "setup:status": "tsx scripts/setup-jarvis.ts status",
+    "seed:demo": "tsx scripts/seed-demo.ts",
     "plugin:install": "tsx scripts/plugin-manager.ts install",
     "plugin:list": "tsx scripts/plugin-manager.ts list",
     "plugin:remove": "tsx scripts/plugin-manager.ts remove"

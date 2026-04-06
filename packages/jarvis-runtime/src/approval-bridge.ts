@@ -59,7 +59,9 @@ export async function waitForApproval(
     ).get(approvalId) as { status: string } | undefined;
 
     if (row && row.status !== "pending") {
-      return row.status as "approved" | "rejected";
+      // Map expired/cancelled to "rejected" so callers abort instead of proceeding
+      if (row.status === "approved") return "approved";
+      return "rejected"; // rejected, expired, cancelled all mean "do not proceed"
     }
     await new Promise(r => setTimeout(r, pollMs));
   }
@@ -73,7 +75,7 @@ export async function waitForApproval(
 export function resolveApproval(
   db: DatabaseSync,
   approvalId: string,
-  status: "approved" | "rejected",
+  status: "approved" | "rejected" | "expired",
   resolvedBy: string,
   note?: string,
 ): boolean {

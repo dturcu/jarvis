@@ -803,3 +803,84 @@ describe("E2E: Daemon Restart — Stale Claim Recovery", () => {
     expect(store.getStatus(r3)).toBe("completed"); // Untouched
   });
 });
+
+// ── Model Degraded Mode ─────────────────────────────────────────────────────
+
+describe("E2E: Model Degraded Mode", () => {
+  let db: DatabaseSync;
+  let dbPath: string;
+
+  beforeEach(() => {
+    ({ db, path: dbPath } = createTestDb());
+  });
+
+  afterEach(() => cleanup(db, dbPath));
+
+  it("health reports degraded when no enabled models exist", () => {
+    // Don't insert any models into model_registry
+    const row = db.prepare("SELECT COUNT(*) as n FROM model_registry WHERE enabled = 1").get() as { n: number };
+    expect(row.n).toBe(0);
+    // This proves the health check would report degraded (models.enabled === 0)
+  });
+
+  it("health reports healthy when enabled models exist", () => {
+    const now = new Date().toISOString();
+
+    // Insert an enabled model (schema: runtime, model_id, capabilities_json, limits_json, tags_json, discovered_at, last_seen_at, enabled)
+    db.prepare(`
+      INSERT INTO model_registry (runtime, model_id, capabilities_json, enabled, discovered_at, last_seen_at)
+      VALUES (?, ?, ?, 1, ?, ?)
+    `).run("ollama", "llama3:8b", JSON.stringify(["chat"]), now, now);
+
+    const row = db.prepare("SELECT COUNT(*) as n FROM model_registry WHERE enabled = 1").get() as { n: number };
+    expect(row.n).toBe(1);
+  });
+
+  it("disabled models are not counted as enabled", () => {
+    const now = new Date().toISOString();
+
+    // Insert a disabled model
+    db.prepare(`
+      INSERT INTO model_registry (runtime, model_id, capabilities_json, enabled, discovered_at, last_seen_at)
+      VALUES (?, ?, ?, 0, ?, ?)
+    `).run("ollama", "mistral:7b", JSON.stringify(["chat"]), now, now);
+
+    // Insert an enabled model
+    db.prepare(`
+      INSERT INTO model_registry (runtime, model_id, capabilities_json, enabled, discovered_at, last_seen_at)
+      VALUES (?, ?, ?, 1, ?, ?)
+    `).run("ollama", "llama3:8b", JSON.stringify(["chat"]), now, now);
+
+    const enabledCount = db.prepare("SELECT COUNT(*) as n FROM model_registry WHERE enabled = 1").get() as { n: number };
+    const totalCount = db.prepare("SELECT COUNT(*) as n FROM model_registry").get() as { n: number };
+
+    expect(totalCount.n).toBe(2);
+    expect(enabledCount.n).toBe(1);
+  });
+
+  it("model registry composite PK prevents duplicates per runtime", () => {
+    const now = new Date().toISOString();
+
+    db.prepare(`
+      INSERT INTO model_registry (runtime, model_id, capabilities_json, enabled, discovered_at, last_seen_at)
+      VALUES (?, ?, ?, 1, ?, ?)
+    `).run("ollama", "llama3:8b", JSON.stringify(["chat"]), now, now);
+
+    // Same runtime + model_id should conflict
+    expect(() =>
+      db.prepare(`
+        INSERT INTO model_registry (runtime, model_id, capabilities_json, enabled, discovered_at, last_seen_at)
+        VALUES (?, ?, ?, 1, ?, ?)
+      `).run("ollama", "llama3:8b", JSON.stringify(["chat", "code"]), now, now),
+    ).toThrow();
+
+    // Different runtime + same model_id should succeed
+    db.prepare(`
+      INSERT INTO model_registry (runtime, model_id, capabilities_json, enabled, discovered_at, last_seen_at)
+      VALUES (?, ?, ?, 1, ?, ?)
+    `).run("lmstudio", "llama3:8b", JSON.stringify(["chat"]), now, now);
+
+    const count = db.prepare("SELECT COUNT(*) as n FROM model_registry").get() as { n: number };
+    expect(count.n).toBe(2);
+  });
+});

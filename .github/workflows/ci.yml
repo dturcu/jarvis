@@ -24,14 +24,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Build TypeScript
+        run: npm run build
+
       - name: Validate contracts
         run: npm run validate:contracts
 
       - name: Run tests
         run: npm test
-
-      - name: Build TypeScript
-        run: npm run build
 
       - name: Build Dashboard
         run: npm run dashboard:build

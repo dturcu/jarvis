@@ -36,15 +36,15 @@ modelsRouter.get("/", (_req, res) => {
       discovered_at: string; last_seen_at: string; enabled: number;
     }>;
 
-    // Attach latest benchmarks
+    // Attach latest benchmarks (match on both model_id and runtime for composite PK)
     const result = models.map(m => {
       const benchmarks = db.prepare(`
         SELECT benchmark_type, latency_ms, tokens_per_sec, json_success, tool_call_success, measured_at
         FROM model_benchmarks
-        WHERE model_id = ?
+        WHERE model_id = ? AND runtime = ?
         ORDER BY measured_at DESC
         LIMIT 5
-      `).all(m.model_id) as Array<{
+      `).all(m.model_id, m.runtime) as Array<{
         benchmark_type: string; latency_ms: number;
         tokens_per_sec: number | null;
         json_success: number | null;
@@ -71,47 +71,57 @@ modelsRouter.get("/", (_req, res) => {
   }
 });
 
-// PATCH /:modelId — enable or disable a model
+// PATCH /:modelId — enable or disable a model (runtime via query param or body)
 modelsRouter.patch("/:modelId", (req, res) => {
   const { modelId } = req.params;
-  const { enabled } = req.body as { enabled?: boolean };
+  const { enabled, runtime: bodyRuntime } = req.body as { enabled?: boolean; runtime?: string };
+  const runtime = (req.query.runtime as string | undefined) ?? bodyRuntime;
 
   if (typeof enabled !== "boolean") {
     res.status(400).json({ error: "Expected { enabled: boolean }" });
     return;
   }
+  if (!runtime) {
+    res.status(400).json({ error: "Missing runtime — provide as query param ?runtime= or in body { runtime }" });
+    return;
+  }
 
   const db = getDb();
   try {
-    const existing = db.prepare("SELECT model_id FROM model_registry WHERE model_id = ?").get(modelId!) as { model_id: string } | undefined;
+    const existing = db.prepare(
+      "SELECT model_id, runtime FROM model_registry WHERE model_id = ? AND runtime = ?"
+    ).get(modelId!, runtime) as { model_id: string; runtime: string } | undefined;
     if (!existing) {
-      res.status(404).json({ error: `Model not found: ${modelId}` });
+      res.status(404).json({ error: `Model not found: ${modelId} (runtime: ${runtime})` });
       return;
     }
 
-    db.prepare("UPDATE model_registry SET enabled = ? WHERE model_id = ?").run(enabled ? 1 : 0, modelId!);
+    db.prepare(
+      "UPDATE model_registry SET enabled = ? WHERE model_id = ? AND runtime = ?"
+    ).run(enabled ? 1 : 0, modelId!, runtime);
 
     const actor = getActor(req as AuthenticatedRequest);
-    writeAuditLog(actor.type, actor.id, "model.toggled", "model", modelId!, { enabled });
+    writeAuditLog(actor.type, actor.id, "model.toggled", "model", modelId!, { enabled, runtime });
 
-    res.json({ id: modelId, enabled });
+    res.json({ id: modelId, runtime, enabled });
   } finally {
     try { db.close(); } catch { /* best-effort */ }
   }
 });
 
-// GET /:modelId/benchmarks — get detailed benchmark history
+// GET /:modelId/benchmarks — get detailed benchmark history (runtime via query param)
 modelsRouter.get("/:modelId/benchmarks", (req, res) => {
   const { modelId } = req.params;
+  const runtime = req.query.runtime as string | undefined;
   const db = getDb();
   try {
-    const rows = db.prepare(`
-      SELECT benchmark_type, latency_ms, tokens_per_sec, json_success, tool_call_success, notes_json, measured_at
-      FROM model_benchmarks
-      WHERE model_id = ?
-      ORDER BY measured_at DESC
-      LIMIT 50
-    `).all(modelId!) as Array<{
+    const sql = runtime
+      ? `SELECT benchmark_type, latency_ms, tokens_per_sec, json_success, tool_call_success, notes_json, measured_at
+         FROM model_benchmarks WHERE model_id = ? AND runtime = ? ORDER BY measured_at DESC LIMIT 50`
+      : `SELECT benchmark_type, latency_ms, tokens_per_sec, json_success, tool_call_success, notes_json, measured_at
+         FROM model_benchmarks WHERE model_id = ? ORDER BY measured_at DESC LIMIT 50`;
+    const params = runtime ? [modelId!, runtime] : [modelId!];
+    const rows = db.prepare(sql).all(...params) as Array<{
       benchmark_type: string; latency_ms: number;
       tokens_per_sec: number | null;
       json_success: number | null;

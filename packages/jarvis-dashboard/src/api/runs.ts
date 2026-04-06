@@ -1,8 +1,10 @@
 import { Router } from 'express'
 import { DatabaseSync } from 'node:sqlite'
 import type { SQLInputValue } from 'node:sqlite'
+import { randomUUID } from 'node:crypto'
 import os from 'os'
 import { join } from 'path'
+import { RunStore } from '@jarvis/runtime'
 
 function getRuntimeDb() {
   const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'runtime.db'))
@@ -36,6 +38,34 @@ runsRouter.get('/', (req, res) => {
   }
 })
 
+// GET /active — currently running or approval-blocked runs
+runsRouter.get('/active', (_req, res) => {
+  try {
+    const db = getRuntimeDb()
+    const rows = db.prepare(
+      `SELECT * FROM runs WHERE status IN ('planning', 'executing', 'awaiting_approval') ORDER BY started_at DESC`
+    ).all() as Record<string, unknown>[]
+    db.close()
+    res.json(rows)
+  } catch {
+    res.json([])
+  }
+})
+
+// GET /failed — recent failures and cancellations
+runsRouter.get('/failed', (_req, res) => {
+  try {
+    const db = getRuntimeDb()
+    const rows = db.prepare(
+      `SELECT * FROM runs WHERE status IN ('failed', 'cancelled') ORDER BY completed_at DESC LIMIT 50`
+    ).all() as Record<string, unknown>[]
+    db.close()
+    res.json(rows)
+  } catch {
+    res.json([])
+  }
+})
+
 // GET /:runId — full run detail with events from runtime.db
 runsRouter.get('/:runId', (req, res) => {
   try {
@@ -54,5 +84,78 @@ runsRouter.get('/:runId', (req, res) => {
     res.json({ ...run, events })
   } catch {
     res.status(500).json({ error: 'Database error' })
+  }
+})
+
+// POST /:runId/retry — retry a failed run by queuing a new command for the same agent
+runsRouter.post('/:runId/retry', (req, res) => {
+  try {
+    const db = getRuntimeDb()
+    const run = db.prepare('SELECT * FROM runs WHERE run_id = ?').get(req.params.runId) as
+      { run_id: string; agent_id: string; status: string } | undefined
+
+    if (!run) {
+      db.close()
+      res.status(404).json({ error: 'Run not found' })
+      return
+    }
+    if (run.status !== 'failed' && run.status !== 'cancelled') {
+      db.close()
+      res.status(400).json({ error: `Cannot retry run in status '${run.status}' — only failed or cancelled runs can be retried` })
+      return
+    }
+
+    const commandId = randomUUID()
+    db.prepare(`
+      INSERT INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
+      VALUES (?, 'run_agent', ?, ?, 'queued', 0, ?, 'dashboard', ?)
+    `).run(
+      commandId,
+      run.agent_id,
+      JSON.stringify({ retry_of: run.run_id }),
+      new Date().toISOString(),
+      `retry-${run.run_id}-${Date.now()}`
+    )
+    db.close()
+    res.json({ ok: true, command_id: commandId, agent_id: run.agent_id })
+  } catch {
+    res.status(500).json({ error: 'Failed to queue retry command' })
+  }
+})
+
+// POST /:runId/cancel — cancel a non-terminal run
+runsRouter.post('/:runId/cancel', (req, res) => {
+  try {
+    const db = getRuntimeDb()
+    const run = db.prepare('SELECT * FROM runs WHERE run_id = ?').get(req.params.runId) as
+      { run_id: string; agent_id: string; status: string } | undefined
+
+    if (!run) {
+      db.close()
+      res.status(404).json({ error: 'Run not found' })
+      return
+    }
+
+    const terminalStatuses = ['completed', 'failed', 'cancelled']
+    if (terminalStatuses.includes(run.status)) {
+      db.close()
+      res.status(400).json({ error: `Run is already in terminal status '${run.status}'` })
+      return
+    }
+
+    const runStore = new RunStore(db)
+    runStore.transition(run.run_id, run.agent_id, 'cancelled', 'run_cancelled', {
+      details: { reason: 'operator_cancel' }
+    })
+    // Also complete the associated command so it doesn't get re-claimed
+    runStore.completeCommand(run.run_id, 'cancelled')
+    db.close()
+
+    // Note: The live orchestrator checks durable status before each step and will
+    // detect the cancellation at its next checkpoint. The current step may still
+    // complete, but no further steps will execute.
+    res.json({ ok: true, run_id: run.run_id, status: 'cancelled', note: 'The current step may still complete; no further steps will execute.' })
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to cancel run' })
   }
 })

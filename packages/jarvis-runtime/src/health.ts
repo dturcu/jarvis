@@ -20,7 +20,7 @@ export type HealthReport = {
   daemon: { running: boolean; pid: number | null; last_seen: string | null };
   schedules: { total: number; enabled: number; overdue: number };
   migrations: { latest_id: string | null; count: number };
-  models: { registered: number; enabled: number };
+  models: { registered: number; enabled: number; models_available: boolean };
   disk_free_gb: number | null;
 };
 
@@ -62,7 +62,7 @@ export function getHealthReport(): HealthReport {
     daemon: { running: false, pid: null, last_seen: null },
     schedules: { total: 0, enabled: 0, overdue: 0 },
     migrations: { latest_id: null, count: 0 },
-    models: { registered: 0, enabled: 0 },
+    models: { registered: 0, enabled: 0, models_available: false },
     disk_free_gb: null,
   };
 
@@ -114,6 +114,7 @@ export function getHealthReport(): HealthReport {
     // Models
     report.models.registered = queryCount(rtDb, "SELECT COUNT(*) as n FROM model_registry");
     report.models.enabled = queryCount(rtDb, "SELECT COUNT(*) as n FROM model_registry WHERE enabled = 1");
+    report.models.models_available = report.models.enabled > 0;
 
     // Daemon heartbeat
     const heartbeat = rtDb.prepare(
@@ -141,7 +142,7 @@ export function getHealthReport(): HealthReport {
   // Determine overall status
   if (!report.crm.ok || !report.knowledge.ok || !report.runtime.ok) {
     report.status = "unhealthy";
-  } else if (!report.daemon.running || (report.disk_free_gb !== null && report.disk_free_gb < 2)) {
+  } else if (!report.daemon.running || (report.disk_free_gb !== null && report.disk_free_gb < 2) || !report.models.models_available) {
     report.status = "degraded";
   }
 

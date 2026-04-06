@@ -71,5 +71,7 @@ export const emailCampaignAgent: AgentDefinition = {
   max_steps_per_run: 20,
   system_prompt: EMAIL_CAMPAIGN_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel", "email:daniel@thinking-in-code.com"],
+  planner_mode: "single",
   maturity: "trusted_with_review",
+  experimental: true,
 };

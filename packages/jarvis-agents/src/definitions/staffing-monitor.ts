@@ -69,5 +69,6 @@ export const staffingMonitorAgent: AgentDefinition = {
   max_steps_per_run: 7,
   system_prompt: STAFFING_MONITOR_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
+  planner_mode: "single",
   maturity: "operational",
 };

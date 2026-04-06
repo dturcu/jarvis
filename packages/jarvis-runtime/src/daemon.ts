@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import type { DatabaseSync } from "node:sqlite";
 import {
@@ -20,6 +21,19 @@ import { Logger } from "./logger.js";
 import { StatusWriter } from "./status-writer.js";
 import type { AgentTrigger } from "@jarvis/agent-framework";
 import { discoverModels, syncModelRegistry } from "@jarvis/inference";
+import { RunStore } from "./run-store.js";
+import { resolveApproval } from "./approval-bridge.js";
+
+// ─── Restart Policy ──────────────────────────────────────────────────────────
+// On daemon shutdown (SIGINT/SIGTERM), active runs are transitioned as follows:
+//   queued            → cancelled   (never started, safe to discard)
+//   planning          → failed      (partial work may exist, needs re-run)
+//   executing         → failed      (partial work may exist, needs re-run)
+//   awaiting_approval → failed      (pending approvals expired first)
+// On restart, the daemon does NOT auto-retry failed runs. Operators must
+// re-trigger them via command or schedule. Claimed commands are released
+// back to 'queued' so they will be picked up on next startup.
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function main() {
   // ─── Phase 1: Init ──────────────────────────────────────────────────────────
@@ -202,6 +216,21 @@ async function main() {
     }
   }, Math.min(config.poll_interval_ms, config.trigger_poll_ms));
 
+  // ─── Periodic model re-discovery (every 5 min) ─────────────────────────────
+  const modelRediscoveryInterval = setInterval(async () => {
+    try {
+      const discovery = await discoverModels(config.lmstudio_url);
+      if (discovery.discovered.length > 0) {
+        const sync = syncModelRegistry(runtimeDb, discovery.discovered);
+        if (sync.added > 0 || sync.updated > 0) {
+          logger.info(`Model re-discovery: ${sync.added} new, ${sync.updated} updated`);
+        }
+      }
+    } catch {
+      // Model runtime may be temporarily down — don't log noise on every 5min tick
+    }
+  }, 5 * 60 * 1000);
+
   // ─── Phase 3: Drain ────────────────────────────────────────────────────────
 
   async function shutdown(signal: string) {
@@ -209,20 +238,63 @@ async function main() {
 
     // Stop polling
     clearInterval(pollInterval);
+    clearInterval(modelRediscoveryInterval);
 
     // Drain: wait for running agents to complete (30s timeout)
     await agentQueue.drain(30_000);
 
-    // Mark any still-running runs as failed (shouldn't happen after drain, but defensive)
+    // Transition any non-terminal runs via RunStore (validates state machine + emits run_events)
     try {
-      const staleRuns = runtimeDb.prepare(
-        "UPDATE runs SET status = 'failed', completed_at = ?, error = 'daemon_shutdown' WHERE status IN ('queued','planning','executing','awaiting_approval')",
-      ).run(new Date().toISOString());
-      const changes = (staleRuns as { changes: number }).changes;
-      if (changes > 0) {
-        logger.warn(`Marked ${changes} in-flight run(s) as failed on shutdown`);
+      const runStore = new RunStore(runtimeDb);
+      const activeRuns = runtimeDb.prepare(
+        "SELECT run_id, agent_id, status FROM runs WHERE status NOT IN ('completed','failed','cancelled')",
+      ).all() as Array<{ run_id: string; agent_id: string; status: string }>;
+
+      for (const run of activeRuns) {
+        try {
+          if (run.status === "awaiting_approval") {
+            // Expire pending approvals before transitioning the run
+            const pendingApprovals = runtimeDb.prepare(
+              "SELECT approval_id FROM approvals WHERE run_id = ? AND status = 'pending'",
+            ).all(run.run_id) as Array<{ approval_id: string }>;
+            for (const approval of pendingApprovals) {
+              resolveApproval(runtimeDb, approval.approval_id, "expired", `daemon-${process.pid}`, "daemon_shutdown");
+            }
+            runStore.transition(run.run_id, run.agent_id, "failed", "daemon_shutdown", {
+              details: { reason: "daemon_shutdown", signal },
+            });
+          } else if (run.status === "executing" || run.status === "planning") {
+            runStore.transition(run.run_id, run.agent_id, "failed", "daemon_shutdown", {
+              details: { reason: "daemon_shutdown", signal },
+            });
+          } else if (run.status === "queued") {
+            runStore.transition(run.run_id, run.agent_id, "cancelled", "daemon_shutdown", {
+              details: { reason: "daemon_shutdown", signal },
+            });
+          }
+        } catch (e) {
+          logger.warn(`Failed to transition run ${run.run_id}: ${e instanceof Error ? e.message : String(e)}`);
+        }
       }
-    } catch { /* best-effort */ }
+
+      if (activeRuns.length > 0) {
+        logger.warn(`Transitioned ${activeRuns.length} in-flight run(s) on shutdown`);
+      }
+
+      // Record shutdown in audit_log
+      runtimeDb.prepare(`
+        INSERT INTO audit_log (audit_id, actor_type, actor_id, action, target_type, target_id, payload_json, created_at)
+        VALUES (?, 'daemon', ?, 'daemon.shutdown', 'daemon', ?, ?, ?)
+      `).run(
+        randomUUID(),
+        `daemon-${process.pid}`,
+        `daemon-${process.pid}`,
+        JSON.stringify({ signal, runs_affected: activeRuns.length, pid: process.pid }),
+        new Date().toISOString(),
+      );
+    } catch (e) {
+      logger.warn(`Shutdown transition error: ${e instanceof Error ? e.message : String(e)}`);
+    }
 
     // Release any claimed commands back to queued
     try {
