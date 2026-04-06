@@ -21,6 +21,7 @@ import { modelsRouter } from './models.js'
 import { queueRouter } from './queue.js'
 import { policyRouter } from './policy.js'
 import { workflowsRouter } from './workflows.js'
+import { historyRouter } from './history.js'
 import { packsRouter } from './packs.js'
 import { serviceRouter } from './service.js'
 import { supportRouter } from './support.js'
@@ -81,6 +82,7 @@ app.use('/api/models', modelsRouter)
 app.use('/api/queue', queueRouter)
 app.use('/api/policy', policyRouter)
 app.use('/api/workflows', workflowsRouter)
+app.use('/api/history', historyRouter)
 app.use('/api/packs', packsRouter)
 app.use('/api/service', serviceRouter)
 app.use('/api/support', supportRouter)
