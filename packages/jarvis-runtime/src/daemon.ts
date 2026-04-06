@@ -169,6 +169,8 @@ async function main() {
         runStore.transition(run.run_id, run.agent_id, "failed", "run_failed", {
           details: { reason: "restart_recovery", original_status: "awaiting_approval" },
         });
+        // Also complete the linked command so it doesn't stay stuck in 'claimed'
+        runStore.completeCommand(run.run_id, "failed");
         logger.info(`Restart recovery: failed stuck run ${run.run_id} (was awaiting_approval with no pending approvals)`);
       }
       logger.info(`Restart recovery: resolved ${stuckRuns.length} stuck awaiting_approval run(s)`);
@@ -226,9 +228,14 @@ async function main() {
           }
 
           // Enqueue the agent with command_id + payload for atomic linkage.
-          // The orchestrator receives command_id via trigger and links it to the run directly.
-          // RunStore.completeCommand() marks the command completed/failed when the run ends.
-          agentQueue.enqueue(cmd.target_agent_id, { kind: "manual" }, 0, cmd.command_id, commandPayload);
+          // If enqueue is a no-op (agent already running/queued), revert the claim.
+          const enqueued = agentQueue.enqueue(cmd.target_agent_id, { kind: "manual" }, 0, cmd.command_id, commandPayload);
+          if (!enqueued) {
+            runtimeDb.prepare(
+              "UPDATE agent_commands SET status = 'queued', claimed_at = NULL WHERE command_id = ?",
+            ).run(cmd.command_id);
+            logger.debug(`Reverted claim for command ${cmd.command_id} — agent ${cmd.target_agent_id} already running/queued`);
+          }
         } else {
           logger.warn(`Unknown command type: ${cmd.command_type}`);
           runtimeDb.prepare(

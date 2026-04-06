@@ -40,8 +40,8 @@ export class RunStore {
   constructor(private db: DatabaseSync) {}
 
   /** Start a new run. Inserts into runs table and emits run_started event atomically. Returns run_id. */
-  startRun(agentId: string, triggerKind?: string, commandId?: string, goal?: string): string {
-    const runId = randomUUID();
+  startRun(agentId: string, triggerKind?: string, commandId?: string, goal?: string, runId?: string): string {
+    runId = runId ?? randomUUID();
     const now = new Date().toISOString();
 
     this.db.exec("BEGIN IMMEDIATE");
@@ -170,10 +170,10 @@ export class RunStore {
     return (row?.status as RunStatus) ?? null;
   }
 
-  /** Find a run by its linked command_id. Used to link retry runs to originals. */
+  /** Find the most recent run by its linked command_id. Used to link retry runs to originals. */
   getRunByCommandId(commandId: string): { run_id: string; agent_id: string; status: string } | null {
     const row = this.db.prepare(
-      "SELECT run_id, agent_id, status FROM runs WHERE command_id = ?",
+      "SELECT run_id, agent_id, status FROM runs WHERE command_id = ? ORDER BY started_at DESC LIMIT 1",
     ).get(commandId) as { run_id: string; agent_id: string; status: string } | undefined;
     return row ?? null;
   }

@@ -53,9 +53,9 @@ export async function runAgent(
   // Load plugin permissions if this is a plugin agent
   const pluginPermissions = loadPluginPermissions(agentId, runtimeDb);
 
-  // 1. Start run
+  // 1. Start run — use the same run_id for both in-memory and durable state
   const run = runtime.startRun(agentId, trigger);
-  const durableRunId = runStore?.startRun(agentId, trigger.kind, commandId, run.goal);
+  runStore?.startRun(agentId, trigger.kind, commandId, run.goal, run.run_id);
 
   // Log retry relationship in the audit trail so retry runs are linked to originals
   if (commandPayload?.retry_of && runStore) {
@@ -175,6 +175,7 @@ export async function runAgent(
             details: { reason: "disagreement_timeout" },
           });
           runStore?.completeCommand(run.run_id, "failed");
+          writeTelegramQueue(agentId, `\u23F0 Approval expired for plan_disagreement. Run ${run.run_id} failed due to timeout.`, runtimeDb);
           statusWriter?.completeRun("disagreement_timeout");
           runtime.completeRun(run.run_id, "Disagreement approval timeout");
           return run;
@@ -252,10 +253,12 @@ export async function runAgent(
       // ── Plugin permission check ──
       // Enforce permissions at runtime for plugin agents
       if (pluginPermissions && !isActionPermitted(step.action, pluginPermissions)) {
+        const actionPrefix = step.action.split('.')[0];
+        const reason = `Action '${step.action}' requires 'execute_${actionPrefix}' permission. Granted permissions: ${pluginPermissions?.join(', ') || 'none'}.`;
         stepLog.warn(`Action blocked by plugin permissions: ${step.action}`);
         runStore?.emitEvent(run.run_id, agentId, "step_failed", {
           step_no: step.step, action: step.action,
-          details: { error: "permission_denied", reason: `Plugin lacks permission for ${step.action}` },
+          details: { error: "permission_denied", reason },
         });
         decisionLog.logDecision({
           agent_id: agentId, run_id: run.run_id, step: step.step,
@@ -316,6 +319,7 @@ export async function runAgent(
             agent_id: agentId, run_id: run.run_id, step: step.step,
             action: step.action, reasoning: step.reasoning, outcome: "approval_timeout",
           });
+          writeTelegramQueue(agentId, `\u23F0 Approval expired for ${step.action} (step ${step.step}). Run ${run.run_id} failed due to timeout.`, runtimeDb);
           statusWriter?.completeRun("approval_timeout");
           runtime.completeRun(run.run_id, "Approval timeout");
           return run;
@@ -327,6 +331,23 @@ export async function runAgent(
           step_no: step.step, action: step.action,
         });
         stepLog.info("Approved — executing");
+      }
+
+      // ── Preview mode: skip outbound actions ──
+      const outboundActions = new Set(['email.send', 'social.post', 'crm.move_stage', 'document.generate_report']);
+      if (commandPayload?.preview === true && outboundActions.has(step.action)) {
+        stepLog.info(`Preview mode: would have executed ${step.action} — skipping`);
+        runStore?.emitEvent(run.run_id, agentId, "step_completed", {
+          step_no: step.step, action: step.action,
+          details: { preview: true, skipped: true },
+        });
+        decisionLog.logDecision({
+          agent_id: agentId, run_id: run.run_id, step: step.step,
+          action: step.action, reasoning: step.reasoning, outcome: "preview_skipped",
+        });
+        run.current_step = step.step;
+        run.updated_at = new Date().toISOString();
+        continue;
       }
 
       // Execute the job

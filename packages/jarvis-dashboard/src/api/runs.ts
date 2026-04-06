@@ -13,6 +13,57 @@ function getRuntimeDb() {
   return db
 }
 
+/** Human-readable agent labels for explanation summaries. */
+const AGENT_LABELS: Record<string, string> = {
+  'bd-pipeline': 'BD Pipeline',
+  'proposal-engine': 'Proposal Engine',
+  'evidence-auditor': 'Evidence Auditor',
+  'contract-reviewer': 'Contract Reviewer',
+  'staffing-monitor': 'Staffing Monitor',
+  'content-engine': 'Content Engine',
+  'portfolio-monitor': 'Portfolio Monitor',
+  'garden-calendar': 'Garden Calendar',
+  'social-engagement': 'Social Engagement',
+  'security-monitor': 'Security Monitor',
+  'invoice-generator': 'Invoice Generator',
+  'email-campaign': 'Email Campaign',
+  'meeting-transcriber': 'Meeting Transcriber',
+  'drive-watcher': 'Drive Watcher',
+}
+
+/** Build a human-readable trigger description from trigger_kind. */
+function describeTrigger(triggerKind: string | null): { kind: string; source: string; description: string } {
+  if (!triggerKind) {
+    return { kind: 'unknown', source: 'unknown', description: 'an unknown trigger' }
+  }
+  switch (triggerKind) {
+    case 'schedule':
+      return { kind: 'schedule', source: 'cron schedule', description: 'a scheduled job' }
+    case 'manual':
+      return { kind: 'manual', source: 'dashboard', description: 'a manual trigger from the dashboard' }
+    case 'event':
+      return { kind: 'event', source: 'event', description: 'an incoming event' }
+    case 'threshold':
+      return { kind: 'threshold', source: 'alert threshold', description: 'a threshold alert' }
+    default:
+      return { kind: triggerKind, source: triggerKind, description: `a ${triggerKind} trigger` }
+  }
+}
+
+/** Map run status to a plain-language outcome. */
+function describeOutcome(status: string): string {
+  switch (status) {
+    case 'completed': return 'Completed successfully'
+    case 'failed': return 'Failed with errors'
+    case 'cancelled': return 'Was cancelled by an operator'
+    case 'planning': return 'Currently planning'
+    case 'executing': return 'Currently executing'
+    case 'awaiting_approval': return 'Waiting for approval'
+    case 'queued': return 'Queued for execution'
+    default: return `Status: ${status}`
+  }
+}
+
 export const runsRouter = Router()
 
 // GET / — list recent runs from runtime.db, paginated, optional agent filter
@@ -93,6 +144,88 @@ runsRouter.get('/:runId', (req, res) => {
   }
 })
 
+// GET /:runId/explain — plain-language explanation of why and how a run executed
+runsRouter.get('/:runId/explain', (req, res) => {
+  let db: DatabaseSync | undefined
+  try {
+    db = getRuntimeDb()
+    const run = db.prepare('SELECT * FROM runs WHERE run_id = ?').get(req.params.runId) as {
+      run_id: string; agent_id: string; status: string;
+      trigger_kind: string | null; goal: string | null;
+      total_steps: number | null; current_step: number;
+      started_at: string; completed_at: string | null;
+      error: string | null;
+    } | undefined
+
+    if (!run) {
+      res.status(404).json({ error: 'Run not found' })
+      return
+    }
+
+    // Query all events for this run
+    const events = db.prepare(
+      'SELECT event_type, step_no, action, payload_json, created_at FROM run_events WHERE run_id = ? ORDER BY created_at ASC'
+    ).all(run.run_id) as Array<{
+      event_type: string; step_no: number | null;
+      action: string | null; payload_json: string | null;
+      created_at: string;
+    }>
+
+    // Count decisions (step_completed events)
+    const decisionsMade = events.filter(e => e.event_type === 'step_completed').length
+    // Count approvals requested
+    const approvalsRequired = events.filter(e => e.event_type === 'approval_requested').length
+    // Count completed steps vs total
+    const stepsCompleted = run.current_step ?? 0
+    const stepsTotal = run.total_steps ?? stepsCompleted
+
+    // Build trigger description
+    const trigger = describeTrigger(run.trigger_kind)
+
+    // Build data sources from event payloads (best-effort extraction)
+    const dataSources: string[] = []
+    for (const event of events) {
+      if (event.payload_json) {
+        try {
+          const payload = JSON.parse(event.payload_json) as Record<string, unknown>
+          if (payload.data_source && typeof payload.data_source === 'string') {
+            dataSources.push(payload.data_source)
+          }
+          if (payload.collection && typeof payload.collection === 'string') {
+            dataSources.push(`Knowledge: ${payload.collection}`)
+          }
+        } catch { /* skip unparseable payloads */ }
+      }
+    }
+
+    // Format the start time in a readable way
+    const startDate = new Date(run.started_at)
+    const timeStr = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+    const dateStr = startDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+
+    // Agent label
+    const agentLabel = AGENT_LABELS[run.agent_id] ?? run.agent_id
+
+    // Build summary sentence
+    const summary = `This ${agentLabel} run was triggered by ${trigger.description} at ${timeStr} on ${dateStr}.`
+
+    res.json({
+      summary,
+      trigger: { kind: trigger.kind, source: trigger.source },
+      data_sources: dataSources.length > 0 ? dataSources : [],
+      decisions_made: decisionsMade,
+      approvals_required: approvalsRequired,
+      steps_completed: stepsCompleted,
+      steps_total: stepsTotal,
+      outcome: describeOutcome(run.status),
+    })
+  } catch {
+    res.status(500).json({ error: 'Failed to build run explanation' })
+  } finally {
+    try { db?.close() } catch { /* best-effort */ }
+  }
+})
+
 // POST /:runId/retry — retry a failed run by queuing a new command for the same agent
 runsRouter.post('/:runId/retry', (req, res) => {
   let db: DatabaseSync | undefined
@@ -113,10 +246,11 @@ runsRouter.post('/:runId/retry', (req, res) => {
     // Check if original run had outbound side effects (email, social, CRM moves)
     // to warn operators that retrying may re-trigger those actions
     const outboundActions = ['email.send', 'social.post', 'crm.move_stage', 'document.generate_report']
-    const completedSteps = db.prepare(
-      "SELECT action FROM run_events WHERE run_id = ? AND event_type = 'step_completed' AND action IS NOT NULL"
+    // Check both completed AND failed steps — a failed outbound step may have triggered side effects
+    const executedSteps = db.prepare(
+      "SELECT action FROM run_events WHERE run_id = ? AND event_type IN ('step_completed', 'step_failed') AND action IS NOT NULL"
     ).all(run.run_id) as Array<{ action: string }>
-    const hadOutbound = completedSteps.some(s => outboundActions.includes(s.action))
+    const hadOutbound = executedSteps.some(s => outboundActions.includes(s.action))
     const retrySafety = hadOutbound ? 'warn_outbound_effects' : 'safe'
 
     const commandId = randomUUID()

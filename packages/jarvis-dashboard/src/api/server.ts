@@ -9,14 +9,21 @@ import { daemonRouter } from './daemon.js'
 import { webhookRouter } from './webhooks.js'
 import { pluginsRouter } from './plugins.js'
 import { runsRouter } from './runs.js'
+import { attentionRouter } from './attention.js'
 import { entitiesRouter } from './entities.js'
 import { analyticsRouter } from './analytics.js'
 import { settingsRouter } from './settings.js'
+import { backupRouter } from './backup.js'
+import { safemodeRouter } from './safemode.js'
 import { portalRouter } from './portal.js'
 import { godmodeRouter } from './godmode.js'
 import { modelsRouter } from './models.js'
 import { queueRouter } from './queue.js'
 import { policyRouter } from './policy.js'
+import { workflowsRouter } from './workflows.js'
+import { packsRouter } from './packs.js'
+import { serviceRouter } from './service.js'
+import { modeRouter } from './settings.js'
 import fs from 'fs'
 import { getHealthReport, getReadinessReport } from '@jarvis/runtime'
 import { createAuthMiddleware } from './middleware/auth.js'
@@ -60,14 +67,21 @@ app.use('/api/daemon', daemonRouter)
 app.use('/api/webhooks', webhookRouter)
 app.use('/api/plugins', pluginsRouter)
 app.use('/api/runs', runsRouter)
+app.use('/api/attention', attentionRouter)
 app.use('/api/entities', entitiesRouter)
 app.use('/api/analytics', analyticsRouter)
 app.use('/api/settings', settingsRouter)
+app.use('/api/backup', backupRouter)
+app.use('/api/safemode', safemodeRouter)
 app.use('/portal/api', portalRouter)
 app.use('/api/godmode', godmodeRouter)
 app.use('/api/models', modelsRouter)
 app.use('/api/queue', queueRouter)
 app.use('/api/policy', policyRouter)
+app.use('/api/workflows', workflowsRouter)
+app.use('/api/packs', packsRouter)
+app.use('/api/service', serviceRouter)
+app.use('/api/mode', modeRouter)
 
 app.get('/api/health', (_req, res) => {
   const report = getHealthReport()
