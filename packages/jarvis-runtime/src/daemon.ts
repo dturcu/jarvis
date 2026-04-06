@@ -19,6 +19,7 @@ import { Logger } from "./logger.js";
 import { StatusWriter } from "./status-writer.js";
 import type { AgentTrigger } from "@jarvis/agent-framework";
 import { randomUUID } from "node:crypto";
+import { discoverModels, syncModelRegistry } from "@jarvis/inference";
 
 async function main() {
   // ─── Phase 1: Init ──────────────────────────────────────────────────────────
@@ -95,6 +96,20 @@ async function main() {
         logger.info(`  Schedule: ${def.agent_id} @ ${trigger.cron}`);
       }
     }
+  }
+
+  // Discover local models and populate registry
+  try {
+    const discovery = await discoverModels(config.lmstudio_url);
+    if (discovery.discovered.length > 0) {
+      const sync = syncModelRegistry(runtimeDb, discovery.discovered);
+      logger.info(`Model discovery: ${discovery.discovered.length} models (${sync.added} new, ${sync.updated} updated)`);
+    }
+    for (const err of discovery.errors) {
+      logger.warn(`Model discovery: ${err}`);
+    }
+  } catch (e) {
+    logger.warn(`Model discovery failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 
   logger.info(`Jarvis daemon started: ${allAgentDefs.length} agents (${pluginManifests.length} plugins), ${scheduleCount} schedules`);

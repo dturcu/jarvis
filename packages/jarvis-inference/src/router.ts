@@ -145,6 +145,96 @@ export function selectByProfile(
   return selectModel(available, policy);
 }
 
+/**
+ * Evidence-backed model selection.
+ *
+ * Consults benchmark data when available to make better-informed decisions.
+ * Falls back to heuristic selection when no benchmarks exist.
+ */
+export type ModelBenchmarkData = {
+  model_id: string;
+  latency_ms: number;
+  tokens_per_sec: number | null;
+  json_success: number | null;
+  tool_call_success: number | null;
+};
+
+export function selectByProfileWithEvidence(
+  available: ModelInfo[],
+  profile: TaskProfile,
+  benchmarks: ModelBenchmarkData[],
+): ModelInfo | null {
+  if (available.length === 0) return null;
+  if (benchmarks.length === 0) return selectByProfile(available, profile);
+
+  const policy = derivePolicy(profile);
+  const chatModels = available.filter(m => m.capabilities.includes("chat"));
+  if (chatModels.length === 0) return available[0] ?? null;
+
+  // Build a benchmark lookup
+  const benchMap = new Map<string, ModelBenchmarkData>();
+  for (const b of benchmarks) {
+    // Keep the one with the most data
+    const existing = benchMap.get(b.model_id);
+    if (!existing) {
+      benchMap.set(b.model_id, b);
+    }
+  }
+
+  switch (policy) {
+    case "fastest_local": {
+      // Sort by latency (lowest first), prefer benchmarked models
+      const sorted = [...chatModels].sort((a, b) => {
+        const ba = benchMap.get(a.id);
+        const bb = benchMap.get(b.id);
+        if (ba && bb) return ba.latency_ms - bb.latency_ms;
+        if (ba) return -1; // prefer benchmarked
+        if (bb) return 1;
+        // Fall back to size class
+        const sizeOrder = { small: 0, medium: 1, large: 2 };
+        return sizeOrder[a.size_class] - sizeOrder[b.size_class];
+      });
+      return sorted[0] ?? null;
+    }
+
+    case "best_reasoning_local": {
+      // Prefer largest with good tool call success
+      const sorted = [...chatModels].sort((a, b) => {
+        const sizeOrder = { small: 0, medium: 1, large: 2 };
+        const sizeDiff = sizeOrder[b.size_class] - sizeOrder[a.size_class];
+        if (sizeDiff !== 0) return sizeDiff;
+        // Among same size, prefer higher tool call success
+        const ba = benchMap.get(a.id);
+        const bb = benchMap.get(b.id);
+        const ta = ba?.tool_call_success ?? 0;
+        const tb = bb?.tool_call_success ?? 0;
+        return tb - ta;
+      });
+      return sorted[0] ?? null;
+    }
+
+    case "json_reliable_local": {
+      // Prefer models with proven JSON output
+      const withBench = chatModels
+        .map(m => ({ model: m, bench: benchMap.get(m.id) }))
+        .filter(x => x.bench?.json_success !== null && x.bench?.json_success !== undefined);
+
+      if (withBench.length > 0) {
+        withBench.sort((a, b) => (b.bench!.json_success ?? 0) - (a.bench!.json_success ?? 0));
+        // Pick the best JSON success rate, but only if > 50%
+        if ((withBench[0]!.bench!.json_success ?? 0) > 0.5) {
+          return withBench[0]!.model;
+        }
+      }
+      // Fall back to heuristic
+      return selectModel(available, policy);
+    }
+
+    default:
+      return selectModel(available, policy);
+  }
+}
+
 export function selectEmbeddingModel(available: ModelInfo[]): ModelInfo | null {
   // Prefer dedicated embedding models first
   const dedicated = available.find((m) => m.capabilities.includes("embedding"));
