@@ -227,8 +227,8 @@ export class RunStore {
     ).all(limit) as any[];
   }
 
-  /** Mark a run's associated command as completed or failed. */
-  completeCommand(runId: string, status: "completed" | "failed"): void {
+  /** Mark a run's associated command as completed, failed, or cancelled. */
+  completeCommand(runId: string, status: "completed" | "failed" | "cancelled"): void {
     this.db.prepare(`
       UPDATE agent_commands SET status = ?, completed_at = ?
       WHERE command_id = (SELECT command_id FROM runs WHERE run_id = ? AND command_id IS NOT NULL)

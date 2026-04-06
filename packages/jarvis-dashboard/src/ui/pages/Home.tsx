@@ -43,7 +43,10 @@ interface DaemonStatus {
   agents_registered: number
   schedules_active: number
   last_run: DaemonLastRun | null
+  /** @deprecated Use active_runs instead */
   current_run: DaemonCurrentRun | null
+  /** All currently executing agent runs (supports concurrent execution). */
+  active_runs?: DaemonCurrentRun[]
 }
 
 /* ── Attention API types ─────────────────────────────────── */
@@ -186,18 +189,23 @@ export default function Home() {
     setTimeout(fetchData, 500)
   }
 
-  /** Compute the effective status for an agent based on daemon state */
+  /** Compute the effective status for an agent based on daemon state.
+   *  Checks active_runs (concurrent) first, falls back to current_run (legacy). */
   function getAgentStatus(agentId: string): 'ready' | 'running' | 'awaiting_approval' | 'error' {
-    if (!daemon?.current_run) return 'ready'
-    if (daemon.current_run.agent_id !== agentId) return 'ready'
-    if (daemon.current_run.status === 'awaiting_approval') return 'awaiting_approval'
+    const runs = daemon?.active_runs?.length
+      ? daemon.active_runs
+      : daemon?.current_run ? [daemon.current_run] : []
+    const run = runs.find(r => r.agent_id === agentId)
+    if (!run) return 'ready'
+    if (run.status === 'awaiting_approval') return 'awaiting_approval'
     return 'running'
   }
 
   function getAgentCurrentRun(agentId: string): DaemonCurrentRun | null {
-    if (!daemon?.current_run) return null
-    if (daemon.current_run.agent_id !== agentId) return null
-    return daemon.current_run
+    const runs = daemon?.active_runs?.length
+      ? daemon.active_runs
+      : daemon?.current_run ? [daemon.current_run] : []
+    return runs.find(r => r.agent_id === agentId) ?? null
   }
 
   if (loading) {
