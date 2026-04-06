@@ -1,0 +1,58 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0001-4000-8000-000000000001",
+    "type": "system.monitor_cpu",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "per_core": true
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0001-4000-8000-000000000001",
+    "job_type": "system.monitor_cpu",
+    "status": "completed",
+    "summary": "Collected CPU usage snapshot with per-core breakdown.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "observed_at": "2026-04-04T12:00:00Z",
+      "usage_percent": 18.4,
+      "core_count": 8,
+      "logical_count": 16,
+      "frequency_mhz": 3600,
+      "per_core": [
+        { "core": 0, "usage_percent": 22.1, "frequency_mhz": 3600 },
+        { "core": 1, "usage_percent": 15.3, "frequency_mhz": 3600 },
+        { "core": 2, "usage_percent": 20.8, "frequency_mhz": 3600 },
+        { "core": 3, "usage_percent": 12.5, "frequency_mhz": 3600 },
+        { "core": 4, "usage_percent": 19.7, "frequency_mhz": 3600 },
+        { "core": 5, "usage_percent": 14.2, "frequency_mhz": 3600 },
+        { "core": 6, "usage_percent": 25.0, "frequency_mhz": 3600 },
+        { "core": 7, "usage_percent": 17.6, "frequency_mhz": 3600 },
+        { "core": 8, "usage_percent": 11.9, "frequency_mhz": 3400 },
+        { "core": 9, "usage_percent": 13.4, "frequency_mhz": 3400 },
+        { "core": 10, "usage_percent": 16.8, "frequency_mhz": 3400 },
+        { "core": 11, "usage_percent": 21.2, "frequency_mhz": 3400 },
+        { "core": 12, "usage_percent": 18.9, "frequency_mhz": 3400 },
+        { "core": 13, "usage_percent": 14.7, "frequency_mhz": 3400 },
+        { "core": 14, "usage_percent": 23.5, "frequency_mhz": 3400 },
+        { "core": 15, "usage_percent": 19.1, "frequency_mhz": 3400 }
+      ]
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b1c2d3e4-f5a6-7890-bcde-f01234567801",
+    "type": "voice.listen",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 300,
+    "attempt": 1,
+    "input": {
+      "duration_seconds": 5,
+      "device_id": "default"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b1c2d3e4-f5a6-7890-bcde-f01234567801",
+    "job_type": "voice.listen",
+    "status": "completed",
+    "summary": "Captured 5s of audio from device 'default'.",
+    "attempt": 1,
+    "structured_output": {
+      "audio_artifact_id": "audio-11111111-2222-3333-4444-555555555555",
+      "duration_seconds": 5,
+      "format": "wav",
+      "sample_rate": 16000
+    }
+  }
+}

@@ -1,0 +1,351 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/python-job-types.schema.json",
+  "title": "Jarvis Python Job Types",
+  "type": "object",
+  "$defs": {
+    "json_value": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/json_value"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/json_value"
+          }
+        }
+      ]
+    },
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "python_entrypoint_inline": {
+      "type": "object",
+      "required": [
+        "kind",
+        "code"
+      ],
+      "properties": {
+        "kind": {
+          "const": "inline"
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "filename": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "python_entrypoint_artifact": {
+      "type": "object",
+      "required": [
+        "kind",
+        "artifact_id"
+      ],
+      "properties": {
+        "kind": {
+          "const": "artifact"
+        },
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path_context": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/path_context"
+        },
+        "path_style": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/path_style"
+        }
+      },
+      "dependentRequired": {
+        "path": [
+          "path_context",
+          "path_style"
+        ]
+      },
+      "additionalProperties": false
+    },
+    "python_run_input": {
+      "type": "object",
+      "required": [
+        "entrypoint"
+      ],
+      "properties": {
+        "entrypoint": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/python_entrypoint_inline"
+            },
+            {
+              "$ref": "#/$defs/python_entrypoint_artifact"
+            }
+          ]
+        },
+        "args": {
+          "$ref": "#/$defs/string_array"
+        },
+        "env": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        },
+        "artifacts_in": {
+          "type": "array",
+          "items": {
+            "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/artifact_ref"
+          }
+        },
+        "allow_network": {
+          "type": "boolean"
+        },
+        "output_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "python_run_output": {
+      "type": "object",
+      "required": [
+        "exit_code",
+        "stdout_text",
+        "stderr_text",
+        "warnings"
+      ],
+      "properties": {
+        "exit_code": {
+          "type": "integer"
+        },
+        "stdout_text": {
+          "type": "string"
+        },
+        "stderr_text": {
+          "type": "string"
+        },
+        "produced_artifact_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "warnings": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "python_transform_input": {
+      "type": "object",
+      "required": [
+        "script",
+        "inputs",
+        "output_name"
+      ],
+      "properties": {
+        "script": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/python_entrypoint_inline"
+            },
+            {
+              "$ref": "#/$defs/python_entrypoint_artifact"
+            }
+          ]
+        },
+        "inputs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/artifact_ref"
+          }
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/json_value"
+          }
+        },
+        "allow_network": {
+          "type": "boolean"
+        },
+        "output_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "python_transform_output": {
+      "type": "object",
+      "required": [
+        "output_artifact_ids",
+        "warnings"
+      ],
+      "properties": {
+        "output_artifact_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "row_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warnings": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "python_analyze_input": {
+      "type": "object",
+      "required": [
+        "data_artifacts",
+        "questions"
+      ],
+      "properties": {
+        "data_artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/artifact_ref"
+          }
+        },
+        "questions": {
+          "$ref": "#/$defs/string_array"
+        },
+        "chart_formats": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "png",
+              "svg",
+              "html",
+              "none"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "output_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "python_analyze_output": {
+      "type": "object",
+      "required": [
+        "findings",
+        "warnings"
+      ],
+      "properties": {
+        "findings": {
+          "$ref": "#/$defs/string_array"
+        },
+        "chart_artifact_ids": {
+          "$ref": "#/$defs/string_array"
+        },
+        "report_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "warnings": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "python_report_input": {
+      "type": "object",
+      "required": [
+        "source_artifacts",
+        "format",
+        "title",
+        "output_name"
+      ],
+      "properties": {
+        "source_artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/artifact_ref"
+          }
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "markdown",
+            "html",
+            "docx",
+            "pptx",
+            "json"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "output_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "python_report_output": {
+      "type": "object",
+      "required": [
+        "report_artifact_id",
+        "section_count",
+        "warnings"
+      ],
+      "properties": {
+        "report_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "section_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "warnings": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

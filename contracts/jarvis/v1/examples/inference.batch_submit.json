@@ -1,0 +1,47 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d6e7f8a9-b0c1-2345-f012-345678901234",
+    "type": "inference.batch_submit",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 60,
+    "attempt": 1,
+    "input": {
+      "jobs": [
+        {
+          "messages": [{ "role": "user", "content": "Translate 'hello' to Spanish." }],
+          "model": "llama3.2:3b"
+        },
+        {
+          "messages": [{ "role": "user", "content": "Translate 'hello' to French." }],
+          "model": "llama3.2:3b"
+        }
+      ]
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d6e7f8a9-b0c1-2345-f012-345678901234",
+    "job_type": "inference.batch_submit",
+    "status": "completed",
+    "summary": "Batch of 2 inference job(s) accepted.",
+    "attempt": 1,
+    "structured_output": {
+      "batch_id": "550e8400-e29b-41d4-a716-446655440000",
+      "job_count": 2,
+      "status": "accepted",
+      "submitted_at": "2026-04-04T12:00:00Z"
+    }
+  }
+}

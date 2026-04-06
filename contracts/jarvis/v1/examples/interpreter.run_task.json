@@ -1,0 +1,59 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-e5f6-7890-abcd-ef0123456789",
+    "type": "interpreter.run_task",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 900,
+    "attempt": 1,
+    "input": {
+      "task": "Download the latest sales CSV from ~/Downloads, compute the top 5 products by revenue, and save a summary to ~/Documents/sales_summary.txt",
+      "auto_approve": false,
+      "model": "gpt-4"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-e5f6-7890-abcd-ef0123456789",
+    "job_type": "interpreter.run_task",
+    "status": "completed",
+    "summary": "Interpreter task completed in 4 steps (session=b2c3d4e5-f6a7-8901-bcde-f01234567890).",
+    "attempt": 1,
+    "structured_output": {
+      "session_id": "b2c3d4e5-f6a7-8901-bcde-f01234567890",
+      "steps": [
+        {
+          "type": "code",
+          "language": "python",
+          "content": "import pandas as pd\ndf = pd.read_csv('/Users/user/Downloads/sales.csv')\ntop5 = df.groupby('product')['revenue'].sum().nlargest(5)\nprint(top5)"
+        },
+        {
+          "type": "output",
+          "content": "product\nWidgetA    45230.50\nWidgetB    38120.00\nGadgetX    32450.75\nToolY      28900.00\nDeviceZ    25600.25\nName: revenue, dtype: float64"
+        },
+        {
+          "type": "code",
+          "language": "python",
+          "content": "with open('/Users/user/Documents/sales_summary.txt', 'w') as f:\n    f.write(top5.to_string())\nprint('Summary saved.')"
+        },
+        {
+          "type": "output",
+          "content": "Summary saved."
+        }
+      ],
+      "final_output": "Summary saved.",
+      "artifacts": []
+    }
+  }
+}

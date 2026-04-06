@@ -1,0 +1,76 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "f5dc5c24-8d96-4b23-9b03-29e0a12e8cde",
+    "type": "python.analyze",
+    "session_key": "agent:main:telegram:group:-1001234567890",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "607",
+      "chat_id": "-1001234567890"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 900,
+    "attempt": 1,
+    "input": {
+      "data_artifacts": [
+        {
+          "artifact_id": "6f4d00e0-9f7f-4df9-a2e2-0e7d3d5cb8bb",
+          "name": "sales-q1.xlsx",
+          "kind": "xlsx"
+        }
+      ],
+      "questions": [
+        "What are the top three regions by revenue?",
+        "Are there any obvious outliers?"
+      ],
+      "chart_formats": [
+        "png"
+      ],
+      "output_name": "analysis.json"
+    },
+    "artifacts_in": [
+      {
+        "artifact_id": "6f4d00e0-9f7f-4df9-a2e2-0e7d3d5cb8bb",
+        "name": "sales-q1.xlsx",
+        "kind": "xlsx"
+      }
+    ],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "f5dc5c24-8d96-4b23-9b03-29e0a12e8cde",
+    "job_type": "python.analyze",
+    "status": "completed",
+    "summary": "Analyzed one workbook and produced summary findings.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "d2a184cf-7f3a-4c2b-9e42-8691d791ef95",
+        "kind": "png",
+        "name": "sales-q1-chart.png",
+        "path": "/srv/python/artifacts/sales-q1-chart.png",
+        "path_context": "linux-container",
+        "path_style": "posix",
+        "size_bytes": 23341
+      }
+    ],
+    "structured_output": {
+      "findings": [
+        "West region leads revenue.",
+        "One unusually large order appears in the East region."
+      ],
+      "chart_artifact_ids": [
+        "d2a184cf-7f3a-4c2b-9e42-8691d791ef95"
+      ],
+      "report_artifact_id": "a1da0c8b-49a4-4a1d-bb9f-60bc4b4d7c1f",
+      "warnings": []
+    }
+  }
+}

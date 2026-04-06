@@ -1,0 +1,56 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "c5d6e7f8-a9b0-1234-ef01-234567890123",
+    "type": "inference.rag_query",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 300,
+    "attempt": 1,
+    "input": {
+      "query": "How does the approval system work?",
+      "collection": "jarvis-docs",
+      "top_k": 3
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "c5d6e7f8-a9b0-1234-ef01-234567890123",
+    "job_type": "inference.rag_query",
+    "status": "completed",
+    "summary": "RAG query returned 3 result(s) from 'jarvis-docs'.",
+    "attempt": 1,
+    "structured_output": {
+      "results": [
+        {
+          "text": "The approval system gates risky operations behind an explicit user confirmation step.",
+          "score": 0.94,
+          "source": "C:/Projects/docs/architecture.md"
+        },
+        {
+          "text": "Jobs with approval_requirement required will not run until the approval_state is set to approved.",
+          "score": 0.88,
+          "source": "C:/Projects/docs/architecture.md"
+        },
+        {
+          "text": "Conditional approval lets the runtime decide based on context such as write destination or target application.",
+          "score": 0.81,
+          "source": "C:/Projects/docs/architecture.md"
+        }
+      ],
+      "collection": "jarvis-docs",
+      "query": "How does the approval system work?",
+      "returned_count": 3
+    }
+  }
+}

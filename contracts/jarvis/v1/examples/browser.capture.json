@@ -1,0 +1,59 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "6ed6ffd0-2a6a-4d2d-8833-8ee4a4a447d4",
+    "type": "browser.capture",
+    "session_key": "agent:main:telegram:dm:123456789",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "603",
+      "chat_id": "123456789"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 300,
+    "attempt": 1,
+    "input": {
+      "target_url": "https://example.com/pricing",
+      "mode": "pdf",
+      "full_page": true,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "wait_until": "networkidle",
+      "output_name": "pricing.pdf"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "6ed6ffd0-2a6a-4d2d-8833-8ee4a4a447d4",
+    "job_type": "browser.capture",
+    "status": "completed",
+    "summary": "Captured the pricing page as a PDF.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "3ea99046-b1d4-43b4-b4a7-f4d2306a8f85",
+        "kind": "pdf",
+        "name": "pricing.pdf",
+        "path": "/srv/browser/artifacts/pricing.pdf",
+        "path_context": "linux-container",
+        "path_style": "posix",
+        "size_bytes": 224881
+      }
+    ],
+    "structured_output": {
+      "capture_artifact_id": "3ea99046-b1d4-43b4-b4a7-f4d2306a8f85",
+      "content_type": "application/pdf",
+      "bytes": 224881,
+      "page_title": "Pricing"
+    }
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "7f1bb908-340d-4aaf-8aeb-a23f7542d0b4",
+    "type": "office.transform_excel",
+    "session_key": "agent:main:telegram:dm:123456789",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "503",
+      "chat_id": "123456789"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 900,
+    "attempt": 1,
+    "input": {
+      "source_artifact": {
+        "artifact_id": "0c34f981-0a76-4775-a61c-ed58b80fcc41",
+        "name": "raw-sales.xlsx",
+        "kind": "xlsx"
+      },
+      "sheet_mode": "named_sheet",
+      "sheet_name": "Sales",
+      "normalize_headers": true,
+      "select_columns": [
+        "order_id",
+        "region",
+        "amount"
+      ],
+      "rename_columns": {
+        "amount": "net_amount"
+      },
+      "filters": [
+        {
+          "column": "region",
+          "op": "eq",
+          "value": "UK"
+        }
+      ],
+      "sort": [
+        {
+          "column": "net_amount",
+          "direction": "desc"
+        }
+      ],
+      "dedupe": {
+        "enabled": true,
+        "keys": [
+          "order_id"
+        ]
+      },
+      "derived_columns": [
+        {
+          "name": "bucket",
+          "expression": "net_amount >= 1000 ? 'large' : 'standard'"
+        }
+      ],
+      "output_name": "uk-sales.xlsx"
+    },
+    "artifacts_in": [
+      {
+        "artifact_id": "0c34f981-0a76-4775-a61c-ed58b80fcc41",
+        "name": "raw-sales.xlsx",
+        "kind": "xlsx"
+      }
+    ],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "7f1bb908-340d-4aaf-8aeb-a23f7542d0b4",
+    "job_type": "office.transform_excel",
+    "status": "completed",
+    "summary": "Filtered and normalized one sales workbook.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "81073482-6225-475a-8f1f-e6eef5f08d48",
+        "kind": "xlsx",
+        "name": "uk-sales.xlsx",
+        "path": "/data/artifacts/uk-sales.xlsx",
+        "path_context": "wsl-ubuntu",
+        "path_style": "posix",
+        "size_bytes": 89211
+      }
+    ],
+    "structured_output": {
+      "output_artifact_id": "81073482-6225-475a-8f1f-e6eef5f08d48",
+      "rows_read": 640,
+      "rows_written": 188,
+      "columns_written": 4,
+      "warnings": []
+    }
+  }
+}

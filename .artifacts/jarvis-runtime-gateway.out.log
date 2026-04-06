@@ -1,0 +1,54 @@
+2026-04-04T10:38:30.973+01:00 Registered plugin command: /approve (plugin: jarvis-core)
+2026-04-04T10:38:30.985+01:00 Registered plugin command: /dispatch (plugin: jarvis-dispatch)
+2026-04-04T10:38:30.987+01:00 Registered plugin command: /followup (plugin: jarvis-dispatch)
+2026-04-04T10:38:30.988+01:00 Registered plugin command: /broadcast (plugin: jarvis-dispatch)
+2026-04-04T10:38:30.989+01:00 Registered plugin command: /sendto (plugin: jarvis-dispatch)
+2026-04-04T10:38:30.995+01:00 Registered plugin command: /excel (plugin: jarvis-office)
+2026-04-04T10:38:30.997+01:00 Registered plugin command: /word (plugin: jarvis-office)
+2026-04-04T10:38:30.998+01:00 Registered plugin command: /ppt (plugin: jarvis-office)
+2026-04-04T10:38:31.001+01:00 Registered plugin command: /office-status (plugin: jarvis-office)
+2026-04-04T10:38:31.006+01:00 Registered plugin command: /device (plugin: jarvis-device)
+2026-04-04T10:38:31.007+01:00 Registered plugin command: /windows (plugin: jarvis-device)
+2026-04-04T10:38:31.009+01:00 Registered plugin command: /clipboard (plugin: jarvis-device)
+2026-04-04T10:38:31.010+01:00 Registered plugin command: /notify (plugin: jarvis-device)
+2026-04-04T10:38:31.099+01:00 Registered plugin command: /pair (plugin: device-pair)
+2026-04-04T10:38:31.104+01:00 Registered plugin command: /phone (plugin: phone-control)
+2026-04-04T10:38:31.110+01:00 Registered plugin command: /voice (plugin: talk-voice)
+2026-04-04T10:38:31.123+01:00 [canvas] host mounted at http://127.0.0.1:19123/__openclaw__/canvas/ (root C:\Users\DanielV2\.openclaw-jarvis-runtime\canvas)
+2026-04-04T10:38:31.148+01:00 bonjour: starting (hostname=openclaw, instance="NucBox_EVO-X2 (OpenClaw)", gatewayPort=19123, minimal=true)
+2026-04-04T10:38:31.173+01:00 [heartbeat] started
+2026-04-04T10:38:31.175+01:00 [health-monitor] started (interval: 300s, startup-grace: 60s, channel-connect-grace: 120s)
+2026-04-04T10:38:31.187+01:00 [gateway] agent model: openai-codex/gpt-5.4
+2026-04-04T10:38:31.188+01:00 [gateway] listening on ws://127.0.0.1:19123, ws://[::1]:19123 (PID 17540)
+2026-04-04T10:38:31.190+01:00 [gateway] log file: C:\Users\DanielV2\AppData\Local\Temp\openclaw\openclaw-2026-04-04.log
+2026-04-04T10:38:31.344+01:00 [hooks:loader] Registered hook: boot-md -> gateway:startup
+2026-04-04T10:38:31.347+01:00 [hooks:loader] Registered hook: bootstrap-extra-files -> agent:bootstrap
+2026-04-04T10:38:31.349+01:00 [hooks:loader] Registered hook: command-logger -> command
+2026-04-04T10:38:31.352+01:00 [hooks:loader] Registered hook: session-memory -> command:new, command:reset
+2026-04-04T10:38:31.354+01:00 [hooks] loaded 4 internal hook handlers
+2026-04-04T10:38:36.253+01:00 [plugins] Jarvis jobs state ready: 0 jobs, 0 approvals, 0 dispatches
+2026-04-04T10:38:36.261+01:00 [browser/server] Browser control listening on http://127.0.0.1:19125/ (auth=token)
+2026-04-04T10:38:36.380+01:00 Registered plugin command: /approve (plugin: jarvis-core)
+2026-04-04T10:38:36.386+01:00 Registered plugin command: /dispatch (plugin: jarvis-dispatch)
+2026-04-04T10:38:36.387+01:00 Registered plugin command: /followup (plugin: jarvis-dispatch)
+2026-04-04T10:38:36.388+01:00 Registered plugin command: /broadcast (plugin: jarvis-dispatch)
+2026-04-04T10:38:36.389+01:00 Registered plugin command: /sendto (plugin: jarvis-dispatch)
+2026-04-04T10:38:36.393+01:00 Registered plugin command: /excel (plugin: jarvis-office)
+2026-04-04T10:38:36.394+01:00 Registered plugin command: /word (plugin: jarvis-office)
+2026-04-04T10:38:36.395+01:00 Registered plugin command: /ppt (plugin: jarvis-office)
+2026-04-04T10:38:36.397+01:00 Registered plugin command: /office-status (plugin: jarvis-office)
+2026-04-04T10:38:36.401+01:00 Registered plugin command: /device (plugin: jarvis-device)
+2026-04-04T10:38:36.402+01:00 Registered plugin command: /windows (plugin: jarvis-device)
+2026-04-04T10:38:36.403+01:00 Registered plugin command: /clipboard (plugin: jarvis-device)
+2026-04-04T10:38:36.403+01:00 Registered plugin command: /notify (plugin: jarvis-device)
+2026-04-04T10:38:36.433+01:00 Registered plugin command: /pair (plugin: device-pair)
+2026-04-04T10:38:36.506+01:00 Registered plugin command: /phone (plugin: phone-control)
+2026-04-04T10:38:36.515+01:00 Registered plugin command: /voice (plugin: talk-voice)
+2026-04-04T10:38:36.544+01:00 [hooks/boot-md] boot-md skipped for agent startup run
+2026-04-04T10:38:51.153+01:00 [ws] ← open remoteAddr=127.0.0.1 conn=e8a1761a…4623
+2026-04-04T10:38:51.175+01:00 [ws] ← connect client=cli version=2026.4.2 mode=cli clientId=cli platform=win32 auth=token
+2026-04-04T10:38:51.178+01:00 [ws] → hello-ok methods=112 events=24 presence=1 stateVersion=1
+2026-04-04T10:38:51.181+01:00 [ws] → event health seq=1 clients=1 presenceVersion=1 healthVersion=3
+2026-04-04T10:38:51.185+01:00 [ws] ⇄ res ✓ health 0ms cached=true id=a911cd95…45f0
+2026-04-04T10:38:51.187+01:00 [ws] → event health seq=2 clients=1 presenceVersion=1 healthVersion=4
+2026-04-04T10:38:51.195+01:00 [ws] → close code=1005 durationMs=45 handshake=connected lastFrameType=req lastFrameMethod=health lastFrameId=a911cd95-9b2d-48d0-b0a1-41641d9845f0

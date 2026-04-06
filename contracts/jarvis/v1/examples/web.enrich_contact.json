@@ -1,0 +1,46 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b2c3d4e5-0004-4000-8000-000000000104",
+    "type": "web.enrich_contact",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 300,
+    "attempt": 1,
+    "input": {
+      "name": "Klaus Weber",
+      "company": "Bertrandt AG"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b2c3d4e5-0004-4000-8000-000000000104",
+    "job_type": "web.enrich_contact",
+    "status": "completed",
+    "summary": "Enriched contact \"Klaus Weber\" with web data (confidence: 0.92).",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "name": "Klaus Weber",
+      "email": "k.weber@bertrandt.com",
+      "company": "Bertrandt AG",
+      "role": "Head of Functional Safety",
+      "linkedin_url": "https://linkedin.com/in/klausweber-autosar",
+      "company_size": "10001+",
+      "industry": "Engineering Services",
+      "location": "Munich, Germany",
+      "enriched_at": "2026-04-04T12:00:00Z",
+      "confidence": 0.92
+    }
+  }
+}

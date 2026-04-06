@@ -1,0 +1,40 @@
+{
+  "name": "jarvis-plugin-pack",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "validate:contracts": "node ./scripts/validate-contracts.mjs",
+    "check": "npm run validate:contracts && npm run test && npm run build",
+    "runtime:bootstrap": "node ./scripts/runtime/bootstrap.mjs",
+    "smoke:runtime": "node ./scripts/smoke-openclaw-lmstudio.mjs",
+    "ops:health": "node ./scripts/ops/healthcheck.mjs",
+    "ops:backup": "node ./scripts/ops/backup-runtime.mjs",
+    "ops:recover": "node ./scripts/ops/recover-runtime.mjs",
+    "dashboard": "cross-env NODE_ENV=production tsx packages/jarvis-dashboard/src/api/server.ts",
+    "dashboard:dev": "concurrently \"tsx packages/jarvis-dashboard/src/api/server.ts\" \"vite -c packages/jarvis-dashboard/vite.config.ts\"",
+    "dashboard:build": "vite build -c packages/jarvis-dashboard/vite.config.ts",
+    "telegram-bot": "tsx packages/jarvis-telegram/src/index.ts",
+    "daemon": "tsx packages/jarvis-runtime/src/daemon.ts",
+    "setup": "tsx scripts/setup-jarvis.ts",
+    "setup:status": "tsx scripts/setup-jarvis.ts status",
+    "plugin:install": "tsx scripts/plugin-manager.ts install",
+    "plugin:list": "tsx scripts/plugin-manager.ts list",
+    "plugin:remove": "tsx scripts/plugin-manager.ts remove"
+  },
+  "devDependencies": {
+    "@sinclair/typebox": "^0.34.49",
+    "@types/node": "^24.12.2",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "cross-env": "^10.1.0",
+    "openclaw": "^2026.4.2",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.2"
+  }
+}

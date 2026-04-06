@@ -1,0 +1,453 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json",
+  "title": "Jarvis Document Job Types",
+  "type": "object",
+  "$defs": {
+    "document_section": {
+      "type": "object",
+      "required": ["content"],
+      "properties": {
+        "heading": {
+          "type": "string",
+          "minLength": 1
+        },
+        "level": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "content": {
+          "type": "string",
+          "minLength": 0
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "document_table": {
+      "type": "object",
+      "required": ["headers", "rows"],
+      "properties": {
+        "caption": {
+          "type": "string",
+          "minLength": 1
+        },
+        "headers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "extracted_clause": {
+      "type": "object",
+      "required": ["clause_id", "category", "title", "text", "risk_level", "flags"],
+      "properties": {
+        "clause_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "jurisdiction", "term", "confidentiality", "ip_assignment",
+            "indemnity", "liability_cap", "non_compete", "termination",
+            "payment", "warranty", "general"
+          ]
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "risk_level": {
+          "type": "string",
+          "enum": ["low", "medium", "high", "critical"]
+        },
+        "flags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "compliance_item": {
+      "type": "object",
+      "required": ["requirement_id", "requirement", "framework", "status"],
+      "properties": {
+        "requirement_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requirement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "framework": {
+          "type": "string",
+          "enum": ["iso_26262", "aspice", "iec_61508", "iso_21434"]
+        },
+        "asil_level": {
+          "type": "string",
+          "enum": ["A", "B", "C", "D"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["present", "missing", "partial", "not_applicable"]
+        },
+        "evidence": {
+          "type": "string",
+          "minLength": 1
+        },
+        "gap_description": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "document_change": {
+      "type": "object",
+      "required": ["change_type", "description", "significance"],
+      "properties": {
+        "change_type": {
+          "type": "string",
+          "enum": ["added", "removed", "modified"]
+        },
+        "section": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "significance": {
+          "type": "string",
+          "enum": ["minor", "moderate", "major"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "document_ingest_input": {
+      "type": "object",
+      "required": ["file_path"],
+      "properties": {
+        "file_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "extract_structure": {
+          "type": "boolean"
+        },
+        "extract_tables": {
+          "type": "boolean"
+        },
+        "max_pages": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "document_ingest_output": {
+      "type": "object",
+      "required": ["file_path", "file_type", "word_count", "text", "sections", "tables", "metadata", "ingested_at"],
+      "properties": {
+        "file_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "file_type": {
+          "type": "string",
+          "enum": ["pdf", "docx", "txt", "md", "unknown"]
+        },
+        "page_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "word_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "text": {
+          "type": "string"
+        },
+        "sections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/document_section" }
+        },
+        "tables": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/document_table" }
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "ingested_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "document_extract_clauses_input": {
+      "type": "object",
+      "properties": {
+        "file_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "document_type": {
+          "type": "string",
+          "enum": ["nda", "msa", "sow", "contract", "agreement"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "document_extract_clauses_output": {
+      "type": "object",
+      "required": ["document_type", "clauses", "total_clauses", "high_risk_count", "critical_count", "extracted_at"],
+      "properties": {
+        "document_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "clauses": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/extracted_clause" }
+        },
+        "total_clauses": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "high_risk_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "critical_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "extracted_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "document_analyze_compliance_input": {
+      "type": "object",
+      "required": ["framework"],
+      "properties": {
+        "file_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "framework": {
+          "type": "string",
+          "enum": ["iso_26262", "aspice", "iec_61508", "iso_21434"]
+        },
+        "project_asil": {
+          "type": "string",
+          "enum": ["A", "B", "C", "D"]
+        },
+        "work_product_type": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "document_analyze_compliance_output": {
+      "type": "object",
+      "required": ["framework", "total_requirements", "present_count", "missing_count", "partial_count", "compliance_score", "items", "critical_gaps", "analyzed_at"],
+      "properties": {
+        "framework": {
+          "type": "string",
+          "enum": ["iso_26262", "aspice", "iec_61508", "iso_21434"]
+        },
+        "project_asil": {
+          "type": "string",
+          "enum": ["A", "B", "C", "D"]
+        },
+        "total_requirements": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "present_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "partial_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "compliance_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/compliance_item" }
+        },
+        "critical_gaps": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "analyzed_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "document_compare_input": {
+      "type": "object",
+      "required": ["file_path_a", "file_path_b"],
+      "properties": {
+        "file_path_a": {
+          "type": "string",
+          "minLength": 1
+        },
+        "file_path_b": {
+          "type": "string",
+          "minLength": 1
+        },
+        "compare_mode": {
+          "type": "string",
+          "enum": ["full", "sections", "clauses"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "document_compare_output": {
+      "type": "object",
+      "required": ["file_a", "file_b", "total_changes", "major_changes", "changes", "similarity_score", "compared_at"],
+      "properties": {
+        "file_a": {
+          "type": "string",
+          "minLength": 1
+        },
+        "file_b": {
+          "type": "string",
+          "minLength": 1
+        },
+        "total_changes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "major_changes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "changes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/document_change" }
+        },
+        "similarity_score": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "compared_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "document_generate_report_input": {
+      "type": "object",
+      "required": ["template", "data", "output_format", "output_path"],
+      "properties": {
+        "template": {
+          "type": "string",
+          "enum": ["proposal", "evidence_gap", "compliance_summary", "nda_analysis", "custom"]
+        },
+        "data": {
+          "type": "object"
+        },
+        "output_format": {
+          "type": "string",
+          "enum": ["docx", "pdf", "markdown"]
+        },
+        "output_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "document_generate_report_output": {
+      "type": "object",
+      "required": ["output_path", "output_format", "template", "title", "section_count", "generated_at"],
+      "properties": {
+        "output_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "output_format": {
+          "type": "string",
+          "enum": ["docx", "pdf", "markdown"]
+        },
+        "template": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "section_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

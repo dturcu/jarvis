@@ -1,0 +1,2521 @@
+{
+  "contract_version": "jarvis.v1",
+  "jobs": [
+    {
+      "job_type": "files.inspect",
+      "family": "files",
+      "owner_plugin": "@jarvis/files",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_inspect_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_inspect_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns deterministic metadata and previews for files or directories under an approved root.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "PATH_NOT_ALLOWED",
+        "FILE_NOT_FOUND",
+        "INSPECTION_FAILED",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/files.inspect.json"
+    },
+    {
+      "job_type": "files.read",
+      "family": "files",
+      "owner_plugin": "@jarvis/files",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_read_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_read_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Reads a file under an approved root and returns deterministic content plus file metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "PATH_NOT_ALLOWED",
+        "FILE_NOT_FOUND",
+        "READ_FAILED",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/files.read.json"
+    },
+    {
+      "job_type": "files.search",
+      "family": "files",
+      "owner_plugin": "@jarvis/files",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_search_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_search_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Searches file names and optionally contents under an approved root without mutating files.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "PATH_NOT_ALLOWED",
+        "SEARCH_FAILED",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/files.search.json"
+    },
+    {
+      "job_type": "files.write",
+      "family": "files",
+      "owner_plugin": "@jarvis/files",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_write_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_write_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Creates or overwrites a file under an approved root and returns deterministic write metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "PATH_NOT_ALLOWED",
+        "FILE_EXISTS",
+        "WRITE_FAILED",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/files.write.json"
+    },
+    {
+      "job_type": "files.patch",
+      "family": "files",
+      "owner_plugin": "@jarvis/files",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_patch_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_patch_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Applies deterministic text replacements to a file and returns before/after previews.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "PATH_NOT_ALLOWED",
+        "FILE_NOT_FOUND",
+        "PATCH_FAILED",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/files.patch.json"
+    },
+    {
+      "job_type": "files.copy",
+      "family": "files",
+      "owner_plugin": "@jarvis/files",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_copy_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_copy_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Copies a file within an approved root and returns deterministic source/destination metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "PATH_NOT_ALLOWED",
+        "FILE_NOT_FOUND",
+        "FILE_EXISTS",
+        "COPY_FAILED",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/files.copy.json"
+    },
+    {
+      "job_type": "files.move",
+      "family": "files",
+      "owner_plugin": "@jarvis/files",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_move_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_move_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Moves a file within an approved root and returns deterministic source/destination metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "PATH_NOT_ALLOWED",
+        "FILE_NOT_FOUND",
+        "FILE_EXISTS",
+        "MOVE_FAILED",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/files.move.json"
+    },
+    {
+      "job_type": "files.preview",
+      "family": "files",
+      "owner_plugin": "@jarvis/files",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_preview_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_preview_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns a short preview of a file under an approved root without mutating it.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "PATH_NOT_ALLOWED",
+        "FILE_NOT_FOUND",
+        "PREVIEW_FAILED",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/files.preview.json"
+    },
+    {
+      "job_type": "office.inspect",
+      "family": "office",
+      "owner_plugin": "@jarvis/office",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_inspect_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_inspect_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Consumes one or more Office artifacts and returns structured inspection data. Optional JSON export artifact may be returned.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "ARTIFACT_NOT_FOUND",
+        "UNSUPPORTED_FILE_KIND",
+        "INSPECTION_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/office.inspect.json"
+    },
+    {
+      "job_type": "office.merge_excel",
+      "family": "office",
+      "owner_plugin": "@jarvis/office",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_merge_excel_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_merge_excel_output",
+      "default_timeout_seconds": 900,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Consumes two or more workbook artifacts and returns one materialized XLSX artifact with path metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "ARTIFACT_NOT_FOUND",
+        "UNSUPPORTED_FILE_KIND",
+        "MERGE_CONFLICT",
+        "DEDUPE_KEY_MISSING",
+        "OUTPUT_WRITE_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/office.merge_excel.json"
+    },
+    {
+      "job_type": "office.transform_excel",
+      "family": "office",
+      "owner_plugin": "@jarvis/office",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_transform_excel_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_transform_excel_output",
+      "default_timeout_seconds": 900,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Consumes one workbook artifact and returns one transformed workbook artifact with path metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "ARTIFACT_NOT_FOUND",
+        "UNSUPPORTED_FILE_KIND",
+        "FILTER_COLUMN_MISSING",
+        "TRANSFORM_FAILED",
+        "OUTPUT_WRITE_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/office.transform_excel.json"
+    },
+    {
+      "job_type": "office.fill_docx",
+      "family": "office",
+      "owner_plugin": "@jarvis/office",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_fill_docx_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_fill_docx_output",
+      "default_timeout_seconds": 600,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Consumes one DOCX template and returns one filled DOCX artifact with path metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "ARTIFACT_NOT_FOUND",
+        "UNSUPPORTED_FILE_KIND",
+        "TEMPLATE_VARIABLE_MISSING",
+        "DOCUMENT_RENDER_FAILED",
+        "OUTPUT_WRITE_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/office.fill_docx.json"
+    },
+    {
+      "job_type": "office.build_pptx",
+      "family": "office",
+      "owner_plugin": "@jarvis/office",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_build_pptx_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_build_pptx_output",
+      "default_timeout_seconds": 900,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Consumes a structured outline or source artifact and returns one materialized PPTX artifact with path metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "ARTIFACT_NOT_FOUND",
+        "UNSUPPORTED_SOURCE_KIND",
+        "SLIDE_BUILD_FAILED",
+        "THEME_NOT_FOUND",
+        "OUTPUT_WRITE_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/office.build_pptx.json"
+    },
+    {
+      "job_type": "office.extract_tables",
+      "family": "office",
+      "owner_plugin": "@jarvis/office",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_extract_tables_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_extract_tables_output",
+      "default_timeout_seconds": 600,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Consumes one source artifact and returns structured table summaries plus an optional export artifact.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "ARTIFACT_NOT_FOUND",
+        "TABLE_NOT_FOUND",
+        "UNSUPPORTED_FILE_KIND",
+        "TABLE_EXTRACTION_FAILED",
+        "OUTPUT_WRITE_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/office.extract_tables.json"
+    },
+    {
+      "job_type": "office.preview",
+      "family": "office",
+      "owner_plugin": "@jarvis/office",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_preview_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_preview_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Consumes one source artifact and returns one preview artifact with path metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "ARTIFACT_NOT_FOUND",
+        "UNSUPPORTED_FILE_KIND",
+        "PREVIEW_RENDER_FAILED",
+        "OUTPUT_WRITE_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/office.preview.json"
+    },
+    {
+      "job_type": "browser.run_task",
+      "family": "browser",
+      "owner_plugin": "@jarvis/browser",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_run_task_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_run_task_output",
+      "default_timeout_seconds": 900,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "May emit screenshots, downloads, or trace artifacts in addition to structured task output.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "NAVIGATION_FAILED",
+        "AUTHENTICATION_REQUIRED",
+        "STEP_LIMIT_EXCEEDED",
+        "TARGET_BLOCKED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/browser.run_task.json"
+    },
+    {
+      "job_type": "browser.extract",
+      "family": "browser",
+      "owner_plugin": "@jarvis/browser",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_extract_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_extract_output",
+      "default_timeout_seconds": 600,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns structured extracted documents and may emit an exported artifact.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "NAVIGATION_FAILED",
+        "SELECTOR_NOT_FOUND",
+        "EXTRACTION_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/browser.extract.json"
+    },
+    {
+      "job_type": "browser.capture",
+      "family": "browser",
+      "owner_plugin": "@jarvis/browser",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_capture_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_capture_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns one materialized capture artifact with path metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "NAVIGATION_FAILED",
+        "CAPTURE_FAILED",
+        "OUTPUT_WRITE_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/browser.capture.json"
+    },
+    {
+      "job_type": "browser.download",
+      "family": "browser",
+      "owner_plugin": "@jarvis/browser",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_download_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_download_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns one downloaded artifact with checksum and path metadata when materialized.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "NAVIGATION_FAILED",
+        "CONTENT_TYPE_BLOCKED",
+        "DOWNLOAD_FAILED",
+        "CHECKSUM_MISMATCH",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/browser.download.json"
+    },
+    {
+      "job_type": "python.run",
+      "family": "python",
+      "owner_plugin": "@jarvis/jobs",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/python-job-types.schema.json#/$defs/python_run_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/python-job-types.schema.json#/$defs/python_run_output",
+      "default_timeout_seconds": 900,
+      "approval_requirement": "required",
+      "artifact_behavior": "May emit produced artifacts plus stdout and stderr in structured output.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "ENTRYPOINT_NOT_FOUND",
+        "EXECUTION_FAILED",
+        "NETWORK_DISABLED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/python.run.json"
+    },
+    {
+      "job_type": "python.transform",
+      "family": "python",
+      "owner_plugin": "@jarvis/jobs",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/python-job-types.schema.json#/$defs/python_transform_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/python-job-types.schema.json#/$defs/python_transform_output",
+      "default_timeout_seconds": 900,
+      "approval_requirement": "required",
+      "artifact_behavior": "Consumes one or more source artifacts and returns one or more transformed artifacts.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "ENTRYPOINT_NOT_FOUND",
+        "TRANSFORM_FAILED",
+        "OUTPUT_WRITE_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/python.transform.json"
+    },
+    {
+      "job_type": "python.analyze",
+      "family": "python",
+      "owner_plugin": "@jarvis/jobs",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/python-job-types.schema.json#/$defs/python_analyze_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/python-job-types.schema.json#/$defs/python_analyze_output",
+      "default_timeout_seconds": 900,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns findings and may emit chart or report artifacts.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "ARTIFACT_NOT_FOUND",
+        "ANALYSIS_FAILED",
+        "CHART_RENDER_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/python.analyze.json"
+    },
+    {
+      "job_type": "python.report",
+      "family": "python",
+      "owner_plugin": "@jarvis/jobs",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/python-job-types.schema.json#/$defs/python_report_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/python-job-types.schema.json#/$defs/python_report_output",
+      "default_timeout_seconds": 600,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Consumes one or more source artifacts and returns one report artifact.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "ARTIFACT_NOT_FOUND",
+        "REPORT_BUILD_FAILED",
+        "OUTPUT_WRITE_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/python.report.json"
+    },
+    {
+      "job_type": "search.query",
+      "family": "search",
+      "owner_plugin": "@jarvis/jobs",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/search-job-types.schema.json#/$defs/search_query_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/search-job-types.schema.json#/$defs/search_query_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns ranked search results and may emit an exported result artifact.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "PROVIDER_UNAVAILABLE",
+        "NO_RESULTS",
+        "QUERY_REJECTED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/search.query.json"
+    },
+    {
+      "job_type": "search.fetch",
+      "family": "search",
+      "owner_plugin": "@jarvis/jobs",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/search-job-types.schema.json#/$defs/search_fetch_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/search-job-types.schema.json#/$defs/search_fetch_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns fetched item metadata and may emit an aggregate artifact.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "FETCH_FAILED",
+        "CONTENT_TOO_LARGE",
+        "RATE_LIMITED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/search.fetch.json"
+    },
+    {
+      "job_type": "scrape.extract",
+      "family": "scrape",
+      "owner_plugin": "@jarvis/jobs",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/search-job-types.schema.json#/$defs/scrape_extract_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/search-job-types.schema.json#/$defs/scrape_extract_output",
+      "default_timeout_seconds": 900,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns one extraction artifact and structured field coverage.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "NAVIGATION_FAILED",
+        "FIELD_EXTRACTION_FAILED",
+        "SCHEMA_MISMATCH",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/scrape.extract.json"
+    },
+    {
+      "job_type": "scrape.crawl",
+      "family": "scrape",
+      "owner_plugin": "@jarvis/jobs",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/search-job-types.schema.json#/$defs/scrape_crawl_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/search-job-types.schema.json#/$defs/scrape_crawl_output",
+      "default_timeout_seconds": 1800,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns one crawl artifact and structured crawl metrics.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "DOMAIN_NOT_ALLOWED",
+        "CRAWL_LIMIT_EXCEEDED",
+        "NAVIGATION_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/scrape.crawl.json"
+    },
+    {
+      "job_type": "device.snapshot",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_snapshot_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_snapshot_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Produces a structured device-state snapshot and may emit one screenshot artifact when requested.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "CAPTURE_FAILED",
+        "ACTIVE_WINDOW_NOT_FOUND",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.snapshot.json"
+    },
+    {
+      "job_type": "device.list_windows",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_list_windows_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_list_windows_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns structured metadata for windows visible on the current device.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "WINDOW_ENUMERATION_FAILED",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.list_windows.json"
+    },
+    {
+      "job_type": "device.open_app",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_open_app_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_open_app_output",
+      "default_timeout_seconds": 180,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Launches a local application and returns process or initial window metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APP_NOT_FOUND",
+        "LAUNCH_FAILED",
+        "WINDOW_NOT_FOUND",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.open_app.json"
+    },
+    {
+      "job_type": "device.focus_window",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_focus_window_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_focus_window_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Brings a matching window to the foreground and returns the focused window metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "WINDOW_NOT_FOUND",
+        "FOCUS_FAILED",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.focus_window.json"
+    },
+    {
+      "job_type": "device.screenshot",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_screenshot_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_screenshot_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Produces one screenshot artifact with path metadata and structured capture details.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "WINDOW_NOT_FOUND",
+        "CAPTURE_FAILED",
+        "OUTPUT_WRITE_FAILED",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.screenshot.json"
+    },
+    {
+      "job_type": "device.click",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_click_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_click_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "required",
+      "artifact_behavior": "Injects a pointer click and returns the normalized action metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "WINDOW_NOT_FOUND",
+        "INPUT_INJECTION_FAILED",
+        "TARGET_OUT_OF_BOUNDS",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.click.json"
+    },
+    {
+      "job_type": "device.type_text",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_type_text_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_type_text_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "required",
+      "artifact_behavior": "Injects text into the focused or targeted window and returns normalized typing metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "WINDOW_NOT_FOUND",
+        "INPUT_INJECTION_FAILED",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.type_text.json"
+    },
+    {
+      "job_type": "device.hotkey",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_hotkey_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_hotkey_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "required",
+      "artifact_behavior": "Sends a keyboard shortcut and returns normalized key metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "WINDOW_NOT_FOUND",
+        "INPUT_INJECTION_FAILED",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.hotkey.json"
+    },
+    {
+      "job_type": "device.clipboard_get",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_clipboard_get_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_clipboard_get_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Reads the device clipboard and returns normalized clipboard content or a materialized artifact for binary data.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "CLIPBOARD_UNAVAILABLE",
+        "FORMAT_UNSUPPORTED",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.clipboard_get.json"
+    },
+    {
+      "job_type": "device.clipboard_set",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_clipboard_set_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_clipboard_set_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "required",
+      "artifact_behavior": "Writes text or file references to the device clipboard and returns normalized write metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "CLIPBOARD_UNAVAILABLE",
+        "FORMAT_UNSUPPORTED",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.clipboard_set.json"
+    },
+    {
+      "job_type": "device.notify",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_notify_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_notify_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Sends a local desktop notification and returns delivery metadata.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "NOTIFICATION_FAILED",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.notify.json"
+    },
+    {
+      "job_type": "device.audio_get",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_audio_get_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_audio_get_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns current audio volume, mute state, and available playback devices. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "AUDIO_UNAVAILABLE",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.audio_get.json"
+    },
+    {
+      "job_type": "device.audio_set",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_audio_set_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_audio_set_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Adjusts audio volume or mute state and returns the applied settings. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "AUDIO_UNAVAILABLE",
+        "DEVICE_NOT_FOUND",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.audio_set.json"
+    },
+    {
+      "job_type": "device.display_get",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_display_get_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_display_get_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns current display configuration including brightness and resolution for all connected monitors. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "DISPLAY_UNAVAILABLE",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.display_get.json"
+    },
+    {
+      "job_type": "device.display_set",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_display_set_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_display_set_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "required",
+      "artifact_behavior": "Adjusts display brightness or resolution and returns the applied display settings. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "DISPLAY_NOT_FOUND",
+        "RESOLUTION_NOT_SUPPORTED",
+        "BRIGHTNESS_UNAVAILABLE",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.display_set.json"
+    },
+    {
+      "job_type": "device.power_action",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_power_action_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_power_action_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "required",
+      "artifact_behavior": "Initiates a power state transition (sleep, hibernate, shutdown, restart, or lock) and returns confirmation. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "POWER_ACTION_FAILED",
+        "PERMISSION_DENIED",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.power_action.json"
+    },
+    {
+      "job_type": "device.network_status",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_network_status_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_network_status_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns the status of all or a named network interface including WiFi SSID and VPN state. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "INTERFACE_NOT_FOUND",
+        "NETWORK_ENUMERATION_FAILED",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.network_status.json"
+    },
+    {
+      "job_type": "device.network_control",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_network_control_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_network_control_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "required",
+      "artifact_behavior": "Connects to or disconnects from a WiFi network or VPN and returns connection result metadata. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "NETWORK_NOT_FOUND",
+        "CONNECT_FAILED",
+        "DISCONNECT_FAILED",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.network_control.json"
+    },
+    {
+      "job_type": "device.window_layout",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_window_layout_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_window_layout_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Applies a snap or tile layout to one or more windows and returns affected window metadata. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "WINDOW_NOT_FOUND",
+        "LAYOUT_FAILED",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.window_layout.json"
+    },
+    {
+      "job_type": "device.virtual_desktop_list",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_virtual_desktop_list_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_virtual_desktop_list_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns the list of virtual desktops with their names, indices, and window counts. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "VIRTUAL_DESKTOP_UNAVAILABLE",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.virtual_desktop_list.json"
+    },
+    {
+      "job_type": "device.virtual_desktop_switch",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_virtual_desktop_switch_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_virtual_desktop_switch_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Switches to a virtual desktop by ID or direction and returns the new active desktop metadata. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "DESKTOP_NOT_FOUND",
+        "SWITCH_FAILED",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.virtual_desktop_switch.json"
+    },
+    {
+      "job_type": "system.monitor_cpu",
+      "family": "system",
+      "owner_plugin": "@jarvis/system",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_monitor_cpu_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_monitor_cpu_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns a point-in-time CPU usage snapshot with optional per-core breakdown. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "METRIC_COLLECTION_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/system.monitor_cpu.json"
+    },
+    {
+      "job_type": "system.monitor_memory",
+      "family": "system",
+      "owner_plugin": "@jarvis/system",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_monitor_memory_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_monitor_memory_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns a point-in-time RAM and swap usage snapshot with optional top-consumer process list. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "METRIC_COLLECTION_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/system.monitor_memory.json"
+    },
+    {
+      "job_type": "system.monitor_disk",
+      "family": "system",
+      "owner_plugin": "@jarvis/system",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_monitor_disk_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_monitor_disk_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns disk usage stats for all mounted partitions or a specific path. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "PATH_NOT_FOUND",
+        "METRIC_COLLECTION_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/system.monitor_disk.json"
+    },
+    {
+      "job_type": "system.monitor_network",
+      "family": "system",
+      "owner_plugin": "@jarvis/system",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_monitor_network_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_monitor_network_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns cumulative network I/O counters for all interfaces or a named interface. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "INTERFACE_NOT_FOUND",
+        "METRIC_COLLECTION_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/system.monitor_network.json"
+    },
+    {
+      "job_type": "system.monitor_battery",
+      "family": "system",
+      "owner_plugin": "@jarvis/system",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_monitor_battery_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_monitor_battery_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns current battery charge, status, and time-remaining estimate. No artifacts are emitted.",
+      "error_codes": [
+        "METRIC_COLLECTION_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/system.monitor_battery.json"
+    },
+    {
+      "job_type": "system.list_processes",
+      "family": "system",
+      "owner_plugin": "@jarvis/system",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_list_processes_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_list_processes_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns a sorted list of running processes with CPU and memory usage. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "METRIC_COLLECTION_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/system.list_processes.json"
+    },
+    {
+      "job_type": "system.kill_process",
+      "family": "system",
+      "owner_plugin": "@jarvis/system",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_kill_process_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_kill_process_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "required",
+      "artifact_behavior": "Terminates a process by PID or name and returns kill confirmation metadata. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "PROCESS_NOT_FOUND",
+        "KILL_FAILED",
+        "PERMISSION_DENIED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/system.kill_process.json"
+    },
+    {
+      "job_type": "system.hardware_info",
+      "family": "system",
+      "owner_plugin": "@jarvis/system",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_hardware_info_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_hardware_info_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns a structured hardware inventory report for the requested components. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "COMPONENT_UNAVAILABLE",
+        "METRIC_COLLECTION_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/system.hardware_info.json"
+    },
+    {
+      "job_type": "inference.chat",
+      "family": "inference",
+      "owner_plugin": "@jarvis/inference",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_chat_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_chat_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Sends messages to a local LLM and returns the generated text response with token usage metadata. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "RUNTIME_UNAVAILABLE",
+        "MODEL_NOT_FOUND",
+        "NO_SUITABLE_MODEL",
+        "CHAT_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/inference.chat.json"
+    },
+    {
+      "job_type": "inference.embed",
+      "family": "inference",
+      "owner_plugin": "@jarvis/inference",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_embed_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_embed_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Generates dense vector embeddings for text inputs using a local embedding model. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "RUNTIME_UNAVAILABLE",
+        "MODEL_NOT_FOUND",
+        "NO_SUITABLE_MODEL",
+        "EMBED_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/inference.embed.json"
+    },
+    {
+      "job_type": "inference.list_models",
+      "family": "inference",
+      "owner_plugin": "@jarvis/inference",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_list_models_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_list_models_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Queries available local LLM runtimes and returns a structured list of available models with tier and capability metadata. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "RUNTIME_UNAVAILABLE",
+        "LIST_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/inference.list_models.json"
+    },
+    {
+      "job_type": "inference.rag_index",
+      "family": "inference",
+      "owner_plugin": "@jarvis/inference",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_rag_index_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_rag_index_output",
+      "default_timeout_seconds": 900,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Reads files, chunks text, embeds with a local model, and stores in a named RAG collection. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "PATH_NOT_FOUND",
+        "RUNTIME_UNAVAILABLE",
+        "EMBED_FAILED",
+        "INDEX_WRITE_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/inference.rag_index.json"
+    },
+    {
+      "job_type": "inference.rag_query",
+      "family": "inference",
+      "owner_plugin": "@jarvis/inference",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_rag_query_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_rag_query_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Embeds the query and returns the top-K ranked text chunks from the named RAG collection. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "COLLECTION_NOT_FOUND",
+        "RUNTIME_UNAVAILABLE",
+        "EMBED_FAILED",
+        "QUERY_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/inference.rag_query.json"
+    },
+    {
+      "job_type": "inference.batch_submit",
+      "family": "inference",
+      "owner_plugin": "@jarvis/inference",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_batch_submit_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_batch_submit_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Accepts a batch of chat jobs for asynchronous execution and returns a batch_id for status polling. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "RUNTIME_UNAVAILABLE",
+        "BATCH_TOO_LARGE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/inference.batch_submit.json"
+    },
+    {
+      "job_type": "inference.batch_status",
+      "family": "inference",
+      "owner_plugin": "@jarvis/inference",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_batch_status_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_batch_status_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Polls the status of a batch identified by batch_id and returns per-job completion state. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "BATCH_NOT_FOUND",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/inference.batch_status.json"
+    },
+    {
+      "job_type": "scheduler.create_schedule",
+      "family": "scheduler",
+      "owner_plugin": "@jarvis/scheduler",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_create_schedule_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_create_schedule_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Creates a recurring schedule record in the in-memory store and returns the full schedule record including its generated ID and next fire time. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "INVALID_CRON",
+        "MISSING_TRIGGER",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/scheduler.create_schedule.json"
+    },
+    {
+      "job_type": "scheduler.list_schedules",
+      "family": "scheduler",
+      "owner_plugin": "@jarvis/scheduler",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_list_schedules_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_list_schedules_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns all stored schedule records, optionally filtered by scope group or enabled state. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/scheduler.list_schedules.json"
+    },
+    {
+      "job_type": "scheduler.delete_schedule",
+      "family": "scheduler",
+      "owner_plugin": "@jarvis/scheduler",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_delete_schedule_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_delete_schedule_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Removes a schedule record by ID and returns a deletion confirmation. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "SCHEDULE_NOT_FOUND",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/scheduler.delete_schedule.json"
+    },
+    {
+      "job_type": "scheduler.create_alert",
+      "family": "scheduler",
+      "owner_plugin": "@jarvis/scheduler",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_create_alert_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_create_alert_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Creates a threshold alert rule in the in-memory store and returns the full alert record including its generated ID. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "INVALID_OPERATOR",
+        "INVALID_METRIC_PATH",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/scheduler.create_alert.json"
+    },
+    {
+      "job_type": "device.focus_mode",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_focus_mode_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_focus_mode_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Enables or disables focus mode, optionally blocking specified apps and muting notifications for a set duration. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "FOCUS_MODE_UNAVAILABLE",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.focus_mode.json"
+    },
+    {
+      "job_type": "device.app_usage",
+      "family": "device",
+      "owner_plugin": "@jarvis/device",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_app_usage_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_app_usage_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns application usage statistics for the requested time window. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "USAGE_DATA_UNAVAILABLE",
+        "DESKTOP_HOST_UNAVAILABLE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/device.app_usage.json"
+    },
+    {
+      "job_type": "scheduler.create_workflow",
+      "family": "scheduler",
+      "owner_plugin": "@jarvis/scheduler",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_create_workflow_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_create_workflow_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Creates a named multi-step workflow in the in-memory store and returns the full workflow record. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/scheduler.create_workflow.json"
+    },
+    {
+      "job_type": "scheduler.run_workflow",
+      "family": "scheduler",
+      "owner_plugin": "@jarvis/scheduler",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_run_workflow_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_run_workflow_output",
+      "default_timeout_seconds": 900,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Queues all steps of a stored workflow and returns the run ID with queued job IDs. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "WORKFLOW_NOT_FOUND",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/scheduler.run_workflow.json"
+    },
+    {
+      "job_type": "scheduler.habit_track",
+      "family": "scheduler",
+      "owner_plugin": "@jarvis/scheduler",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_habit_track_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_habit_track_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Creates, logs a value for, or deletes a habit record. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "HABIT_NOT_FOUND",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/scheduler.habit_track.json"
+    },
+    {
+      "job_type": "scheduler.habit_status",
+      "family": "scheduler",
+      "owner_plugin": "@jarvis/scheduler",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_habit_status_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_habit_status_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns habit completion statistics for the requested time window. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "HABIT_NOT_FOUND",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/scheduler.habit_status.json"
+    },
+    {
+      "job_type": "interpreter.run_task",
+      "family": "interpreter",
+      "owner_plugin": "@jarvis/interpreter",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/interpreter-job-types.schema.json#/$defs/interpreter_run_task_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/interpreter-job-types.schema.json#/$defs/interpreter_run_task_output",
+      "default_timeout_seconds": 900,
+      "approval_requirement": "required",
+      "artifact_behavior": "Runs an autonomous multi-step task via Open Interpreter. Returns a session ID, step trace, and final output. No artifacts are emitted unless the task explicitly writes files.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "INTERPRETER_NOT_INSTALLED",
+        "TASK_FAILED",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/interpreter.run_task.json"
+    },
+    {
+      "job_type": "interpreter.run_code",
+      "family": "interpreter",
+      "owner_plugin": "@jarvis/interpreter",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/interpreter-job-types.schema.json#/$defs/interpreter_run_code_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/interpreter-job-types.schema.json#/$defs/interpreter_run_code_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "required",
+      "artifact_behavior": "Executes a code snippet in the specified language and returns stdout, stderr, and exit code. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "RUNTIME_NOT_FOUND",
+        "EXECUTION_FAILED",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/interpreter.run_code.json"
+    },
+    {
+      "job_type": "interpreter.status",
+      "family": "interpreter",
+      "owner_plugin": "@jarvis/interpreter",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/interpreter-job-types.schema.json#/$defs/interpreter_status_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/interpreter-job-types.schema.json#/$defs/interpreter_status_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns a list of active interpreter sessions. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "SESSION_NOT_FOUND",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/interpreter.status.json"
+    },
+    {
+      "job_type": "voice.listen",
+      "family": "voice",
+      "owner_plugin": "@jarvis/voice",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json#/$defs/voice_listen_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json#/$defs/voice_listen_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Captures audio from the microphone and returns a WAV artifact ID for downstream transcription.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "DEVICE_NOT_FOUND",
+        "CAPTURE_FAILED",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/voice.listen.json"
+    },
+    {
+      "job_type": "voice.transcribe",
+      "family": "voice",
+      "owner_plugin": "@jarvis/voice",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json#/$defs/voice_transcribe_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json#/$defs/voice_transcribe_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Transcribes an audio artifact to text using Whisper STT. Emits no output artifacts.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "ARTIFACT_NOT_FOUND",
+        "TRANSCRIPTION_FAILED",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/voice.transcribe.json"
+    },
+    {
+      "job_type": "voice.speak",
+      "family": "voice",
+      "owner_plugin": "@jarvis/voice",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json#/$defs/voice_speak_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json#/$defs/voice_speak_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Synthesises text to speech and returns a WAV audio artifact.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "SYNTHESIS_FAILED",
+        "OUTPUT_WRITE_FAILED",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/voice.speak.json"
+    },
+    {
+      "job_type": "voice.wake_word_start",
+      "family": "voice",
+      "owner_plugin": "@jarvis/voice",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json#/$defs/voice_wake_word_start_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json#/$defs/voice_wake_word_start_output",
+      "default_timeout_seconds": 86400,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Starts a persistent background wake word session. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "SESSION_ALREADY_ACTIVE",
+        "ENGINE_UNAVAILABLE",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/voice.wake_word_start.json"
+    },
+    {
+      "job_type": "voice.wake_word_stop",
+      "family": "voice",
+      "owner_plugin": "@jarvis/voice",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json#/$defs/voice_wake_word_stop_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json#/$defs/voice_wake_word_stop_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Stops the active wake word detection session. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "SESSION_NOT_FOUND",
+        "TIMEOUT"
+      ],
+      "example_file": "./examples/voice.wake_word_stop.json"
+    },
+    {
+      "job_type": "security.scan_processes",
+      "family": "security",
+      "owner_plugin": "@jarvis/security",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_scan_processes_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_scan_processes_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Scans all running processes against the security whitelist and returns a structured report of suspicious or non-whitelisted entries. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "SCAN_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/security.scan_processes.json"
+    },
+    {
+      "job_type": "security.whitelist_update",
+      "family": "security",
+      "owner_plugin": "@jarvis/security",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_whitelist_update_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_whitelist_update_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "required",
+      "artifact_behavior": "Adds or removes process names or SHA-256 hashes from the in-memory security whitelist. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "UPDATE_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/security.whitelist_update.json"
+    },
+    {
+      "job_type": "security.network_audit",
+      "family": "security",
+      "owner_plugin": "@jarvis/security",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_network_audit_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_network_audit_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Enumerates active TCP connections and flags suspicious remote ports and states. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "AUDIT_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/security.network_audit.json"
+    },
+    {
+      "job_type": "security.file_integrity_check",
+      "family": "security",
+      "owner_plugin": "@jarvis/security",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_file_integrity_check_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_file_integrity_check_output",
+      "default_timeout_seconds": 600,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Computes SHA-256 hashes for a set of file paths and diffs them against a stored baseline. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "PATH_NOT_FOUND",
+        "HASH_FAILED",
+        "BASELINE_NOT_FOUND",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/security.file_integrity_check.json"
+    },
+    {
+      "job_type": "security.file_integrity_baseline",
+      "family": "security",
+      "owner_plugin": "@jarvis/security",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_file_integrity_baseline_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_file_integrity_baseline_output",
+      "default_timeout_seconds": 600,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Creates a named SHA-256 hash baseline for a set of file paths. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "PATH_NOT_FOUND",
+        "HASH_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/security.file_integrity_baseline.json"
+    },
+    {
+      "job_type": "security.firewall_rule",
+      "family": "security",
+      "owner_plugin": "@jarvis/security",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_firewall_rule_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_firewall_rule_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "required",
+      "artifact_behavior": "Adds, removes, or lists Windows Firewall rules via netsh. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "RULE_ADD_FAILED",
+        "RULE_REMOVE_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/security.firewall_rule.json"
+    },
+    {
+      "job_type": "security.lockdown",
+      "family": "security",
+      "owner_plugin": "@jarvis/security",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_lockdown_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_lockdown_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "required",
+      "artifact_behavior": "Activates security lockdown mode: kills non-whitelisted processes, blocks outbound connections, and locks the workstation screen. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "LOCKDOWN_PARTIAL",
+        "LOCKDOWN_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/security.lockdown.json"
+    },
+    {
+      "job_type": "agent.start",
+      "family": "agent",
+      "owner_plugin": "@jarvis/agent",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_start_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_start_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Starts a new agent run and returns the run_id. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "AGENT_NOT_REGISTERED",
+        "AGENT_ALREADY_RUNNING",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/agent.start.json"
+    },
+    {
+      "job_type": "agent.step",
+      "family": "agent",
+      "owner_plugin": "@jarvis/agent",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_step_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_step_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Executes one step of an active agent run and returns step result. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "RUN_NOT_FOUND",
+        "RUN_NOT_ACTIVE",
+        "STEP_FAILED",
+        "MAX_STEPS_EXCEEDED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/agent.step.json"
+    },
+    {
+      "job_type": "agent.status",
+      "family": "agent",
+      "owner_plugin": "@jarvis/agent",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_status_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_status_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns current status and run list for an agent. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "AGENT_NOT_REGISTERED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/agent.status.json"
+    },
+    {
+      "job_type": "agent.pause",
+      "family": "agent",
+      "owner_plugin": "@jarvis/agent",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_pause_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_pause_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Pauses an active agent run, preserving state. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "RUN_NOT_FOUND",
+        "RUN_NOT_ACTIVE",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/agent.pause.json"
+    },
+    {
+      "job_type": "agent.resume",
+      "family": "agent",
+      "owner_plugin": "@jarvis/agent",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_resume_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_resume_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Resumes a paused agent run. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "RUN_NOT_FOUND",
+        "RUN_NOT_PAUSED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/agent.resume.json"
+    },
+    {
+      "job_type": "agent.configure",
+      "family": "agent",
+      "owner_plugin": "@jarvis/agent",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_configure_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_configure_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Updates the configuration of a registered agent. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "AGENT_NOT_REGISTERED",
+        "CONFIGURE_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/agent.configure.json"
+    },
+    {
+      "job_type": "calendar.list_events",
+      "family": "calendar",
+      "owner_plugin": "@jarvis/calendar",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json#/$defs/calendar_list_events_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json#/$defs/calendar_list_events_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns a list of calendar events within the specified date range. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "CALENDAR_NOT_FOUND",
+        "AUTH_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/calendar.list_events.json"
+    },
+    {
+      "job_type": "calendar.create_event",
+      "family": "calendar",
+      "owner_plugin": "@jarvis/calendar",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json#/$defs/calendar_create_event_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json#/$defs/calendar_create_event_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "required",
+      "artifact_behavior": "Creates a calendar event and returns the event ID and metadata. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "CALENDAR_NOT_FOUND",
+        "AUTH_FAILED",
+        "CONFLICT",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/calendar.create_event.json"
+    },
+    {
+      "job_type": "calendar.update_event",
+      "family": "calendar",
+      "owner_plugin": "@jarvis/calendar",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json#/$defs/calendar_update_event_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json#/$defs/calendar_update_event_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Updates an existing calendar event and returns the list of applied changes. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "EVENT_NOT_FOUND",
+        "CALENDAR_NOT_FOUND",
+        "AUTH_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/calendar.update_event.json"
+    },
+    {
+      "job_type": "calendar.find_free",
+      "family": "calendar",
+      "owner_plugin": "@jarvis/calendar",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json#/$defs/calendar_find_free_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json#/$defs/calendar_find_free_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns free time slots that are available for all requested attendees. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "AUTH_FAILED",
+        "NO_SLOTS_FOUND",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/calendar.find_free.json"
+    },
+    {
+      "job_type": "calendar.brief",
+      "family": "calendar",
+      "owner_plugin": "@jarvis/calendar",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json#/$defs/calendar_brief_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json#/$defs/calendar_brief_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Generates a structured meeting preparation brief with agenda, key topics, and attendee context. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "EVENT_NOT_FOUND",
+        "CALENDAR_NOT_FOUND",
+        "AUTH_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/calendar.brief.json"
+    },
+    {
+      "job_type": "email.search",
+      "family": "email",
+      "owner_plugin": "@jarvis/email",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_search_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_search_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Searches the inbox using Gmail query syntax. Returns matching message summaries. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "AUTH_FAILED",
+        "QUOTA_EXCEEDED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/email.search.json"
+    },
+    {
+      "job_type": "email.read",
+      "family": "email",
+      "owner_plugin": "@jarvis/email",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_read_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_read_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Reads a single message by ID, returning full body, headers, and attachment metadata. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "EMAIL_NOT_FOUND",
+        "AUTH_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/email.read.json"
+    },
+    {
+      "job_type": "email.draft",
+      "family": "email",
+      "owner_plugin": "@jarvis/email",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_draft_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_draft_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Creates a draft in Gmail without sending. Returns draft_id and message_id. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "AUTH_FAILED",
+        "QUOTA_EXCEEDED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/email.draft.json"
+    },
+    {
+      "job_type": "email.send",
+      "family": "email",
+      "owner_plugin": "@jarvis/email",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_send_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_send_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "required",
+      "artifact_behavior": "Sends an existing draft or a composed message. Always requires user approval. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "APPROVAL_REQUIRED",
+        "DRAFT_NOT_FOUND",
+        "AUTH_FAILED",
+        "QUOTA_EXCEEDED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/email.send.json"
+    },
+    {
+      "job_type": "email.label",
+      "family": "email",
+      "owner_plugin": "@jarvis/email",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_label_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_label_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Applies or removes Gmail labels from a message. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "EMAIL_NOT_FOUND",
+        "LABEL_NOT_FOUND",
+        "AUTH_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/email.label.json"
+    },
+    {
+      "job_type": "email.list_threads",
+      "family": "email",
+      "owner_plugin": "@jarvis/email",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_list_threads_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_list_threads_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Lists threads matching an optional query, grouped with participant and date metadata. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "AUTH_FAILED",
+        "QUOTA_EXCEEDED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/email.list_threads.json"
+    },
+    {
+      "job_type": "web.search_news",
+      "family": "web",
+      "owner_plugin": "@jarvis/web",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_search_news_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_search_news_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Searches news and web sources for articles matching the query. Returns ranked articles with relevance scores. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "PROVIDER_UNAVAILABLE",
+        "NO_RESULTS",
+        "RATE_LIMITED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/web.search_news.json"
+    },
+    {
+      "job_type": "web.scrape_profile",
+      "family": "web",
+      "owner_plugin": "@jarvis/web",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_scrape_profile_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_scrape_profile_output",
+      "default_timeout_seconds": 600,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Extracts structured profile data from a company, person, or job posting URL. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "NAVIGATION_FAILED",
+        "EXTRACTION_FAILED",
+        "ACCESS_DENIED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/web.scrape_profile.json"
+    },
+    {
+      "job_type": "web.monitor_page",
+      "family": "web",
+      "owner_plugin": "@jarvis/web",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_monitor_page_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_monitor_page_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Checks a web page for content changes since the last monitoring run. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "NAVIGATION_FAILED",
+        "HASH_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/web.monitor_page.json"
+    },
+    {
+      "job_type": "web.enrich_contact",
+      "family": "web",
+      "owner_plugin": "@jarvis/web",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_enrich_contact_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_enrich_contact_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Enriches a contact record with web-sourced data including role, company size, industry, and LinkedIn. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "CONTACT_NOT_FOUND",
+        "PROVIDER_UNAVAILABLE",
+        "RATE_LIMITED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/web.enrich_contact.json"
+    },
+    {
+      "job_type": "web.track_jobs",
+      "family": "web",
+      "owner_plugin": "@jarvis/web",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_track_jobs_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_track_jobs_output",
+      "default_timeout_seconds": 600,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Monitors job postings at specified companies and returns postings matching the provided keywords. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "PROVIDER_UNAVAILABLE",
+        "SCRAPE_FAILED",
+        "RATE_LIMITED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/web.track_jobs.json"
+    },
+    {
+      "job_type": "web.competitive_intel",
+      "family": "web",
+      "owner_plugin": "@jarvis/web",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_competitive_intel_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_competitive_intel_output",
+      "default_timeout_seconds": 600,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Gathers competitive intelligence on a company including key facts, recent news, products, and team signals. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "PROVIDER_UNAVAILABLE",
+        "SCRAPE_FAILED",
+        "RATE_LIMITED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/web.competitive_intel.json"
+    },
+    {
+      "job_type": "crm.add_contact",
+      "family": "crm",
+      "owner_plugin": "@jarvis/crm",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_add_contact_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_add_contact_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Creates a new contact record in the in-memory CRM store and returns the full contact record.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "DUPLICATE_CONTACT",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/crm.add_contact.json"
+    },
+    {
+      "job_type": "crm.update_contact",
+      "family": "crm",
+      "owner_plugin": "@jarvis/crm",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_update_contact_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_update_contact_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Updates contact fields and returns the updated record with a list of applied changes.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "CONTACT_NOT_FOUND",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/crm.update_contact.json"
+    },
+    {
+      "job_type": "crm.list_pipeline",
+      "family": "crm",
+      "owner_plugin": "@jarvis/crm",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_list_pipeline_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_list_pipeline_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns a filtered list of contacts with stage counts. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/crm.list_pipeline.json"
+    },
+    {
+      "job_type": "crm.move_stage",
+      "family": "crm",
+      "owner_plugin": "@jarvis/crm",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_move_stage_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_move_stage_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Moves a contact to a new pipeline stage and records the transition in stage history.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "CONTACT_NOT_FOUND",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/crm.move_stage.json"
+    },
+    {
+      "job_type": "crm.add_note",
+      "family": "crm",
+      "owner_plugin": "@jarvis/crm",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_add_note_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_add_note_output",
+      "default_timeout_seconds": 30,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Appends an interaction note to a contact record. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "CONTACT_NOT_FOUND",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/crm.add_note.json"
+    },
+    {
+      "job_type": "crm.search",
+      "family": "crm",
+      "owner_plugin": "@jarvis/crm",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_search_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_search_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns matching contacts for a full-text query across configurable fields. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/crm.search.json"
+    },
+    {
+      "job_type": "crm.digest",
+      "family": "crm",
+      "owner_plugin": "@jarvis/crm",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_digest_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_digest_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Returns a pipeline summary including hot leads, stale contacts, and recent stage movements. No artifacts are emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/crm.digest.json"
+    },
+    {
+      "job_type": "document.ingest",
+      "family": "document",
+      "owner_plugin": "@jarvis/document",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_ingest_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_ingest_output",
+      "default_timeout_seconds": 600,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Parses PDF, DOCX, TXT, or MD file and returns extracted text, document structure, tables, and metadata. No output artifacts emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "DOCUMENT_NOT_FOUND",
+        "PARSE_ERROR",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/document.ingest.json"
+    },
+    {
+      "job_type": "document.extract_clauses",
+      "family": "document",
+      "owner_plugin": "@jarvis/document",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_extract_clauses_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_extract_clauses_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Extracts and classifies legal clauses from NDA, MSA, SOW, or contract documents with risk level assessment. No output artifacts emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "DOCUMENT_NOT_FOUND",
+        "EXTRACTION_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/document.extract_clauses.json"
+    },
+    {
+      "job_type": "document.analyze_compliance",
+      "family": "document",
+      "owner_plugin": "@jarvis/document",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_analyze_compliance_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_analyze_compliance_output",
+      "default_timeout_seconds": 600,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Analyzes document compliance against ISO 26262, ASPICE, IEC 61508, or ISO 21434 and returns compliance score with gap analysis. No output artifacts emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "DOCUMENT_NOT_FOUND",
+        "ANALYSIS_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/document.analyze_compliance.json"
+    },
+    {
+      "job_type": "document.compare",
+      "family": "document",
+      "owner_plugin": "@jarvis/document",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_compare_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_compare_output",
+      "default_timeout_seconds": 600,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Compares two document versions and returns a structured diff with change significance classification. No output artifacts emitted.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "DOCUMENT_NOT_FOUND",
+        "COMPARISON_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/document.compare.json"
+    },
+    {
+      "job_type": "document.generate_report",
+      "family": "document",
+      "owner_plugin": "@jarvis/document",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_generate_report_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_generate_report_output",
+      "default_timeout_seconds": 900,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Generates a structured report from a template (evidence gap, compliance summary, NDA analysis, proposal, custom) and writes it to the specified output path.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "TEMPLATE_NOT_FOUND",
+        "GENERATION_FAILED",
+        "OUTPUT_WRITE_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/document.generate_report.json"
+    },
+    {
+      "job_type": "browser.navigate",
+      "family": "browser",
+      "owner_plugin": "@jarvis/browser-worker",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_navigate_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_navigate_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Navigates to a URL in the user's Chrome browser. Returns page title and status code.",
+      "error_codes": ["INVALID_INPUT", "NAVIGATION_FAILED", "TIMEOUT", "BROWSER_DISCONNECTED"],
+      "example_file": "./examples/browser.navigate.json"
+    },
+    {
+      "job_type": "browser.click",
+      "family": "browser",
+      "owner_plugin": "@jarvis/browser-worker",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_click_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_click_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Clicks an element on the page by CSS selector.",
+      "error_codes": ["INVALID_INPUT", "ELEMENT_NOT_FOUND", "TIMEOUT", "BROWSER_DISCONNECTED"],
+      "example_file": "./examples/browser.click.json"
+    },
+    {
+      "job_type": "browser.type",
+      "family": "browser",
+      "owner_plugin": "@jarvis/browser-worker",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_type_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_type_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Types text into an input element on the page.",
+      "error_codes": ["INVALID_INPUT", "ELEMENT_NOT_FOUND", "TIMEOUT", "BROWSER_DISCONNECTED"],
+      "example_file": "./examples/browser.type.json"
+    },
+    {
+      "job_type": "browser.evaluate",
+      "family": "browser",
+      "owner_plugin": "@jarvis/browser-worker",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_evaluate_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_evaluate_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Evaluates JavaScript in the page context and returns the result.",
+      "error_codes": ["INVALID_INPUT", "EVALUATION_FAILED", "TIMEOUT", "BROWSER_DISCONNECTED"],
+      "example_file": "./examples/browser.evaluate.json"
+    },
+    {
+      "job_type": "browser.wait_for",
+      "family": "browser",
+      "owner_plugin": "@jarvis/browser-worker",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_wait_for_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_wait_for_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Waits for a CSS selector to appear on the page.",
+      "error_codes": ["INVALID_INPUT", "ELEMENT_NOT_FOUND", "TIMEOUT", "BROWSER_DISCONNECTED"],
+      "example_file": "./examples/browser.wait_for.json"
+    },
+    {
+      "job_type": "social.like",
+      "family": "social",
+      "owner_plugin": "@jarvis/social",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_like_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_like_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Likes a post on the specified social media platform.",
+      "error_codes": ["INVALID_INPUT", "PLATFORM_ERROR", "BROWSER_DISCONNECTED", "RATE_LIMITED"],
+      "example_file": "./examples/social.like.json"
+    },
+    {
+      "job_type": "social.comment",
+      "family": "social",
+      "owner_plugin": "@jarvis/social",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_comment_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_comment_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Posts a comment on a social media post.",
+      "error_codes": ["INVALID_INPUT", "PLATFORM_ERROR", "BROWSER_DISCONNECTED", "RATE_LIMITED"],
+      "example_file": "./examples/social.comment.json"
+    },
+    {
+      "job_type": "social.repost",
+      "family": "social",
+      "owner_plugin": "@jarvis/social",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_repost_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_repost_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Reposts/shares a post on the specified platform.",
+      "error_codes": ["INVALID_INPUT", "PLATFORM_ERROR", "BROWSER_DISCONNECTED", "RATE_LIMITED"],
+      "example_file": "./examples/social.repost.json"
+    },
+    {
+      "job_type": "social.post",
+      "family": "social",
+      "owner_plugin": "@jarvis/social",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_post_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_post_output",
+      "default_timeout_seconds": 180,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Creates a new post on the specified platform.",
+      "error_codes": ["INVALID_INPUT", "PLATFORM_ERROR", "BROWSER_DISCONNECTED", "RATE_LIMITED"],
+      "example_file": "./examples/social.post.json"
+    },
+    {
+      "job_type": "social.follow",
+      "family": "social",
+      "owner_plugin": "@jarvis/social",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_follow_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_follow_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Follows a user on the specified platform.",
+      "error_codes": ["INVALID_INPUT", "PLATFORM_ERROR", "BROWSER_DISCONNECTED"],
+      "example_file": "./examples/social.follow.json"
+    },
+    {
+      "job_type": "social.scan_feed",
+      "family": "social",
+      "owner_plugin": "@jarvis/social",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_scan_feed_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_scan_feed_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Scans the feed on a social media platform for engagement opportunities.",
+      "error_codes": ["INVALID_INPUT", "PLATFORM_ERROR", "BROWSER_DISCONNECTED"],
+      "example_file": "./examples/social.scan_feed.json"
+    },
+    {
+      "job_type": "social.digest",
+      "family": "social",
+      "owner_plugin": "@jarvis/social",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_digest_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_digest_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Generates a daily digest of all social media engagement actions.",
+      "error_codes": ["INVALID_INPUT"],
+      "example_file": "./examples/social.digest.json"
+    },
+    {
+      "job_type": "time.list_entries",
+      "family": "time",
+      "owner_plugin": "@jarvis/time",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/time-job-types.schema.json#/$defs/time_list_entries_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/time-job-types.schema.json#/$defs/time_list_entries_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Lists time tracking entries from Toggl.",
+      "error_codes": ["INVALID_INPUT", "API_ERROR", "TIMEOUT"],
+      "example_file": "./examples/time.list_entries.json"
+    },
+    {
+      "job_type": "time.create_entry",
+      "family": "time",
+      "owner_plugin": "@jarvis/time",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/time-job-types.schema.json#/$defs/time_create_entry_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/time-job-types.schema.json#/$defs/time_create_entry_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "conditional",
+      "artifact_behavior": "Creates a new time tracking entry.",
+      "error_codes": ["INVALID_INPUT", "API_ERROR", "TIMEOUT"],
+      "example_file": "./examples/time.create_entry.json"
+    },
+    {
+      "job_type": "time.summary",
+      "family": "time",
+      "owner_plugin": "@jarvis/time",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/time-job-types.schema.json#/$defs/time_summary_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/time-job-types.schema.json#/$defs/time_summary_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Generates a time tracking summary report.",
+      "error_codes": ["INVALID_INPUT", "API_ERROR", "TIMEOUT"],
+      "example_file": "./examples/time.summary.json"
+    },
+    {
+      "job_type": "time.sync",
+      "family": "time",
+      "owner_plugin": "@jarvis/time",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/time-job-types.schema.json#/$defs/time_sync_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/time-job-types.schema.json#/$defs/time_sync_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Syncs time tracking data with external service.",
+      "error_codes": ["INVALID_INPUT", "API_ERROR", "SYNC_FAILED", "TIMEOUT"],
+      "example_file": "./examples/time.sync.json"
+    },
+    {
+      "job_type": "drive.list_files",
+      "family": "drive",
+      "owner_plugin": "@jarvis/drive",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/drive-job-types.schema.json#/$defs/drive_list_files_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/drive-job-types.schema.json#/$defs/drive_list_files_output",
+      "default_timeout_seconds": 120,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Lists files in a Google Drive folder.",
+      "error_codes": ["INVALID_INPUT", "API_ERROR", "FOLDER_NOT_FOUND", "TIMEOUT"],
+      "example_file": "./examples/drive.list_files.json"
+    },
+    {
+      "job_type": "drive.download_file",
+      "family": "drive",
+      "owner_plugin": "@jarvis/drive",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/drive-job-types.schema.json#/$defs/drive_download_file_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/drive-job-types.schema.json#/$defs/drive_download_file_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Downloads a file from Google Drive to local storage.",
+      "error_codes": ["INVALID_INPUT", "API_ERROR", "FILE_NOT_FOUND", "TIMEOUT"],
+      "example_file": "./examples/drive.download_file.json"
+    },
+    {
+      "job_type": "drive.watch_folder",
+      "family": "drive",
+      "owner_plugin": "@jarvis/drive",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/drive-job-types.schema.json#/$defs/drive_watch_folder_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/drive-job-types.schema.json#/$defs/drive_watch_folder_output",
+      "default_timeout_seconds": 60,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Checks a Google Drive folder for new or modified files since last check.",
+      "error_codes": ["INVALID_INPUT", "API_ERROR", "FOLDER_NOT_FOUND"],
+      "example_file": "./examples/drive.watch_folder.json"
+    },
+    {
+      "job_type": "drive.sync_folder",
+      "family": "drive",
+      "owner_plugin": "@jarvis/drive",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/drive-job-types.schema.json#/$defs/drive_sync_folder_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/drive-job-types.schema.json#/$defs/drive_sync_folder_output",
+      "default_timeout_seconds": 600,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Syncs a Google Drive folder with local storage, downloading new/changed files.",
+      "error_codes": ["INVALID_INPUT", "API_ERROR", "SYNC_FAILED", "TIMEOUT"],
+      "example_file": "./examples/drive.sync_folder.json"
+    }
+  ]
+}

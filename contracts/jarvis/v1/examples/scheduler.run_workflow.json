@@ -1,0 +1,42 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d4e5f6a7-b8c9-0123-defa-234567890123",
+    "type": "scheduler.run_workflow",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "operator"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 900,
+    "attempt": 1,
+    "input": {
+      "workflow_id": "wf-00000001"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d4e5f6a7-b8c9-0123-defa-234567890123",
+    "job_type": "scheduler.run_workflow",
+    "status": "completed",
+    "summary": "Queued 3 job(s) for workflow 'wf-00000001'. Run ID: run-00000001.",
+    "attempt": 1,
+    "structured_output": {
+      "workflow_id": "wf-00000001",
+      "run_id": "run-00000001",
+      "steps_queued": 3,
+      "job_ids": [
+        "job-step-1-uuid",
+        "job-step-2-uuid",
+        "job-step-3-uuid"
+      ]
+    }
+  }
+}

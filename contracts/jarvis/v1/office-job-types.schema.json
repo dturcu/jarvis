@@ -1,0 +1,887 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json",
+  "title": "Jarvis Office Job Types",
+  "type": "object",
+  "$defs": {
+    "json_value": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "number"
+        },
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/json_value"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/json_value"
+          }
+        }
+      ]
+    },
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "dedupe_spec": {
+      "type": "object",
+      "required": [
+        "enabled"
+      ],
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "keys": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "keys"
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "column_filter": {
+      "type": "object",
+      "required": [
+        "column",
+        "op"
+      ],
+      "properties": {
+        "column": {
+          "type": "string",
+          "minLength": 1
+        },
+        "op": {
+          "type": "string",
+          "enum": [
+            "eq",
+            "neq",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "contains",
+            "in",
+            "not_in",
+            "is_empty",
+            "not_empty"
+          ]
+        },
+        "value": {
+          "$ref": "#/$defs/json_value"
+        }
+      },
+      "additionalProperties": false
+    },
+    "sort_spec": {
+      "type": "object",
+      "required": [
+        "column",
+        "direction"
+      ],
+      "properties": {
+        "column": {
+          "type": "string",
+          "minLength": 1
+        },
+        "direction": {
+          "type": "string",
+          "enum": [
+            "asc",
+            "desc"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "derived_column": {
+      "type": "object",
+      "required": [
+        "name",
+        "expression"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expression": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "office_inspect_input": {
+      "type": "object",
+      "required": [
+        "target_artifacts"
+      ],
+      "properties": {
+        "target_artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/artifact_ref"
+          }
+        },
+        "inspect_mode": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "excel",
+            "word",
+            "powerpoint"
+          ]
+        },
+        "include_formulas": {
+          "type": "boolean"
+        },
+        "include_variables": {
+          "type": "boolean"
+        },
+        "max_preview_rows": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "output_mode": {
+          "type": "string",
+          "enum": [
+            "summary",
+            "json"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "office_inspect_output_document": {
+      "type": "object",
+      "required": [
+        "artifact_id",
+        "detected_kind",
+        "summary"
+      ],
+      "properties": {
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "detected_kind": {
+          "type": "string",
+          "enum": [
+            "xlsx",
+            "docx",
+            "pptx",
+            "csv",
+            "pdf",
+            "unknown"
+          ]
+        },
+        "sheet_names": {
+          "$ref": "#/$defs/string_array"
+        },
+        "slide_titles": {
+          "$ref": "#/$defs/string_array"
+        },
+        "variable_placeholders": {
+          "$ref": "#/$defs/string_array"
+        },
+        "table_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "office_inspect_output": {
+      "type": "object",
+      "required": [
+        "documents"
+      ],
+      "properties": {
+        "documents": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/office_inspect_output_document"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "office_merge_excel_input": {
+      "type": "object",
+      "required": [
+        "files",
+        "mode",
+        "sheet_policy",
+        "output_name"
+      ],
+      "properties": {
+        "files": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/artifact_ref"
+          }
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "by_header_union",
+            "append_rows_by_sheet",
+            "by_sheet_name"
+          ]
+        },
+        "sheet_policy": {
+          "type": "string",
+          "enum": [
+            "first_sheet",
+            "all_sheets",
+            "named_sheet"
+          ]
+        },
+        "sheet_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "header_row": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "normalize_headers": {
+          "type": "boolean"
+        },
+        "empty_row_policy": {
+          "type": "string",
+          "enum": [
+            "keep",
+            "drop"
+          ]
+        },
+        "dedupe": {
+          "$ref": "#/$defs/dedupe_spec"
+        },
+        "output_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "sheet_policy": {
+                "const": "named_sheet"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "sheet_name"
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "office_merge_excel_output": {
+      "type": "object",
+      "required": [
+        "output_artifact_id",
+        "source_file_count",
+        "sheets_created",
+        "rows_written",
+        "rows_deduped",
+        "warnings"
+      ],
+      "properties": {
+        "output_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_file_count": {
+          "type": "integer",
+          "minimum": 2
+        },
+        "sheets_created": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "rows_written": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rows_deduped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warnings": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "office_transform_excel_input": {
+      "type": "object",
+      "required": [
+        "source_artifact",
+        "output_name"
+      ],
+      "properties": {
+        "source_artifact": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/artifact_ref"
+        },
+        "sheet_mode": {
+          "type": "string",
+          "enum": [
+            "first_sheet",
+            "named_sheet",
+            "all_sheets"
+          ]
+        },
+        "sheet_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "normalize_headers": {
+          "type": "boolean"
+        },
+        "select_columns": {
+          "$ref": "#/$defs/string_array"
+        },
+        "rename_columns": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "filters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/column_filter"
+          }
+        },
+        "sort": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sort_spec"
+          }
+        },
+        "dedupe": {
+          "$ref": "#/$defs/dedupe_spec"
+        },
+        "derived_columns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/derived_column"
+          }
+        },
+        "output_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "sheet_mode": {
+                "const": "named_sheet"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "sheet_name"
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "office_transform_excel_output": {
+      "type": "object",
+      "required": [
+        "output_artifact_id",
+        "rows_read",
+        "rows_written",
+        "columns_written",
+        "warnings"
+      ],
+      "properties": {
+        "output_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rows_read": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rows_written": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "columns_written": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "warnings": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "office_fill_docx_input": {
+      "type": "object",
+      "required": [
+        "template_artifact_id",
+        "variables",
+        "output_name"
+      ],
+      "properties": {
+        "template_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "variables": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/json_value"
+          }
+        },
+        "strict_variables": {
+          "type": "boolean"
+        },
+        "output_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "office_fill_docx_output": {
+      "type": "object",
+      "required": [
+        "output_artifact_id",
+        "placeholders_resolved",
+        "unresolved_placeholders",
+        "warnings"
+      ],
+      "properties": {
+        "output_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "placeholders_resolved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unresolved_placeholders": {
+          "$ref": "#/$defs/string_array"
+        },
+        "warnings": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ppt_outline_slide": {
+      "type": "object",
+      "required": [
+        "title",
+        "bullets"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bullets": {
+          "$ref": "#/$defs/string_array"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "image_artifact_ids": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "ppt_source_outline": {
+      "type": "object",
+      "required": [
+        "kind",
+        "title",
+        "slides"
+      ],
+      "properties": {
+        "kind": {
+          "const": "outline"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "slides": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/ppt_outline_slide"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "ppt_source_artifact": {
+      "type": "object",
+      "required": [
+        "kind",
+        "artifact_id",
+        "interpretation_prompt"
+      ],
+      "properties": {
+        "kind": {
+          "const": "artifact"
+        },
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "interpretation_prompt": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "office_build_pptx_input": {
+      "type": "object",
+      "required": [
+        "source",
+        "theme",
+        "output_name"
+      ],
+      "properties": {
+        "source": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ppt_source_outline"
+            },
+            {
+              "$ref": "#/$defs/ppt_source_artifact"
+            }
+          ]
+        },
+        "theme": {
+          "type": "string",
+          "enum": [
+            "corporate_clean",
+            "minimal_light",
+            "minimal_dark",
+            "executive_brief"
+          ]
+        },
+        "speaker_notes": {
+          "type": "boolean"
+        },
+        "output_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "office_build_pptx_output": {
+      "type": "object",
+      "required": [
+        "output_artifact_id",
+        "slide_count",
+        "theme_applied",
+        "notes_included",
+        "warnings"
+      ],
+      "properties": {
+        "output_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "slide_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "theme_applied": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notes_included": {
+          "type": "boolean"
+        },
+        "warnings": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "table_target": {
+      "type": "object",
+      "required": [
+        "kind",
+        "identifier"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "sheet",
+            "slide",
+            "table_name"
+          ]
+        },
+        "identifier": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "office_extract_tables_input": {
+      "type": "object",
+      "required": [
+        "source_artifact",
+        "format",
+        "output_name"
+      ],
+      "properties": {
+        "source_artifact": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/artifact_ref"
+        },
+        "selection_mode": {
+          "type": "string",
+          "enum": [
+            "all",
+            "named_targets"
+          ]
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/table_target"
+          }
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "csv",
+            "xlsx"
+          ]
+        },
+        "include_header": {
+          "type": "boolean"
+        },
+        "output_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "selection_mode": {
+                "const": "named_targets"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "targets"
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "table_summary": {
+      "type": "object",
+      "required": [
+        "table_id",
+        "rows",
+        "columns",
+        "source_label"
+      ],
+      "properties": {
+        "table_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "columns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_label": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "office_extract_tables_output": {
+      "type": "object",
+      "required": [
+        "table_count",
+        "tables"
+      ],
+      "properties": {
+        "table_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "export_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/table_summary"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "office_preview_input": {
+      "type": "object",
+      "required": [
+        "source_artifact",
+        "format",
+        "output_name"
+      ],
+      "properties": {
+        "source_artifact": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/artifact_ref"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "png",
+            "pdf",
+            "html",
+            "text"
+          ]
+        },
+        "page_numbers": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "sheet_names": {
+          "$ref": "#/$defs/string_array"
+        },
+        "slide_numbers": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "uniqueItems": true
+        },
+        "include_notes": {
+          "type": "boolean"
+        },
+        "max_pages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "output_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "office_preview_output": {
+      "type": "object",
+      "required": [
+        "preview_artifact_id",
+        "rendered_units",
+        "format",
+        "warnings"
+      ],
+      "properties": {
+        "preview_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rendered_units": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "warnings": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

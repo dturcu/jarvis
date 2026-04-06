@@ -1,0 +1,294 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json",
+  "title": "Jarvis Inference Job Types",
+  "type": "object",
+  "$defs": {
+    "chat_message": {
+      "type": "object",
+      "required": ["role", "content"],
+      "properties": {
+        "role": {
+          "type": "string",
+          "enum": ["system", "user", "assistant"]
+        },
+        "content": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "model_tier": {
+      "type": "string",
+      "enum": ["haiku", "sonnet", "opus"]
+    },
+    "runtime_name": {
+      "type": "string",
+      "enum": ["ollama", "lmstudio"]
+    },
+    "model_capability": {
+      "type": "string",
+      "enum": ["chat", "code", "vision", "embedding"]
+    },
+    "token_usage": {
+      "type": "object",
+      "required": ["prompt_tokens", "completion_tokens", "total_tokens"],
+      "properties": {
+        "prompt_tokens": { "type": "integer", "minimum": 0 },
+        "completion_tokens": { "type": "integer", "minimum": 0 },
+        "total_tokens": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "rag_result": {
+      "type": "object",
+      "required": ["text", "score", "source"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "source": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "batch_job_input": {
+      "type": "object",
+      "required": ["messages"],
+      "properties": {
+        "messages": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["role", "content"],
+            "properties": {
+              "role": { "type": "string", "minLength": 1 },
+              "content": { "type": "string", "minLength": 1 }
+            },
+            "additionalProperties": true
+          }
+        },
+        "model": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "batch_job_status_entry": {
+      "type": "object",
+      "required": ["index", "status"],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "running", "completed", "failed"]
+        },
+        "content": { "type": "string" },
+        "error": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "inference_chat_input": {
+      "type": "object",
+      "required": ["messages"],
+      "properties": {
+        "messages": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/chat_message" }
+        },
+        "model": { "type": "string", "minLength": 1 },
+        "tier": { "$ref": "#/$defs/model_tier" },
+        "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+        "max_tokens": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "inference_chat_output": {
+      "type": "object",
+      "required": ["content", "model", "runtime", "usage"],
+      "properties": {
+        "content": { "type": "string" },
+        "model": { "type": "string", "minLength": 1 },
+        "runtime": { "$ref": "#/$defs/runtime_name" },
+        "usage": { "$ref": "#/$defs/token_usage" }
+      },
+      "additionalProperties": false
+    },
+    "inference_embed_input": {
+      "type": "object",
+      "required": ["texts"],
+      "properties": {
+        "texts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "model": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "inference_embed_output": {
+      "type": "object",
+      "required": ["embeddings", "model", "runtime", "dimensions"],
+      "properties": {
+        "embeddings": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": { "type": "number" }
+          }
+        },
+        "model": { "type": "string", "minLength": 1 },
+        "runtime": { "$ref": "#/$defs/runtime_name" },
+        "dimensions": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "inference_list_models_input": {
+      "type": "object",
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "enum": ["ollama", "lmstudio", "all"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "inference_model_entry": {
+      "type": "object",
+      "required": ["id", "runtime", "tier", "capabilities"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "runtime": { "$ref": "#/$defs/runtime_name" },
+        "tier": { "$ref": "#/$defs/model_tier" },
+        "capabilities": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/model_capability" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "inference_list_models_output": {
+      "type": "object",
+      "required": ["models", "runtimes_available", "total_count"],
+      "properties": {
+        "models": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/inference_model_entry" }
+        },
+        "runtimes_available": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/runtime_name" }
+        },
+        "total_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "inference_rag_index_input": {
+      "type": "object",
+      "required": ["paths", "collection"],
+      "properties": {
+        "paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "collection": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "inference_rag_index_output": {
+      "type": "object",
+      "required": ["collection", "document_count", "chunk_count", "last_indexed_at"],
+      "properties": {
+        "collection": { "type": "string", "minLength": 1 },
+        "document_count": { "type": "integer", "minimum": 0 },
+        "chunk_count": { "type": "integer", "minimum": 0 },
+        "last_indexed_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "inference_rag_query_input": {
+      "type": "object",
+      "required": ["query", "collection", "top_k"],
+      "properties": {
+        "query": { "type": "string", "minLength": 1 },
+        "collection": { "type": "string", "minLength": 1 },
+        "top_k": { "type": "integer", "minimum": 1, "maximum": 50 }
+      },
+      "additionalProperties": false
+    },
+    "inference_rag_query_output": {
+      "type": "object",
+      "required": ["results", "collection", "query", "returned_count"],
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/rag_result" }
+        },
+        "collection": { "type": "string", "minLength": 1 },
+        "query": { "type": "string", "minLength": 1 },
+        "returned_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "inference_batch_submit_input": {
+      "type": "object",
+      "required": ["jobs"],
+      "properties": {
+        "jobs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/batch_job_input" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "inference_batch_submit_output": {
+      "type": "object",
+      "required": ["batch_id", "job_count", "status", "submitted_at"],
+      "properties": {
+        "batch_id": { "type": "string", "format": "uuid" },
+        "job_count": { "type": "integer", "minimum": 1 },
+        "status": { "type": "string", "enum": ["accepted", "queued"] },
+        "submitted_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "inference_batch_status_input": {
+      "type": "object",
+      "required": ["batch_id"],
+      "properties": {
+        "batch_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "inference_batch_status_output": {
+      "type": "object",
+      "required": [
+        "batch_id",
+        "total_jobs",
+        "completed_jobs",
+        "failed_jobs",
+        "pending_jobs",
+        "overall_status",
+        "jobs"
+      ],
+      "properties": {
+        "batch_id": { "type": "string", "minLength": 1 },
+        "total_jobs": { "type": "integer", "minimum": 0 },
+        "completed_jobs": { "type": "integer", "minimum": 0 },
+        "failed_jobs": { "type": "integer", "minimum": 0 },
+        "pending_jobs": { "type": "integer", "minimum": 0 },
+        "overall_status": {
+          "type": "string",
+          "enum": ["pending", "running", "completed", "partial_failure", "failed"]
+        },
+        "jobs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/batch_job_status_entry" }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

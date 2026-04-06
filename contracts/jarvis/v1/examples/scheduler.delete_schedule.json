@@ -1,0 +1,36 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-e5f6-7890-abcd-ef0123456703",
+    "type": "scheduler.delete_schedule",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "schedule_id": "sched-0000-0001-0001-000000000001"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-e5f6-7890-abcd-ef0123456703",
+    "job_type": "scheduler.delete_schedule",
+    "status": "completed",
+    "summary": "Schedule sched-0000-0001-0001-000000000001 deleted successfully.",
+    "attempt": 1,
+    "structured_output": {
+      "deleted": true,
+      "schedule_id": "sched-0000-0001-0001-000000000001"
+    }
+  }
+}

@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json",
+  "title": "Jarvis Scheduler Job Types",
+  "type": "object",
+  "$defs": {
+    "operator": {
+      "type": "string",
+      "enum": ["gt", "lt", "eq", "gte", "lte"]
+    },
+    "notify_severity": {
+      "type": "string",
+      "enum": ["info", "warning", "critical"]
+    },
+    "schedule_record": {
+      "type": "object",
+      "required": [
+        "schedule_id",
+        "job_type",
+        "input",
+        "next_fire_at",
+        "enabled",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "schedule_id": { "type": "string", "minLength": 1 },
+        "job_type": { "type": "string", "minLength": 1 },
+        "input": { "type": "object" },
+        "cron_expression": { "type": "string", "minLength": 1 },
+        "interval_seconds": { "type": "integer", "minimum": 1 },
+        "next_fire_at": { "type": "string", "minLength": 1 },
+        "enabled": { "type": "boolean" },
+        "scope_group": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "created_at": { "type": "string", "minLength": 1 },
+        "updated_at": { "type": "string", "minLength": 1 },
+        "last_fired_at": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "alert_rule": {
+      "type": "object",
+      "required": [
+        "alert_id",
+        "label",
+        "monitor_job_type",
+        "metric_path",
+        "operator",
+        "threshold",
+        "notify_severity",
+        "cooldown_seconds",
+        "enabled",
+        "created_at"
+      ],
+      "properties": {
+        "alert_id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "monitor_job_type": { "type": "string", "minLength": 1 },
+        "metric_path": { "type": "string", "minLength": 1 },
+        "operator": { "$ref": "#/$defs/operator" },
+        "threshold": { "type": "number" },
+        "notify_severity": { "$ref": "#/$defs/notify_severity" },
+        "cooldown_seconds": { "type": "integer", "minimum": 0 },
+        "last_triggered_at": { "type": "string", "minLength": 1 },
+        "enabled": { "type": "boolean" },
+        "created_at": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_create_schedule_input": {
+      "type": "object",
+      "required": ["job_type", "input"],
+      "properties": {
+        "job_type": { "type": "string", "minLength": 1 },
+        "input": { "type": "object" },
+        "cron_expression": { "type": "string", "minLength": 1 },
+        "interval_seconds": { "type": "integer", "minimum": 1 },
+        "enabled": { "type": "boolean" },
+        "scope_group": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_create_schedule_output": {
+      "type": "object",
+      "required": ["schedule"],
+      "properties": {
+        "schedule": { "$ref": "#/$defs/schedule_record" }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_list_schedules_input": {
+      "type": "object",
+      "properties": {
+        "scope_group": { "type": "string", "minLength": 1 },
+        "enabled_only": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_list_schedules_output": {
+      "type": "object",
+      "required": ["schedules", "total"],
+      "properties": {
+        "schedules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/schedule_record" }
+        },
+        "total": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_delete_schedule_input": {
+      "type": "object",
+      "required": ["schedule_id"],
+      "properties": {
+        "schedule_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_delete_schedule_output": {
+      "type": "object",
+      "required": ["deleted", "schedule_id"],
+      "properties": {
+        "deleted": { "type": "boolean" },
+        "schedule_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_create_alert_input": {
+      "type": "object",
+      "required": ["label", "monitor_job_type", "metric_path", "operator", "threshold"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "monitor_job_type": { "type": "string", "minLength": 1 },
+        "metric_path": { "type": "string", "minLength": 1 },
+        "operator": { "$ref": "#/$defs/operator" },
+        "threshold": { "type": "number" },
+        "notify_severity": { "$ref": "#/$defs/notify_severity" },
+        "cooldown_seconds": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_create_alert_output": {
+      "type": "object",
+      "required": ["alert"],
+      "properties": {
+        "alert": { "$ref": "#/$defs/alert_rule" }
+      },
+      "additionalProperties": false
+    },
+    "workflow_step": {
+      "type": "object",
+      "required": ["job_type", "input"],
+      "properties": {
+        "job_type": { "type": "string", "minLength": 1 },
+        "input": { "type": "object" },
+        "delay_seconds": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "workflow_record": {
+      "type": "object",
+      "required": ["workflow_id", "label", "steps", "enabled", "created_at", "updated_at"],
+      "properties": {
+        "workflow_id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "steps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/workflow_step" },
+          "minItems": 1
+        },
+        "scope_group": { "type": "string", "minLength": 1 },
+        "enabled": { "type": "boolean" },
+        "created_at": { "type": "string", "minLength": 1 },
+        "updated_at": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_create_workflow_input": {
+      "type": "object",
+      "required": ["label", "steps"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1 },
+        "steps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/workflow_step" },
+          "minItems": 1
+        },
+        "scope_group": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_create_workflow_output": {
+      "type": "object",
+      "required": ["workflow"],
+      "properties": {
+        "workflow": { "$ref": "#/$defs/workflow_record" }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_run_workflow_input": {
+      "type": "object",
+      "required": ["workflow_id"],
+      "properties": {
+        "workflow_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_run_workflow_output": {
+      "type": "object",
+      "required": ["workflow_id", "steps_queued", "run_id"],
+      "properties": {
+        "workflow_id": { "type": "string", "minLength": 1 },
+        "run_id": { "type": "string", "minLength": 1 },
+        "steps_queued": { "type": "integer", "minimum": 0 },
+        "job_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "habit_record": {
+      "type": "object",
+      "required": ["habit_id", "label", "enabled", "created_at"],
+      "properties": {
+        "habit_id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "enabled": { "type": "boolean" },
+        "created_at": { "type": "string", "minLength": 1 },
+        "last_logged_at": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "habit_entry": {
+      "type": "object",
+      "required": ["entry_id", "habit_id", "value", "logged_at"],
+      "properties": {
+        "entry_id": { "type": "string", "minLength": 1 },
+        "habit_id": { "type": "string", "minLength": 1 },
+        "value": { "type": "number" },
+        "logged_at": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_habit_track_input": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "habit_id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "action": { "type": "string", "enum": ["create", "log", "delete"] },
+        "value": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_habit_track_output": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": { "type": "string", "minLength": 1 },
+        "habit": { "$ref": "#/$defs/habit_record" },
+        "entry": { "$ref": "#/$defs/habit_entry" },
+        "deleted": { "type": "boolean" },
+        "habit_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "habit_status_summary": {
+      "type": "object",
+      "required": ["habit_id", "label", "days_back", "log_count", "total_value"],
+      "properties": {
+        "habit_id": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "days_back": { "type": "integer", "minimum": 1 },
+        "log_count": { "type": "integer", "minimum": 0 },
+        "total_value": { "type": "number" },
+        "average_value": { "type": "number" },
+        "last_logged_at": { "type": "string", "minLength": 1 },
+        "entries": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/habit_entry" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_habit_status_input": {
+      "type": "object",
+      "properties": {
+        "habit_id": { "type": "string", "minLength": 1 },
+        "days_back": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "scheduler_habit_status_output": {
+      "type": "object",
+      "required": ["habits"],
+      "properties": {
+        "habits": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/habit_status_summary" }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

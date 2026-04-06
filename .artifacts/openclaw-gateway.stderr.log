@@ -1,0 +1,119 @@
+2026-04-04T10:35:00.708+01:00 [gateway] auth mode=none explicitly configured; all gateway connections are unauthenticated.
+2026-04-04T10:35:04.347+01:00 [bonjour] gateway name conflict resolved; newName="NucBox_EVO-X2 (OpenClaw) (2)"
+2026-04-04T10:35:04.351+01:00 [bonjour] gateway hostname conflict resolved; newHostname="openclaw-(2)"
+2026-04-04T10:35:20.776+01:00 [ws] closed before connect conn=648978c7-69e3-443f-891c-1045c7cae29e remote=127.0.0.1 fwd=n/a origin=n/a host=127.0.0.1:18789 ua=n/a code=1008 reason=connect failed
+2026-04-04T10:36:55.041+01:00 [diagnostic] lane task error: lane=main durationMs=1213 error="Error: No API key found for provider "anthropic". Auth store: C:\Users\DanielV2\.openclaw-jarvis-smoke\agents\main\agent\auth-profiles.json (agentDir: C:\Users\DanielV2\.openclaw-jarvis-smoke\agents\main\agent). Configure auth for this agent (openclaw --profile jarvis-smoke agents add <id>) or copy auth-profiles.json from the main agentDir."
+2026-04-04T10:36:55.042+01:00 [diagnostic] lane task error: lane=session:agent:main:main durationMs=1216 error="Error: No API key found for provider "anthropic". Auth store: C:\Users\DanielV2\.openclaw-jarvis-smoke\agents\main\agent\auth-profiles.json (agentDir: C:\Users\DanielV2\.openclaw-jarvis-smoke\agents\main\agent). Configure auth for this agent (openclaw --profile jarvis-smoke agents add <id>) or copy auth-profiles.json from the main agentDir."
+2026-04-04T10:36:55.049+01:00 [model-fallback/decision] model fallback decision: decision=candidate_failed requested=anthropic/claude-opus-4-6 candidate=anthropic/claude-opus-4-6 reason=auth next=none
+2026-04-04T10:37:24.006+01:00 [gateway-http] stage "slack" threw — skipping: Error: Cannot find module '@slack/web-api'
+Require stack:
+- C:\Users\DanielV2\Documents\Playground\node_modules\openclaw\dist\client-Cm0jR4_W.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+    at require.resolve (node:internal/modules/helpers:163:19)
+    at jitiResolve (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:148703)
+    at jitiRequire (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:150290)
+    at C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:157987
+    at C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/client-Cm0jR4_W.js:5:15
+    at eval_evalModule (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:155533)
+    at jitiRequire (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:150967)
+    at C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:157987
+    at C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/extensions/slack/api.js:2:23
+    at eval_evalModule (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:155533)
+    at jitiRequire (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:150967)
+    at C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:157987
+    at loadBundledPluginPublicSurfaceModuleSync (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/facade-runtime-D_0VC8Qr.js:239:40)
+    at loadFacadeModule (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/slack-surface-D5OdEaUO.js:4:9)
+    at handleSlackHttpRequest (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/slack-surface-D5OdEaUO.js:16:46)
+    at Object.run (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/gateway-cli-CWpalJNJ.js:24351:17)
+    at runGatewayHttpRequestStages (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/gateway-cli-CWpalJNJ.js:23891:19)
+    at handleRequest (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/gateway-cli-CWpalJNJ.js:24439:8) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\DanielV2\\Documents\\Playground\\node_modules\\openclaw\\dist\\client-Cm0jR4_W.js'
+  ]
+}
+2026-04-04T10:38:14.892+01:00 [gateway-http] stage "slack" threw — skipping: Error: Cannot find module '@slack/web-api'
+Require stack:
+- C:\Users\DanielV2\Documents\Playground\node_modules\openclaw\dist\client-Cm0jR4_W.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+    at require.resolve (node:internal/modules/helpers:163:19)
+    at jitiResolve (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:148703)
+    at jitiRequire (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:150290)
+    at C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:157987
+    at C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/client-Cm0jR4_W.js:5:15
+    at eval_evalModule (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:155533)
+    at jitiRequire (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:150967)
+    at C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:157987
+    at C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/extensions/slack/api.js:2:23
+    at eval_evalModule (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:155533)
+    at jitiRequire (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:150967)
+    at C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:157987
+    at loadBundledPluginPublicSurfaceModuleSync (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/facade-runtime-D_0VC8Qr.js:239:40)
+    at loadFacadeModule (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/slack-surface-D5OdEaUO.js:4:9)
+    at handleSlackHttpRequest (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/slack-surface-D5OdEaUO.js:16:46)
+    at Object.run (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/gateway-cli-CWpalJNJ.js:24351:17)
+    at runGatewayHttpRequestStages (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/gateway-cli-CWpalJNJ.js:23891:19)
+    at handleRequest (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/gateway-cli-CWpalJNJ.js:24439:8) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\DanielV2\\Documents\\Playground\\node_modules\\openclaw\\dist\\client-Cm0jR4_W.js'
+  ]
+}
+2026-04-04T10:38:28.790+01:00 [gateway-http] stage "slack" threw — skipping: Error: Cannot find module '@slack/web-api'
+Require stack:
+- C:\Users\DanielV2\Documents\Playground\node_modules\openclaw\dist\client-Cm0jR4_W.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+    at require.resolve (node:internal/modules/helpers:163:19)
+    at jitiResolve (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:148703)
+    at jitiRequire (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:150290)
+    at C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:157987
+    at C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/client-Cm0jR4_W.js:5:15
+    at eval_evalModule (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:155533)
+    at jitiRequire (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:150967)
+    at C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:157987
+    at C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/extensions/slack/api.js:2:23
+    at eval_evalModule (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:155533)
+    at jitiRequire (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:150967)
+    at C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:157987
+    at loadBundledPluginPublicSurfaceModuleSync (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/facade-runtime-D_0VC8Qr.js:239:40)
+    at loadFacadeModule (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/slack-surface-D5OdEaUO.js:4:9)
+    at handleSlackHttpRequest (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/slack-surface-D5OdEaUO.js:16:46)
+    at Object.run (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/gateway-cli-CWpalJNJ.js:24351:17)
+    at runGatewayHttpRequestStages (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/gateway-cli-CWpalJNJ.js:23891:19)
+    at handleRequest (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/gateway-cli-CWpalJNJ.js:24439:8) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\DanielV2\\Documents\\Playground\\node_modules\\openclaw\\dist\\client-Cm0jR4_W.js'
+  ]
+}
+2026-04-04T10:38:28.941+01:00 [gateway-http] stage "slack" threw — skipping: Error: Cannot find module '@slack/web-api'
+Require stack:
+- C:\Users\DanielV2\Documents\Playground\node_modules\openclaw\dist\client-Cm0jR4_W.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1456:15)
+    at require.resolve (node:internal/modules/helpers:163:19)
+    at jitiResolve (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:148703)
+    at jitiRequire (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:150290)
+    at C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:157987
+    at C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/client-Cm0jR4_W.js:5:15
+    at eval_evalModule (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:155533)
+    at jitiRequire (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:150967)
+    at C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:157987
+    at C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/extensions/slack/api.js:2:23
+    at eval_evalModule (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:155533)
+    at jitiRequire (C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:150967)
+    at C:\Users\DanielV2\Documents\Playground\node_modules\jiti\dist\jiti.cjs:1:157987
+    at loadBundledPluginPublicSurfaceModuleSync (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/facade-runtime-D_0VC8Qr.js:239:40)
+    at loadFacadeModule (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/slack-surface-D5OdEaUO.js:4:9)
+    at handleSlackHttpRequest (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/slack-surface-D5OdEaUO.js:16:46)
+    at Object.run (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/gateway-cli-CWpalJNJ.js:24351:17)
+    at runGatewayHttpRequestStages (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/gateway-cli-CWpalJNJ.js:23891:19)
+    at handleRequest (file:///C:/Users/DanielV2/Documents/Playground/node_modules/openclaw/dist/gateway-cli-CWpalJNJ.js:24439:8) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\DanielV2\\Documents\\Playground\\node_modules\\openclaw\\dist\\client-Cm0jR4_W.js'
+  ]
+}
+2026-04-04T10:38:33.277+01:00 [reload] config change requires gateway restart (gateway)
+2026-04-04T10:38:38.839+01:00 [bonjour] watchdog detected non-announced service; attempting re-advertise (gateway fqdn=NucBox_EVO-X2 (OpenClaw)._openclaw-gw._tcp.local. host=openclaw.local. port=18789 state=probing)
+2026-04-04T10:38:42.498+01:00 [bonjour] gateway name conflict resolved; newName="NucBox_EVO-X2 (OpenClaw) (2)"
+2026-04-04T10:38:42.500+01:00 [bonjour] gateway hostname conflict resolved; newHostname="openclaw-(2)"

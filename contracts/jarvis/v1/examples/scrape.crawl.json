@@ -1,0 +1,59 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a4a4d4cf-18ff-47c6-93c2-4e0fb3b97a45",
+    "type": "scrape.crawl",
+    "session_key": "agent:main:telegram:group:-1001234567890",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "612",
+      "chat_id": "-1001234567890"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 1800,
+    "attempt": 1,
+    "input": {
+      "seed_urls": [
+        "https://example.com/docs"
+      ],
+      "allowed_domains": [
+        "example.com"
+      ],
+      "max_pages": 10,
+      "extraction_profile": "content",
+      "output_name": "crawl.json"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a4a4d4cf-18ff-47c6-93c2-4e0fb3b97a45",
+    "job_type": "scrape.crawl",
+    "status": "completed",
+    "summary": "Crawled ten pages from the allowed domain.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "c8f2eddf-26af-42f6-a3a9-2bf0fa07c8ec",
+        "kind": "json",
+        "name": "crawl.json",
+        "path": "C:\\Jarvis\\artifacts\\crawl.json",
+        "path_context": "windows-host",
+        "path_style": "windows",
+        "size_bytes": 12041
+      }
+    ],
+    "structured_output": {
+      "page_count": 10,
+      "discovered_urls": 26,
+      "output_artifact_id": "c8f2eddf-26af-42f6-a3a9-2bf0fa07c8ec",
+      "warnings": []
+    }
+  }
+}

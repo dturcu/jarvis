@@ -1,0 +1,213 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json",
+  "title": "Jarvis Web Job Types",
+  "type": "object",
+  "$defs": {
+    "news_article": {
+      "type": "object",
+      "required": ["title", "url", "source", "published_at", "snippet", "relevance_score"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "url": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "published_at": { "type": "string", "format": "date-time" },
+        "snippet": { "type": "string", "minLength": 1 },
+        "relevance_score": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "job_posting": {
+      "type": "object",
+      "required": ["company", "title", "location", "posted_at", "url", "keywords_matched", "relevance_score"],
+      "properties": {
+        "company": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "location": { "type": "string", "minLength": 1 },
+        "posted_at": { "type": "string", "format": "date-time" },
+        "url": { "type": "string", "minLength": 1 },
+        "keywords_matched": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "relevance_score": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "web_search_news_input": {
+      "type": "object",
+      "required": ["query"],
+      "properties": {
+        "query": { "type": "string", "minLength": 1 },
+        "max_results": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "date_from": { "type": "string", "format": "date" },
+        "sources": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "web_search_news_output": {
+      "type": "object",
+      "required": ["articles", "query", "total_found"],
+      "properties": {
+        "articles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/news_article" }
+        },
+        "query": { "type": "string", "minLength": 1 },
+        "total_found": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "web_scrape_profile_input": {
+      "type": "object",
+      "required": ["url", "profile_type"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "profile_type": {
+          "type": "string",
+          "enum": ["company", "person", "job_posting"]
+        },
+        "extract_fields": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "web_scrape_profile_output": {
+      "type": "object",
+      "required": ["url", "profile_type", "data", "scraped_at"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "profile_type": { "type": "string", "minLength": 1 },
+        "data": { "type": "object" },
+        "scraped_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "web_monitor_page_input": {
+      "type": "object",
+      "required": ["url", "page_id"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "page_id": { "type": "string", "minLength": 1 },
+        "selector": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "web_monitor_page_output": {
+      "type": "object",
+      "required": ["url", "page_id", "has_changed", "current_hash", "checked_at"],
+      "properties": {
+        "url": { "type": "string", "minLength": 1 },
+        "page_id": { "type": "string", "minLength": 1 },
+        "has_changed": { "type": "boolean" },
+        "change_summary": { "type": "string", "minLength": 1 },
+        "current_hash": { "type": "string", "minLength": 1 },
+        "previous_hash": { "type": "string", "minLength": 1 },
+        "checked_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "web_enrich_contact_input": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "company": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "minLength": 1 },
+        "linkedin_url": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "web_enrich_contact_output": {
+      "type": "object",
+      "required": ["name", "enriched_at", "confidence"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "minLength": 1 },
+        "company": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 },
+        "linkedin_url": { "type": "string", "minLength": 1 },
+        "company_size": { "type": "string", "minLength": 1 },
+        "industry": { "type": "string", "minLength": 1 },
+        "location": { "type": "string", "minLength": 1 },
+        "enriched_at": { "type": "string", "format": "date-time" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "web_track_jobs_input": {
+      "type": "object",
+      "required": ["company_names", "keywords"],
+      "properties": {
+        "company_names": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "keywords": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "max_per_company": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "web_track_jobs_output": {
+      "type": "object",
+      "required": ["postings", "total_found", "companies_searched", "scanned_at"],
+      "properties": {
+        "postings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/job_posting" }
+        },
+        "total_found": { "type": "integer", "minimum": 0 },
+        "companies_searched": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "scanned_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "web_competitive_intel_input": {
+      "type": "object",
+      "required": ["company_name"],
+      "properties": {
+        "company_name": { "type": "string", "minLength": 1 },
+        "aspects": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["products", "pricing", "team", "news", "customers"]
+          },
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "web_competitive_intel_output": {
+      "type": "object",
+      "required": ["company_name", "summary", "key_facts", "recent_news", "intel_gathered_at"],
+      "properties": {
+        "company_name": { "type": "string", "minLength": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "key_facts": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "recent_news": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/news_article" }
+        },
+        "intel_gathered_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

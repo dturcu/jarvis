@@ -1,0 +1,44 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "054cb706-ae8f-4cb5-a4ba-c7dfb79cd4a4",
+    "type": "files.write",
+    "session_key": "agent:main:cli:local:files",
+    "requested_by": {
+      "channel": "cli",
+      "user_id": "operator"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 120,
+    "attempt": 1,
+    "input": {
+      "root_path": "C:/workspace",
+      "path": "drafts/summary.txt",
+      "content": "approved write",
+      "encoding": "utf8",
+      "create_directories": true,
+      "overwrite": true
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null,
+      "capability_route": "files"
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "054cb706-ae8f-4cb5-a4ba-c7dfb79cd4a4",
+    "job_type": "files.write",
+    "status": "completed",
+    "summary": "Wrote 14 bytes to drafts/summary.txt.",
+    "attempt": 1,
+    "structured_output": {
+      "root_path": "C:/workspace",
+      "path": "drafts/summary.txt",
+      "encoding": "utf8",
+      "size_bytes": 14
+    }
+  }
+}

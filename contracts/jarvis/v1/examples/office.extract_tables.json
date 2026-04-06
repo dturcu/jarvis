@@ -1,0 +1,77 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d2194cc6-295a-4388-91b0-2b291e461251",
+    "type": "office.extract_tables",
+    "session_key": "agent:main:telegram:dm:123456789",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "506",
+      "chat_id": "123456789"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 600,
+    "attempt": 1,
+    "input": {
+      "source_artifact": {
+        "artifact_id": "ac571727-b40d-46e8-a4fb-9a56e36ea690",
+        "name": "board-pack.pptx",
+        "kind": "pptx"
+      },
+      "selection_mode": "named_targets",
+      "targets": [
+        {
+          "kind": "slide",
+          "identifier": "7"
+        }
+      ],
+      "format": "xlsx",
+      "include_header": true,
+      "output_name": "board-tables.xlsx"
+    },
+    "artifacts_in": [
+      {
+        "artifact_id": "ac571727-b40d-46e8-a4fb-9a56e36ea690",
+        "name": "board-pack.pptx",
+        "kind": "pptx"
+      }
+    ],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d2194cc6-295a-4388-91b0-2b291e461251",
+    "job_type": "office.extract_tables",
+    "status": "completed",
+    "summary": "Extracted one table from the presentation.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "2e6db594-5484-4419-ab90-8c4fb8f9af2d",
+        "kind": "xlsx",
+        "name": "board-tables.xlsx",
+        "path": "C:\\Jarvis\\artifacts\\board-tables.xlsx",
+        "path_context": "windows-host",
+        "path_style": "windows",
+        "size_bytes": 28660
+      }
+    ],
+    "structured_output": {
+      "table_count": 1,
+      "export_artifact_id": "2e6db594-5484-4419-ab90-8c4fb8f9af2d",
+      "tables": [
+        {
+          "table_id": "slide-7-table-1",
+          "rows": 12,
+          "columns": 5,
+          "source_label": "Slide 7"
+        }
+      ]
+    }
+  }
+}

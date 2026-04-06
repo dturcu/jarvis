@@ -1,0 +1,125 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/jarvis-shared"
+    },
+    {
+      "path": "./packages/jarvis-core"
+    },
+    {
+      "path": "./packages/jarvis-jobs"
+    },
+    {
+      "path": "./packages/jarvis-dispatch"
+    },
+    {
+      "path": "./packages/jarvis-office"
+    },
+    {
+      "path": "./packages/jarvis-files"
+    },
+    {
+      "path": "./packages/jarvis-browser"
+    },
+    {
+      "path": "./packages/jarvis-device"
+    },
+    {
+      "path": "./packages/jarvis-desktop-host-worker"
+    },
+    {
+      "path": "./packages/jarvis-supervisor"
+    },
+    {
+      "path": "./packages/jarvis-system"
+    },
+    {
+      "path": "./packages/jarvis-system-worker"
+    },
+    {
+      "path": "./packages/jarvis-inference"
+    },
+    {
+      "path": "./packages/jarvis-inference-worker"
+    },
+    {
+      "path": "./packages/jarvis-scheduler"
+    },
+    {
+      "path": "./packages/jarvis-interpreter"
+    },
+    {
+      "path": "./packages/jarvis-interpreter-worker"
+    },
+    {
+      "path": "./packages/jarvis-voice"
+    },
+    {
+      "path": "./packages/jarvis-voice-worker"
+    },
+    {
+      "path": "./packages/jarvis-security"
+    },
+    {
+      "path": "./packages/jarvis-security-worker"
+    },
+    {
+      "path": "./packages/jarvis-agent-framework"
+    },
+    {
+      "path": "./packages/jarvis-agent-plugin"
+    },
+    {
+      "path": "./packages/jarvis-agent-worker"
+    },
+    {
+      "path": "./packages/jarvis-calendar-worker"
+    },
+    {
+      "path": "./packages/jarvis-calendar-plugin"
+    },
+    {
+      "path": "./packages/jarvis-email-worker"
+    },
+    {
+      "path": "./packages/jarvis-email-plugin"
+    },
+    {
+      "path": "./packages/jarvis-crm-worker"
+    },
+    {
+      "path": "./packages/jarvis-crm-plugin"
+    },
+    {
+      "path": "./packages/jarvis-web-worker"
+    },
+    {
+      "path": "./packages/jarvis-web-plugin"
+    },
+    {
+      "path": "./packages/jarvis-document-worker"
+    },
+    {
+      "path": "./packages/jarvis-document-plugin"
+    },
+    {
+      "path": "./packages/jarvis-browser-worker"
+    },
+    {
+      "path": "./packages/jarvis-agents"
+    },
+    {
+      "path": "./packages/jarvis-social-worker"
+    },
+    {
+      "path": "./packages/jarvis-office-worker"
+    },
+    {
+      "path": "./packages/jarvis-time-worker"
+    },
+    {
+      "path": "./packages/jarvis-drive-worker"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "87f59e51-b70a-4600-925d-63a31d2f5e10",
+    "type": "files.copy",
+    "session_key": "agent:main:cli:local:files",
+    "requested_by": {
+      "channel": "cli",
+      "user_id": "operator"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 120,
+    "attempt": 1,
+    "input": {
+      "root_path": "C:/workspace",
+      "source_path": "notes.txt",
+      "destination_path": "archive/notes.txt",
+      "create_directories": true,
+      "overwrite": true
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null,
+      "capability_route": "files"
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "87f59e51-b70a-4600-925d-63a31d2f5e10",
+    "job_type": "files.copy",
+    "status": "completed",
+    "summary": "Copied notes.txt to archive/notes.txt.",
+    "attempt": 1,
+    "structured_output": {
+      "root_path": "C:/workspace",
+      "source_path": "notes.txt",
+      "destination_path": "archive/notes.txt",
+      "size_bytes": 42
+    }
+  }
+}

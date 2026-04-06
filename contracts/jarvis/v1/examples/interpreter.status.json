@@ -1,0 +1,40 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "c3d4e5f6-a7b8-9012-cdef-012345678901",
+    "type": "interpreter.status",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {},
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "c3d4e5f6-a7b8-9012-cdef-012345678901",
+    "job_type": "interpreter.status",
+    "status": "completed",
+    "summary": "Found 1 interpreter session(s).",
+    "attempt": 1,
+    "structured_output": {
+      "active_sessions": [
+        {
+          "session_id": "b2c3d4e5-f6a7-8901-bcde-f01234567890",
+          "task": "Download the latest sales CSV and compute top 5 products by revenue",
+          "started_at": "2026-04-04T10:00:00.000Z",
+          "status": "completed"
+        }
+      ]
+    }
+  }
+}

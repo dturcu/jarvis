@@ -1,0 +1,52 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0011-4000-8000-000000000011",
+    "type": "calendar.create_event",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "consultant"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 60,
+    "attempt": 1,
+    "input": {
+      "title": "SOTIF analysis workshop - ADAS sensor fusion",
+      "start": "2026-04-15T09:00:00.000Z",
+      "end": "2026-04-15T12:00:00.000Z",
+      "description": "Facilitate SOTIF (ISO 21448) analysis session for camera and LiDAR fusion pipeline.",
+      "location": "Mobileye Engineering, Jerusalem",
+      "attendees": [
+        "d.levy@mobileye.com",
+        "n.cohen@mobileye.com",
+        "consultant@jarvis.local"
+      ],
+      "calendar_id": "primary",
+      "send_invites": true
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0011-4000-8000-000000000011",
+    "job_type": "calendar.create_event",
+    "status": "completed",
+    "summary": "Created event 'SOTIF analysis workshop - ADAS sensor fusion' on 2026-04-15T09:00:00.000Z in calendar 'primary'.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "event_id": "evt-created-a1b2c3d4",
+      "calendar_id": "primary",
+      "title": "SOTIF analysis workshop - ADAS sensor fusion",
+      "start": "2026-04-15T09:00:00.000Z",
+      "end": "2026-04-15T12:00:00.000Z",
+      "created_at": "2026-04-04T12:00:00.000Z"
+    }
+  }
+}

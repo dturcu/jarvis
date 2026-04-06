@@ -1,0 +1,60 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ec000007-0007-4000-8000-000000000007",
+    "type": "security.lockdown",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "urgent",
+    "approval_state": "approved",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "level": "standard",
+      "kill_non_whitelisted": true,
+      "block_outbound": true,
+      "lock_screen": true
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ec000007-0007-4000-8000-000000000007",
+    "job_type": "security.lockdown",
+    "status": "completed",
+    "summary": "Lockdown (standard) activated. 1 process(es) killed, 1 rule(s) added.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "activated_at": "2026-04-04T12:00:30.000Z",
+      "level": "standard",
+      "actions_taken": [
+        {
+          "action": "kill_non_whitelisted_processes",
+          "success": true,
+          "details": "Killed 1 non-whitelisted process(es)."
+        },
+        {
+          "action": "block_outbound_connections",
+          "success": true,
+          "details": "Outbound block rule added."
+        },
+        {
+          "action": "lock_screen",
+          "success": true,
+          "details": "Workstation locked."
+        }
+      ],
+      "processes_killed": 1,
+      "firewall_rules_added": 1,
+      "screen_locked": true
+    }
+  }
+}

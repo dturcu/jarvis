@@ -1,0 +1,21 @@
+{
+  "name": "@jarvis/office-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@jarvis/shared": "file:../jarvis-shared",
+    "xlsx": "^0.18.5",
+    "docxtemplater": "^3.50.0",
+    "pizzip": "^3.1.7",
+    "pptxgenjs": "^3.12.0"
+  }
+}

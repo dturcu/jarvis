@@ -1,0 +1,65 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d1e0c7ce-19d9-4517-9d76-7b8d71e4fe4b",
+    "type": "python.report",
+    "session_key": "agent:main:telegram:dm:123456789",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "608",
+      "chat_id": "123456789"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 600,
+    "attempt": 1,
+    "input": {
+      "source_artifacts": [
+        {
+          "artifact_id": "a1da0c8b-49a4-4a1d-bb9f-60bc4b4d7c1f",
+          "name": "analysis.json",
+          "kind": "json"
+        }
+      ],
+      "format": "markdown",
+      "title": "Q1 Analysis Summary",
+      "output_name": "q1-analysis-report.md"
+    },
+    "artifacts_in": [
+      {
+        "artifact_id": "a1da0c8b-49a4-4a1d-bb9f-60bc4b4d7c1f",
+        "name": "analysis.json",
+        "kind": "json"
+      }
+    ],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d1e0c7ce-19d9-4517-9d76-7b8d71e4fe4b",
+    "job_type": "python.report",
+    "status": "completed",
+    "summary": "Built one markdown report from the analysis artifact.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "f6d20d58-2af8-42a6-8213-4c9c5ab8d6f0",
+        "kind": "md",
+        "name": "q1-analysis-report.md",
+        "path": "C:\\Jarvis\\artifacts\\q1-analysis-report.md",
+        "path_context": "windows-host",
+        "path_style": "windows",
+        "size_bytes": 934
+      }
+    ],
+    "structured_output": {
+      "report_artifact_id": "f6d20d58-2af8-42a6-8213-4c9c5ab8d6f0",
+      "section_count": 3,
+      "warnings": []
+    }
+  }
+}

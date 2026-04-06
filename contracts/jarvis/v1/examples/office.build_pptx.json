@@ -1,0 +1,75 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "77727d39-5624-40f9-b193-a5c03105f4a5",
+    "type": "office.build_pptx",
+    "session_key": "agent:main:telegram:group:-1001234567890",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "505",
+      "chat_id": "-1001234567890"
+    },
+    "priority": "high",
+    "approval_state": "not_required",
+    "timeout_seconds": 900,
+    "attempt": 1,
+    "input": {
+      "source": {
+        "kind": "outline",
+        "title": "Q2 Review",
+        "slides": [
+          {
+            "title": "Summary",
+            "bullets": [
+              "Revenue up",
+              "Costs flat"
+            ]
+          },
+          {
+            "title": "Risks",
+            "bullets": [
+              "Delay",
+              "Hiring"
+            ],
+            "notes": "Call out supplier risk."
+          }
+        ]
+      },
+      "theme": "corporate_clean",
+      "speaker_notes": true,
+      "output_name": "q2-review.pptx"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "77727d39-5624-40f9-b193-a5c03105f4a5",
+    "job_type": "office.build_pptx",
+    "status": "completed",
+    "summary": "Built a two-slide review deck.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "12f2b804-f2c9-4dd3-904d-c94589dd0eff",
+        "kind": "pptx",
+        "name": "q2-review.pptx",
+        "path": "/data/artifacts/q2-review.pptx",
+        "path_context": "wsl-ubuntu",
+        "path_style": "posix",
+        "size_bytes": 146882
+      }
+    ],
+    "structured_output": {
+      "output_artifact_id": "12f2b804-f2c9-4dd3-904d-c94589dd0eff",
+      "slide_count": 2,
+      "theme_applied": "corporate_clean",
+      "notes_included": true,
+      "warnings": []
+    }
+  }
+}

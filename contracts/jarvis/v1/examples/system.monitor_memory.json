@@ -1,0 +1,90 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0002-4000-8000-000000000002",
+    "type": "system.monitor_memory",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "top_n": 5
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0002-4000-8000-000000000002",
+    "job_type": "system.monitor_memory",
+    "status": "completed",
+    "summary": "Collected memory usage snapshot with top 5 consumers.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "observed_at": "2026-04-04T12:00:05Z",
+      "total_bytes": 34359738368,
+      "available_bytes": 17179869184,
+      "used_bytes": 17179869184,
+      "use_percent": 50.0,
+      "swap_total_bytes": 8589934592,
+      "swap_used_bytes": 524288000,
+      "swap_use_percent": 6.1,
+      "top_consumers": [
+        {
+          "pid": 4312,
+          "name": "Code.exe",
+          "cpu_percent": 5.2,
+          "memory_mb": 1024.5,
+          "status": "running",
+          "user": "daniel",
+          "executable": "C:\\Users\\daniel\\AppData\\Local\\Programs\\Microsoft VS Code\\Code.exe"
+        },
+        {
+          "pid": 1204,
+          "name": "chrome.exe",
+          "cpu_percent": 8.7,
+          "memory_mb": 892.3,
+          "status": "running",
+          "user": "daniel",
+          "executable": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+        },
+        {
+          "pid": 2088,
+          "name": "node.exe",
+          "cpu_percent": 3.1,
+          "memory_mb": 512.0,
+          "status": "running",
+          "user": "daniel",
+          "executable": "C:\\Program Files\\nodejs\\node.exe"
+        },
+        {
+          "pid": 980,
+          "name": "Slack.exe",
+          "cpu_percent": 1.4,
+          "memory_mb": 380.7,
+          "status": "running",
+          "user": "daniel",
+          "executable": "C:\\Users\\daniel\\AppData\\Local\\slack\\Slack.exe"
+        },
+        {
+          "pid": 3640,
+          "name": "explorer.exe",
+          "cpu_percent": 0.3,
+          "memory_mb": 145.2,
+          "status": "running",
+          "user": "daniel",
+          "executable": "C:\\Windows\\explorer.exe"
+        }
+      ]
+    }
+  }
+}

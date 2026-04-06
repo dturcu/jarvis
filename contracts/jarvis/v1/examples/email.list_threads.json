@@ -1,0 +1,56 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-e006-4000-8000-000000000105",
+    "type": "email.list_threads",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "consultant"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 120,
+    "attempt": 1,
+    "input": {
+      "query": "AUTOSAR",
+      "max_results": 20
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-e006-4000-8000-000000000105",
+    "job_type": "email.list_threads",
+    "status": "completed",
+    "summary": "Found 1 thread(s) matching \"AUTOSAR\".",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "threads": [
+        {
+          "thread_id": "thread-001",
+          "subject": "Re: AUTOSAR migration scope — updated timeline",
+          "snippet": "Following up on the AUTOSAR Classic to Adaptive migration. Can we schedule a call this week?",
+          "message_count": 2,
+          "last_message_date": "2026-04-03T09:14:00.000Z",
+          "participants": [
+            "hans.mueller@tier1-supplier.de",
+            "consulting@jarvis-safety.com"
+          ]
+        }
+      ],
+      "total_results": 1
+    },
+    "metrics": {
+      "started_at": "2026-04-04T12:00:00.000Z",
+      "finished_at": "2026-04-04T12:00:00.600Z",
+      "attempt": 1,
+      "worker_id": "email-worker"
+    }
+  }
+}

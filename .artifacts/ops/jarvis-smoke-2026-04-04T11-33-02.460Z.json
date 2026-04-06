@@ -1,0 +1,127 @@
+{
+  "profile": "jarvis-smoke",
+  "status": "degraded",
+  "configPath": "C:\\Users\\DanielV2\\.openclaw-jarvis-smoke\\openclaw.json",
+  "configSummary": {
+    "gatewayMode": "local",
+    "gatewayAuthMode": "token",
+    "gatewayPort": 18899,
+    "primaryModel": "lmstudio/jarvis-smoke-32k",
+    "primaryModelIdentifier": "jarvis-smoke-32k",
+    "lmstudioBaseUrl": "http://127.0.0.1:1234/v1",
+    "lmstudioModelIdentifier": "jarvis-smoke-32k",
+    "workspacePath": "C:\\Users\\DanielV2\\Documents\\Playground\\.artifacts\\runtime-smoke\\workspace-jarvis-smoke",
+    "pluginLoadPaths": [
+      "C:\\Users\\DanielV2\\Documents\\Playground\\packages\\jarvis-core",
+      "C:\\Users\\DanielV2\\Documents\\Playground\\packages\\jarvis-jobs",
+      "C:\\Users\\DanielV2\\Documents\\Playground\\packages\\jarvis-device",
+      "C:\\Users\\DanielV2\\Documents\\Playground\\packages\\jarvis-office",
+      "C:\\Users\\DanielV2\\Documents\\Playground\\packages\\jarvis-dispatch"
+    ],
+    "enabledPluginIds": [
+      "jarvis-core",
+      "jarvis-jobs",
+      "jarvis-device",
+      "jarvis-office",
+      "jarvis-dispatch"
+    ],
+    "bootstrapMaxChars": 1200,
+    "bootstrapTotalMaxChars": 4000,
+    "skipBootstrap": true
+  },
+  "gateway": {
+    "ok": false,
+    "error": "fetch failed"
+  },
+  "lmstudio": {
+    "ok": true,
+    "status": 200,
+    "statusText": "OK",
+    "data": {
+      "data": [
+        {
+          "id": "qwen/qwen3.5-35b-a3b",
+          "object": "model",
+          "owned_by": "organization_owner"
+        },
+        {
+          "id": "google/gemma-4-26b-a4b",
+          "object": "model",
+          "owned_by": "organization_owner"
+        },
+        {
+          "id": "minimax-m2.5-carve-v1-i1",
+          "object": "model",
+          "owned_by": "organization_owner"
+        },
+        {
+          "id": "qwen3.5-122b-a10b_moe",
+          "object": "model",
+          "owned_by": "organization_owner"
+        },
+        {
+          "id": "openai/gpt-oss-120b",
+          "object": "model",
+          "owned_by": "organization_owner"
+        },
+        {
+          "id": "google/gemma-3-4b",
+          "object": "model",
+          "owned_by": "organization_owner"
+        },
+        {
+          "id": "text-embedding-nomic-embed-text-v1.5",
+          "object": "model",
+          "owned_by": "organization_owner"
+        }
+      ],
+      "object": "list"
+    },
+    "pinnedModelPresent": false,
+    "modelIds": [
+      "qwen/qwen3.5-35b-a3b",
+      "google/gemma-4-26b-a4b",
+      "minimax-m2.5-carve-v1-i1",
+      "qwen3.5-122b-a10b_moe",
+      "openai/gpt-oss-120b",
+      "google/gemma-3-4b",
+      "text-embedding-nomic-embed-text-v1.5"
+    ]
+  },
+  "recommendations": [
+    "Gateway is not healthy. Start the OpenClaw Gateway service for the profile.",
+    "LM Studio is missing the pinned model jarvis-smoke-32k. Start the server and load the model identifier."
+  ],
+  "runtime": {
+    "gatewayPort": 18899,
+    "lmstudioPort": 1234,
+    "modelIdentifier": "jarvis-smoke-32k"
+  },
+  "config": {
+    "gatewayMode": "local",
+    "gatewayAuthMode": "token",
+    "gatewayPort": 18899,
+    "primaryModel": "lmstudio/jarvis-smoke-32k",
+    "primaryModelIdentifier": "jarvis-smoke-32k",
+    "lmstudioBaseUrl": "http://127.0.0.1:1234/v1",
+    "lmstudioModelIdentifier": "jarvis-smoke-32k",
+    "workspacePath": "C:\\Users\\DanielV2\\Documents\\Playground\\.artifacts\\runtime-smoke\\workspace-jarvis-smoke",
+    "pluginLoadPaths": [
+      "C:\\Users\\DanielV2\\Documents\\Playground\\packages\\jarvis-core",
+      "C:\\Users\\DanielV2\\Documents\\Playground\\packages\\jarvis-jobs",
+      "C:\\Users\\DanielV2\\Documents\\Playground\\packages\\jarvis-device",
+      "C:\\Users\\DanielV2\\Documents\\Playground\\packages\\jarvis-office",
+      "C:\\Users\\DanielV2\\Documents\\Playground\\packages\\jarvis-dispatch"
+    ],
+    "enabledPluginIds": [
+      "jarvis-core",
+      "jarvis-jobs",
+      "jarvis-device",
+      "jarvis-office",
+      "jarvis-dispatch"
+    ],
+    "bootstrapMaxChars": 1200,
+    "bootstrapTotalMaxChars": 4000,
+    "skipBootstrap": true
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b4c5d6e7-f8a9-0123-def0-123456789012",
+    "type": "inference.rag_index",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 900,
+    "attempt": 1,
+    "input": {
+      "paths": ["C:/Projects/docs/architecture.md"],
+      "collection": "jarvis-docs"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b4c5d6e7-f8a9-0123-def0-123456789012",
+    "job_type": "inference.rag_index",
+    "status": "completed",
+    "summary": "Indexed 1 document(s) into collection 'jarvis-docs': 24 chunks.",
+    "attempt": 1,
+    "structured_output": {
+      "collection": "jarvis-docs",
+      "document_count": 1,
+      "chunk_count": 24,
+      "last_indexed_at": "2026-04-04T12:00:00Z"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../jarvis-shared" },
+    { "path": "../jarvis-agent-framework" },
+    { "path": "../jarvis-agents" },
+    { "path": "../jarvis-inference" },
+    { "path": "../jarvis-inference-worker" },
+    { "path": "../jarvis-email-worker" },
+    { "path": "../jarvis-document-worker" },
+    { "path": "../jarvis-crm-worker" },
+    { "path": "../jarvis-web-worker" },
+    { "path": "../jarvis-calendar-worker" },
+    { "path": "../jarvis-scheduler" }
+  ]
+}

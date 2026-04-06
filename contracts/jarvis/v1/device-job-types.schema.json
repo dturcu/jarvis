@@ -1,0 +1,1136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json",
+  "title": "Jarvis Device Job Types",
+  "type": "object",
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "window_bounds": {
+      "type": "object",
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "window_ref": {
+      "type": "object",
+      "required": [
+        "window_id",
+        "title",
+        "is_focused"
+      ],
+      "properties": {
+        "window_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "app_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "process_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "is_focused": {
+          "type": "boolean"
+        },
+        "is_minimized": {
+          "type": "boolean"
+        },
+        "bounds": {
+          "$ref": "#/$defs/window_bounds"
+        }
+      },
+      "additionalProperties": false
+    },
+    "display_ref": {
+      "type": "object",
+      "required": [
+        "display_id",
+        "width",
+        "height",
+        "is_primary"
+      ],
+      "properties": {
+        "display_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "scale_factor": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "is_primary": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "capture_target": {
+      "type": "string",
+      "enum": [
+        "desktop",
+        "active_window",
+        "window",
+        "display",
+        "region"
+      ]
+    },
+    "capture_region": {
+      "type": "object",
+      "required": [
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_snapshot_input": {
+      "type": "object",
+      "properties": {
+        "include": {
+          "type": "object",
+          "properties": {
+            "windows": {
+              "type": "boolean"
+            },
+            "displays": {
+              "type": "boolean"
+            },
+            "clipboard": {
+              "type": "boolean"
+            },
+            "active_window": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "capture_screenshot": {
+          "type": "boolean"
+        },
+        "output_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_snapshot_output": {
+      "type": "object",
+      "required": [
+        "host",
+        "observed_at"
+      ],
+      "properties": {
+        "host": {
+          "type": "object",
+          "required": [
+            "platform",
+            "hostname"
+          ],
+          "properties": {
+            "platform": {
+              "type": "string",
+              "minLength": 1
+            },
+            "hostname": {
+              "type": "string",
+              "minLength": 1
+            },
+            "user": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "additionalProperties": false
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "active_window": {
+          "$ref": "#/$defs/window_ref"
+        },
+        "windows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/window_ref"
+          }
+        },
+        "displays": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/display_ref"
+          }
+        },
+        "clipboard": {
+          "type": "object",
+          "required": [
+            "has_text"
+          ],
+          "properties": {
+            "has_text": {
+              "type": "boolean"
+            },
+            "text_preview": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "screenshot_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_list_windows_input": {
+      "type": "object",
+      "properties": {
+        "include_minimized": {
+          "type": "boolean"
+        },
+        "title_contains": {
+          "type": "string",
+          "minLength": 1
+        },
+        "app_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_list_windows_output": {
+      "type": "object",
+      "required": [
+        "window_count",
+        "windows"
+      ],
+      "properties": {
+        "window_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "windows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/window_ref"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_open_app_input": {
+      "type": "object",
+      "required": [
+        "app"
+      ],
+      "properties": {
+        "app": {
+          "type": "object",
+          "properties": {
+            "app_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "executable": {
+              "type": "string",
+              "minLength": 1
+            },
+            "display_name": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "minProperties": 1,
+          "additionalProperties": false
+        },
+        "arguments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "wait_for_window": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_open_app_output": {
+      "type": "object",
+      "required": [
+        "launched"
+      ],
+      "properties": {
+        "launched": {
+          "type": "boolean"
+        },
+        "app_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "process_id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "window": {
+          "$ref": "#/$defs/window_ref"
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_focus_window_input": {
+      "type": "object",
+      "properties": {
+        "window_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title_contains": {
+          "type": "string",
+          "minLength": 1
+        },
+        "app_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "strict_match": {
+          "type": "boolean"
+        }
+      },
+      "minProperties": 1,
+      "additionalProperties": false
+    },
+    "device_focus_window_output": {
+      "type": "object",
+      "required": [
+        "focused",
+        "window"
+      ],
+      "properties": {
+        "focused": {
+          "type": "boolean"
+        },
+        "window": {
+          "$ref": "#/$defs/window_ref"
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_screenshot_input": {
+      "type": "object",
+      "required": [
+        "target",
+        "format",
+        "output_name"
+      ],
+      "properties": {
+        "target": {
+          "$ref": "#/$defs/capture_target"
+        },
+        "window_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "display_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "region": {
+          "$ref": "#/$defs/capture_region"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "png",
+            "jpeg"
+          ]
+        },
+        "output_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "target": {
+                "const": "window"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "window_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "target": {
+                "const": "display"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "display_id"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "target": {
+                "const": "region"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "region"
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "device_screenshot_output": {
+      "type": "object",
+      "required": [
+        "capture_artifact_id",
+        "target",
+        "format",
+        "width",
+        "height"
+      ],
+      "properties": {
+        "capture_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target": {
+          "$ref": "#/$defs/capture_target"
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_click_input": {
+      "type": "object",
+      "required": [
+        "x",
+        "y"
+      ],
+      "properties": {
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "coordinate_space": {
+          "type": "string",
+          "enum": [
+            "screen",
+            "window"
+          ]
+        },
+        "window_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "button": {
+          "type": "string",
+          "enum": [
+            "left",
+            "right",
+            "middle"
+          ]
+        },
+        "click_count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_click_output": {
+      "type": "object",
+      "required": [
+        "performed",
+        "button",
+        "click_count"
+      ],
+      "properties": {
+        "performed": {
+          "type": "boolean"
+        },
+        "button": {
+          "type": "string",
+          "minLength": 1
+        },
+        "click_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "window_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_type_text_input": {
+      "type": "object",
+      "required": [
+        "text"
+      ],
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "insert",
+            "replace",
+            "paste"
+          ]
+        },
+        "submit": {
+          "type": "boolean"
+        },
+        "window_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_type_text_output": {
+      "type": "object",
+      "required": [
+        "typed_characters",
+        "mode",
+        "submitted"
+      ],
+      "properties": {
+        "typed_characters": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mode": {
+          "type": "string",
+          "minLength": 1
+        },
+        "submitted": {
+          "type": "boolean"
+        },
+        "window_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_hotkey_input": {
+      "type": "object",
+      "required": [
+        "keys"
+      ],
+      "properties": {
+        "keys": {
+          "$ref": "#/$defs/string_array"
+        },
+        "window_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_hotkey_output": {
+      "type": "object",
+      "required": [
+        "sent",
+        "normalized_keys"
+      ],
+      "properties": {
+        "sent": {
+          "type": "boolean"
+        },
+        "normalized_keys": {
+          "$ref": "#/$defs/string_array"
+        },
+        "window_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_clipboard_get_input": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "type": "string",
+          "enum": [
+            "text",
+            "html",
+            "files",
+            "image"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_clipboard_get_output": {
+      "type": "object",
+      "required": [
+        "format",
+        "has_value"
+      ],
+      "properties": {
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "has_value": {
+          "type": "boolean"
+        },
+        "text": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_clipboard_set_input": {
+      "type": "object",
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "text": {
+          "type": "string"
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/artifact_ref"
+          }
+        },
+        "mode": {
+          "const": "replace"
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "text"
+          ]
+        },
+        {
+          "required": [
+            "files"
+          ]
+        }
+      ],
+      "additionalProperties": false
+    },
+    "device_clipboard_set_output": {
+      "type": "object",
+      "required": [
+        "applied",
+        "format",
+        "item_count"
+      ],
+      "properties": {
+        "applied": {
+          "type": "boolean"
+        },
+        "format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "item_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_notify_input": {
+      "type": "object",
+      "required": [
+        "title",
+        "body"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1
+        },
+        "urgency": {
+          "type": "string",
+          "enum": [
+            "low",
+            "normal",
+            "high"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_notify_output": {
+      "type": "object",
+      "required": [
+        "delivered"
+      ],
+      "properties": {
+        "delivered": {
+          "type": "boolean"
+        },
+        "notification_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "audio_device_ref": {
+      "type": "object",
+      "required": ["device_id", "name", "is_default"],
+      "properties": {
+        "device_id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "is_default": { "type": "boolean" },
+        "kind": { "type": "string", "enum": ["playback", "recording"] }
+      },
+      "additionalProperties": false
+    },
+    "device_audio_get_input": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "device_audio_get_output": {
+      "type": "object",
+      "required": ["volume", "muted"],
+      "properties": {
+        "volume": { "type": "number", "minimum": 0, "maximum": 100 },
+        "muted": { "type": "boolean" },
+        "default_device": { "$ref": "#/$defs/audio_device_ref" },
+        "devices": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/audio_device_ref" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_audio_set_input": {
+      "type": "object",
+      "properties": {
+        "volume": { "type": "number", "minimum": 0, "maximum": 100 },
+        "mute": { "type": "boolean" },
+        "device": { "type": "string", "minLength": 1 }
+      },
+      "minProperties": 1,
+      "additionalProperties": false
+    },
+    "device_audio_set_output": {
+      "type": "object",
+      "required": ["applied", "volume", "muted"],
+      "properties": {
+        "applied": { "type": "boolean" },
+        "volume": { "type": "number", "minimum": 0, "maximum": 100 },
+        "muted": { "type": "boolean" },
+        "device": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "display_info": {
+      "type": "object",
+      "required": ["display_id", "width", "height", "is_primary"],
+      "properties": {
+        "display_id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "refresh_rate_hz": { "type": "number", "exclusiveMinimum": 0 },
+        "brightness_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "scale_factor": { "type": "number", "exclusiveMinimum": 0 },
+        "is_primary": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "device_display_get_input": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "device_display_get_output": {
+      "type": "object",
+      "required": ["display_count", "displays"],
+      "properties": {
+        "display_count": { "type": "integer", "minimum": 0 },
+        "displays": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/display_info" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_display_set_input": {
+      "type": "object",
+      "properties": {
+        "display_id": { "type": "string", "minLength": 1 },
+        "brightness": { "type": "number", "minimum": 0, "maximum": 100 },
+        "resolution": {
+          "type": "object",
+          "required": ["width", "height"],
+          "properties": {
+            "width": { "type": "integer", "minimum": 1 },
+            "height": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "minProperties": 1,
+      "additionalProperties": false
+    },
+    "device_display_set_output": {
+      "type": "object",
+      "required": ["applied"],
+      "properties": {
+        "applied": { "type": "boolean" },
+        "display_id": { "type": "string", "minLength": 1 },
+        "brightness": { "type": "number", "minimum": 0, "maximum": 100 },
+        "resolution": {
+          "type": "object",
+          "required": ["width", "height"],
+          "properties": {
+            "width": { "type": "integer", "minimum": 1 },
+            "height": { "type": "integer", "minimum": 1 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_power_action_input": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["sleep", "hibernate", "shutdown", "restart", "lock"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_power_action_output": {
+      "type": "object",
+      "required": ["initiated", "action"],
+      "properties": {
+        "initiated": { "type": "boolean" },
+        "action": {
+          "type": "string",
+          "enum": ["sleep", "hibernate", "shutdown", "restart", "lock"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "network_interface_ref": {
+      "type": "object",
+      "required": ["interface_name", "status"],
+      "properties": {
+        "interface_name": { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["up", "down", "unknown"] },
+        "ip_address": { "type": "string" },
+        "mac_address": { "type": "string" },
+        "ssid": { "type": "string" },
+        "signal_strength_dbm": { "type": "integer" },
+        "is_wifi": { "type": "boolean" },
+        "is_vpn": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "device_network_status_input": {
+      "type": "object",
+      "properties": {
+        "interface_name": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "device_network_status_output": {
+      "type": "object",
+      "required": ["interfaces"],
+      "properties": {
+        "interfaces": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/network_interface_ref" }
+        },
+        "internet_reachable": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "device_network_control_input": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": {
+          "type": "string",
+          "enum": ["connect", "disconnect"]
+        },
+        "ssid": { "type": "string", "minLength": 1 },
+        "vpn_name": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "device_network_control_output": {
+      "type": "object",
+      "required": ["applied", "action"],
+      "properties": {
+        "applied": { "type": "boolean" },
+        "action": { "type": "string", "minLength": 1 },
+        "interface_name": { "type": "string", "minLength": 1 },
+        "ssid": { "type": "string" },
+        "vpn_name": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "device_window_layout_input": {
+      "type": "object",
+      "required": ["layout"],
+      "properties": {
+        "layout": {
+          "type": "string",
+          "enum": ["snap_left", "snap_right", "maximize", "minimize", "restore", "tile_grid"]
+        },
+        "window_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_window_layout_output": {
+      "type": "object",
+      "required": ["applied", "layout", "affected_count"],
+      "properties": {
+        "applied": { "type": "boolean" },
+        "layout": { "type": "string", "minLength": 1 },
+        "affected_count": { "type": "integer", "minimum": 0 },
+        "windows": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/window_ref" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "virtual_desktop_ref": {
+      "type": "object",
+      "required": ["desktop_id", "is_current"],
+      "properties": {
+        "desktop_id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "index": { "type": "integer", "minimum": 0 },
+        "is_current": { "type": "boolean" },
+        "window_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "device_virtual_desktop_list_input": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "device_virtual_desktop_list_output": {
+      "type": "object",
+      "required": ["desktop_count", "desktops"],
+      "properties": {
+        "desktop_count": { "type": "integer", "minimum": 0 },
+        "desktops": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/virtual_desktop_ref" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_virtual_desktop_switch_input": {
+      "type": "object",
+      "properties": {
+        "desktop_id": { "type": "string", "minLength": 1 },
+        "direction": {
+          "type": "string",
+          "enum": ["next", "previous"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "device_virtual_desktop_switch_output": {
+      "type": "object",
+      "required": ["switched"],
+      "properties": {
+        "switched": { "type": "boolean" },
+        "desktop": { "$ref": "#/$defs/virtual_desktop_ref" }
+      },
+      "additionalProperties": false
+    },
+    "device_focus_mode_input": {
+      "type": "object",
+      "required": ["enabled"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "blocked_apps": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "mute_notifications": { "type": "boolean" },
+        "duration_minutes": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "device_focus_mode_output": {
+      "type": "object",
+      "required": ["enabled", "active"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "active": { "type": "boolean" },
+        "blocked_apps": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "muted_notifications": { "type": "boolean" },
+        "ends_at": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "app_usage_entry": {
+      "type": "object",
+      "required": ["app_id", "display_name", "duration_seconds"],
+      "properties": {
+        "app_id": { "type": "string", "minLength": 1 },
+        "display_name": { "type": "string", "minLength": 1 },
+        "duration_seconds": { "type": "integer", "minimum": 0 },
+        "window_count": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "device_app_usage_input": {
+      "type": "object",
+      "properties": {
+        "since_hours": { "type": "number", "exclusiveMinimum": 0 },
+        "top_n": { "type": "integer", "minimum": 1 },
+        "app_filter": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "device_app_usage_output": {
+      "type": "object",
+      "required": ["apps", "total_tracked_seconds", "since"],
+      "properties": {
+        "apps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/app_usage_entry" }
+        },
+        "total_tracked_seconds": { "type": "integer", "minimum": 0 },
+        "since": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    }
+  }
+}

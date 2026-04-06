@@ -1,0 +1,42 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "1dce0f7a-f014-4b65-a120-ef5baf46f88f",
+    "type": "files.move",
+    "session_key": "agent:main:cli:local:files",
+    "requested_by": {
+      "channel": "cli",
+      "user_id": "operator"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 120,
+    "attempt": 1,
+    "input": {
+      "root_path": "C:/workspace",
+      "source_path": "drafts/summary.txt",
+      "destination_path": "published/summary.txt",
+      "create_directories": true,
+      "overwrite": true
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null,
+      "capability_route": "files"
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "1dce0f7a-f014-4b65-a120-ef5baf46f88f",
+    "job_type": "files.move",
+    "status": "completed",
+    "summary": "Moved drafts/summary.txt to published/summary.txt.",
+    "attempt": 1,
+    "structured_output": {
+      "root_path": "C:/workspace",
+      "source_path": "drafts/summary.txt",
+      "destination_path": "published/summary.txt"
+    }
+  }
+}

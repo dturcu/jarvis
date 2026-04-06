@@ -1,0 +1,67 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d83e1f3f-2e58-4e8f-8144-2a8ef8d2f0b1",
+    "type": "search.fetch",
+    "session_key": "agent:main:telegram:dm:123456789",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "610",
+      "chat_id": "123456789"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 300,
+    "attempt": 1,
+    "input": {
+      "urls": [
+        "https://docs.openclaw.ai/tools/plugin",
+        "https://docs.openclaw.ai/concepts/session-tool"
+      ],
+      "fetch_mode": "markdown",
+      "extract_metadata": true,
+      "output_name": "openclaw-docs.md"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d83e1f3f-2e58-4e8f-8144-2a8ef8d2f0b1",
+    "job_type": "search.fetch",
+    "status": "completed",
+    "summary": "Fetched two documentation pages as markdown.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "1e5f16ce-0d62-4bc4-8e68-1d71e2e3fa09",
+        "kind": "md",
+        "name": "openclaw-docs.md",
+        "path": "/srv/search/artifacts/openclaw-docs.md",
+        "path_context": "linux-container",
+        "path_style": "posix",
+        "size_bytes": 8421
+      }
+    ],
+    "structured_output": {
+      "fetched": [
+        {
+          "url": "https://docs.openclaw.ai/tools/plugin",
+          "status_code": 200,
+          "content_type": "text/markdown",
+          "artifact_id": "1e5f16ce-0d62-4bc4-8e68-1d71e2e3fa09"
+        },
+        {
+          "url": "https://docs.openclaw.ai/concepts/session-tool",
+          "status_code": 200,
+          "content_type": "text/markdown"
+        }
+      ],
+      "aggregate_artifact_id": "1e5f16ce-0d62-4bc4-8e68-1d71e2e3fa09"
+    }
+  }
+}

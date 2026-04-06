@@ -1,0 +1,77 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d0c00003-0001-4000-8000-000000000003",
+    "type": "document.analyze_compliance",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "safety-engineer"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 600,
+    "attempt": 1,
+    "input": {
+      "file_path": "/tmp/safety-plan.pdf",
+      "framework": "iso_26262",
+      "project_asil": "B",
+      "work_product_type": "software_plan"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d0c00003-0001-4000-8000-000000000003",
+    "job_type": "document.analyze_compliance",
+    "status": "completed",
+    "summary": "iso_26262 compliance analysis: 64% score. 2 missing, 2 partial, 3 present requirements. 3 critical gaps identified.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "framework": "iso_26262",
+      "project_asil": "B",
+      "total_requirements": 7,
+      "present_count": 3,
+      "missing_count": 2,
+      "partial_count": 2,
+      "compliance_score": 64,
+      "items": [
+        {
+          "requirement_id": "ISO26262-6:2018-7.4.1",
+          "requirement": "Software architectural design shall be developed",
+          "framework": "iso_26262",
+          "asil_level": "B",
+          "status": "present",
+          "evidence": "Section 4.2 describes the software architectural design."
+        },
+        {
+          "requirement_id": "ISO26262-6:2018-7.4.3",
+          "requirement": "Unit test plan shall be created",
+          "framework": "iso_26262",
+          "asil_level": "B",
+          "status": "missing",
+          "gap_description": "No unit test plan found. Critical gap for ASIL B."
+        },
+        {
+          "requirement_id": "ISO26262-6:2018-7.4.6",
+          "requirement": "Dependency failure analysis (DIA)",
+          "framework": "iso_26262",
+          "asil_level": "C",
+          "status": "missing",
+          "gap_description": "No DIA document found."
+        }
+      ],
+      "critical_gaps": [
+        "Missing DIA (Dependency Failure Impact Analysis) - required for ASIL B+",
+        "TSR (Technical Safety Requirement) traceability incomplete: 8 of 23 requirements without test case links",
+        "No unit test plan present - critical gap for ASIL B software"
+      ],
+      "analyzed_at": "2026-04-04T12:00:00.000Z"
+    }
+  }
+}

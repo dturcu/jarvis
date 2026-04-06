@@ -1,0 +1,93 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0010-4000-8000-000000000010",
+    "type": "calendar.list_events",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "consultant"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 120,
+    "attempt": 1,
+    "input": {
+      "calendar_id": "primary",
+      "start_date": "2026-04-05T00:00:00.000Z",
+      "end_date": "2026-04-12T00:00:00.000Z",
+      "max_results": 10
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0010-4000-8000-000000000010",
+    "job_type": "calendar.list_events",
+    "status": "completed",
+    "summary": "Found 3 event(s) in calendar 'primary' between 2026-04-05T00:00:00.000Z and 2026-04-12T00:00:00.000Z.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "events": [
+        {
+          "event_id": "evt-autosar-001",
+          "calendar_id": "primary",
+          "title": "AUTOSAR safety review with Volvo",
+          "description": "Review AUTOSAR adaptive platform safety requirements for next model year ECU integration.",
+          "start": "2026-04-05T09:00:00.000Z",
+          "end": "2026-04-05T10:30:00.000Z",
+          "location": "Volvo Cars HQ, Gothenburg (Room 4B)",
+          "attendees": [
+            { "email": "h.lindqvist@volvo.com", "name": "Henrik Lindqvist", "response": "accepted" },
+            { "email": "a.makinen@volvo.com", "name": "Anna Makinen", "response": "accepted" },
+            { "email": "consultant@jarvis.local", "name": "Jarvis Consultant", "response": "accepted" }
+          ],
+          "organizer": "h.lindqvist@volvo.com",
+          "status": "confirmed",
+          "is_all_day": false
+        },
+        {
+          "event_id": "evt-tier1-002",
+          "calendar_id": "primary",
+          "title": "Proposal presentation - Tier 1 supplier",
+          "description": "Present functional safety consulting proposal to Continental AG powertrain division.",
+          "start": "2026-04-07T13:00:00.000Z",
+          "end": "2026-04-07T14:00:00.000Z",
+          "location": "Teams call",
+          "attendees": [
+            { "email": "m.schmidt@continental.com", "name": "Markus Schmidt", "response": "accepted" },
+            { "email": "l.weber@continental.com", "name": "Laura Weber", "response": "tentative" },
+            { "email": "consultant@jarvis.local", "name": "Jarvis Consultant", "response": "accepted" }
+          ],
+          "organizer": "consultant@jarvis.local",
+          "status": "confirmed",
+          "is_all_day": false
+        },
+        {
+          "event_id": "evt-iso26262-003",
+          "calendar_id": "primary",
+          "title": "ISO 26262 evidence audit kick-off",
+          "description": "Kick-off meeting for Part 4/Part 6 software evidence audit for the BMW iX3 project.",
+          "start": "2026-04-08T10:00:00.000Z",
+          "end": "2026-04-08T12:00:00.000Z",
+          "location": "BMW Group Munich, Petuelring 130",
+          "attendees": [
+            { "email": "t.hofmann@bmw.com", "name": "Thomas Hofmann", "response": "accepted" },
+            { "email": "s.bauer@bmw.com", "name": "Sabine Bauer", "response": "accepted" },
+            { "email": "consultant@jarvis.local", "name": "Jarvis Consultant", "response": "accepted" }
+          ],
+          "organizer": "t.hofmann@bmw.com",
+          "status": "confirmed",
+          "is_all_day": false
+        }
+      ],
+      "total_count": 3,
+      "calendar_id": "primary"
+    }
+  }
+}

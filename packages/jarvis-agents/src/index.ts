@@ -1,0 +1,15 @@
+export { bdPipelineAgent, BD_PIPELINE_SYSTEM_PROMPT } from "./definitions/bd-pipeline.js";
+export { proposalEngineAgent, PROPOSAL_ENGINE_SYSTEM_PROMPT } from "./definitions/proposal-engine.js";
+export { evidenceAuditorAgent, EVIDENCE_AUDITOR_SYSTEM_PROMPT } from "./definitions/evidence-auditor.js";
+export { contractReviewerAgent, CONTRACT_REVIEWER_SYSTEM_PROMPT } from "./definitions/contract-reviewer.js";
+export { staffingMonitorAgent, STAFFING_MONITOR_SYSTEM_PROMPT } from "./definitions/staffing-monitor.js";
+export { contentEngineAgent, CONTENT_ENGINE_SYSTEM_PROMPT } from "./definitions/content-engine.js";
+export { portfolioMonitorAgent, PORTFOLIO_MONITOR_SYSTEM_PROMPT } from "./definitions/portfolio-monitor.js";
+export { gardenCalendarAgent, GARDEN_CALENDAR_SYSTEM_PROMPT } from "./definitions/garden-calendar.js";
+export { socialEngagementAgent, SOCIAL_ENGAGEMENT_SYSTEM_PROMPT } from "./definitions/social-engagement.js";
+export { securityMonitorAgent, SECURITY_MONITOR_SYSTEM_PROMPT } from "./definitions/security-monitor.js";
+export { invoiceGeneratorAgent, INVOICE_GENERATOR_SYSTEM_PROMPT } from "./definitions/invoice-generator.js";
+export { emailCampaignAgent, EMAIL_CAMPAIGN_SYSTEM_PROMPT } from "./definitions/email-campaign.js";
+export { meetingTranscriberAgent, MEETING_TRANSCRIBER_SYSTEM_PROMPT } from "./definitions/meeting-transcriber.js";
+export { driveWatcherAgent, DRIVE_WATCHER_SYSTEM_PROMPT } from "./definitions/drive-watcher.js";
+export { ALL_AGENTS, getAgent, listAgents } from "./registry.js";

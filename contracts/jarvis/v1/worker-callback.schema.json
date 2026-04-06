@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/worker-callback.schema.json",
+  "title": "Jarvis Worker Callback",
+  "type": "object",
+  "required": [
+    "contract_version",
+    "job_id",
+    "job_type",
+    "attempt",
+    "status",
+    "summary",
+    "worker_id"
+  ],
+  "properties": {
+    "contract_version": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/contract_version"
+    },
+    "job_id": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/uuid"
+    },
+    "job_type": {
+      "type": "string",
+      "minLength": 1
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/job_status"
+    },
+    "summary": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/non_empty_string"
+    },
+    "approval_id": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/non_empty_string"
+    },
+    "claim_id": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/non_empty_string"
+    },
+    "worker_id": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/non_empty_string"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/artifact_record"
+      }
+    },
+    "structured_output": {
+      "type": "object"
+    },
+    "error": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/job_error"
+    },
+    "logs": {
+      "type": "array",
+      "items": {
+        "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/log_entry"
+      }
+    },
+    "metrics": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/metrics"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "failed"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "error"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "awaiting_approval"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "approval_id"
+        ]
+      }
+    }
+  ],
+  "additionalProperties": false
+}

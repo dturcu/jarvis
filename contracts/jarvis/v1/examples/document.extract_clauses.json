@@ -1,0 +1,88 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d0c00002-0001-4000-8000-000000000002",
+    "type": "document.extract_clauses",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "legal-counsel"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 300,
+    "attempt": 1,
+    "input": {
+      "file_path": "/tmp/test-nda.pdf",
+      "document_type": "nda"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d0c00002-0001-4000-8000-000000000002",
+    "job_type": "document.extract_clauses",
+    "status": "completed",
+    "summary": "Extracted 5 clauses from nda document. Critical risks: 1. High risks: 2.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "document_type": "nda",
+      "clauses": [
+        {
+          "clause_id": "clause-001",
+          "category": "ip_assignment",
+          "title": "Intellectual Property Assignment",
+          "text": "All inventions made using Confidential Information shall be assigned to the Disclosing Party in perpetuity, worldwide.",
+          "page": 3,
+          "risk_level": "critical",
+          "flags": ["broad_ip_assignment", "perpetual_assignment"]
+        },
+        {
+          "clause_id": "clause-002",
+          "category": "liability_cap",
+          "title": "Limitation of Liability",
+          "text": "No cap on direct damages arising from breach of this Agreement.",
+          "page": 5,
+          "risk_level": "high",
+          "flags": ["unlimited_liability"]
+        },
+        {
+          "clause_id": "clause-003",
+          "category": "jurisdiction",
+          "title": "Governing Law",
+          "text": "This Agreement is governed by Massachusetts law with exclusive jurisdiction.",
+          "page": 7,
+          "risk_level": "high",
+          "flags": ["unfavorable_jurisdiction"]
+        },
+        {
+          "clause_id": "clause-004",
+          "category": "confidentiality",
+          "title": "Confidentiality Period",
+          "text": "Confidentiality obligations survive for 5 years from disclosure.",
+          "page": 2,
+          "risk_level": "medium",
+          "flags": ["extended_confidentiality_period"]
+        },
+        {
+          "clause_id": "clause-005",
+          "category": "termination",
+          "title": "Termination for Convenience",
+          "text": "Either party may terminate with 30 days written notice.",
+          "page": 8,
+          "risk_level": "low",
+          "flags": []
+        }
+      ],
+      "total_clauses": 5,
+      "high_risk_count": 2,
+      "critical_count": 1,
+      "extracted_at": "2026-04-04T12:00:00.000Z"
+    }
+  }
+}

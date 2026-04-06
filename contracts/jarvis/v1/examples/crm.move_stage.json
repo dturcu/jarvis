@@ -1,0 +1,41 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "c1b2c3d4-0004-4000-8000-000000000104",
+    "type": "crm.move_stage",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "contact_id": "a0b1c2d3-1111-4000-8000-aabbccddeeff",
+      "new_stage": "qualified",
+      "reason": "Responded positively to initial outreach about AUTOSAR consulting engagement."
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "c1b2c3d4-0004-4000-8000-000000000104",
+    "job_type": "crm.move_stage",
+    "status": "completed",
+    "summary": "Moved contact Klaus Berger from prospect to qualified.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "contact_id": "a0b1c2d3-1111-4000-8000-aabbccddeeff",
+      "previous_stage": "prospect",
+      "new_stage": "qualified",
+      "moved_at": "2026-04-04T11:00:00Z"
+    }
+  }
+}

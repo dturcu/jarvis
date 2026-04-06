@@ -1,0 +1,44 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-e004-4000-8000-000000000103",
+    "type": "email.send",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "consultant"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 60,
+    "attempt": 1,
+    "input": {
+      "draft_id": "draft-0001"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-e004-4000-8000-000000000103",
+    "job_type": "email.send",
+    "status": "completed",
+    "summary": "Sent email \"Re: RFQ — ISO 26262 ASIL-D safety analysis proposal\" to procurement@automotech.com.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "message_id": "msg-draft-0101",
+      "thread_id": "thread-002",
+      "sent_at": "2026-04-04T12:00:00.000Z"
+    },
+    "metrics": {
+      "started_at": "2026-04-04T12:00:00.000Z",
+      "finished_at": "2026-04-04T12:00:01.200Z",
+      "attempt": 1,
+      "worker_id": "email-worker"
+    }
+  }
+}

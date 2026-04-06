@@ -1,0 +1,64 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ec000005-0005-4000-8000-000000000005",
+    "type": "security.file_integrity_baseline",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 600,
+    "attempt": 1,
+    "input": {
+      "paths": [
+        "C:\\Windows\\System32\\cmd.exe",
+        "C:\\Windows\\System32\\notepad.exe",
+        "C:\\Windows\\System32\\calc.exe"
+      ],
+      "label": "April 2026 baseline"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ec000005-0005-4000-8000-000000000005",
+    "job_type": "security.file_integrity_baseline",
+    "status": "completed",
+    "summary": "Created baseline 'April 2026 baseline' with 3 file(s).",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "baseline_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "created_at": "2026-04-04T12:00:20.000Z",
+      "label": "April 2026 baseline",
+      "file_count": 3,
+      "files": [
+        {
+          "path": "C:\\Windows\\System32\\cmd.exe",
+          "hash": "aabb1122334455667788990011223344556677889900aabb1122334455667788",
+          "size": 329216,
+          "last_modified": "2026-03-15T08:30:00.000Z"
+        },
+        {
+          "path": "C:\\Windows\\System32\\notepad.exe",
+          "hash": "ff00112233445566778899aabbccddeeff00112233445566778899aabbccddee",
+          "size": 212992,
+          "last_modified": "2026-04-01T10:00:00.000Z"
+        },
+        {
+          "path": "C:\\Windows\\System32\\calc.exe",
+          "hash": "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+          "size": 143360,
+          "last_modified": "2026-01-10T14:00:00.000Z"
+        }
+      ]
+    }
+  }
+}

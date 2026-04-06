@@ -1,0 +1,68 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a0f9595e-bdd6-4f41-a7f5-24164cf17799",
+    "type": "office.preview",
+    "session_key": "agent:main:telegram:dm:123456789",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "507",
+      "chat_id": "123456789"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 300,
+    "attempt": 1,
+    "input": {
+      "source_artifact": {
+        "artifact_id": "6ef0bb20-76a8-4378-bf19-3eb1f42172dc",
+        "name": "proposal.docx",
+        "kind": "docx"
+      },
+      "format": "pdf",
+      "page_numbers": [
+        1,
+        2
+      ],
+      "max_pages": 2,
+      "output_name": "proposal-preview.pdf"
+    },
+    "artifacts_in": [
+      {
+        "artifact_id": "6ef0bb20-76a8-4378-bf19-3eb1f42172dc",
+        "name": "proposal.docx",
+        "kind": "docx"
+      }
+    ],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a0f9595e-bdd6-4f41-a7f5-24164cf17799",
+    "job_type": "office.preview",
+    "status": "completed",
+    "summary": "Rendered a two-page preview PDF.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "91793183-bbc7-4a04-8d3e-f2e6c801e8e7",
+        "kind": "pdf",
+        "name": "proposal-preview.pdf",
+        "path": "/data/artifacts/proposal-preview.pdf",
+        "path_context": "wsl-ubuntu",
+        "path_style": "posix",
+        "size_bytes": 78244
+      }
+    ],
+    "structured_output": {
+      "preview_artifact_id": "91793183-bbc7-4a04-8d3e-f2e6c801e8e7",
+      "rendered_units": 2,
+      "format": "pdf",
+      "warnings": []
+    }
+  }
+}

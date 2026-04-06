@@ -1,0 +1,39 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "type": "device.audio_set",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "volume": 40,
+      "mute": false
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "job_type": "device.audio_set",
+    "status": "completed",
+    "summary": "Audio volume set to 40%, unmuted.",
+    "attempt": 1,
+    "structured_output": {
+      "applied": true,
+      "volume": 40,
+      "muted": false,
+      "device": "Realtek High Definition Audio"
+    }
+  }
+}

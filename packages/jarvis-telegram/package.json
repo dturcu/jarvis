@@ -1,0 +1,14 @@
+{
+  "name": "jarvis-telegram",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.2",
+    "tsx": "^4.19.3",
+    "typescript": "^6.0.2"
+  }
+}

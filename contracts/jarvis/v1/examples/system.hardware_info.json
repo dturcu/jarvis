@@ -1,0 +1,105 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0008-4000-8000-000000000008",
+    "type": "system.hardware_info",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 120,
+    "attempt": 1,
+    "input": {
+      "components": ["cpu", "gpu", "memory", "disk", "network", "display", "battery"]
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0008-4000-8000-000000000008",
+    "job_type": "system.hardware_info",
+    "status": "completed",
+    "summary": "Collected full hardware inventory for 7 component categories.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "observed_at": "2026-04-04T12:00:30Z",
+      "cpu": {
+        "model": "Intel Core i9-13900K",
+        "physical_cores": 8,
+        "logical_cores": 16,
+        "base_frequency_mhz": 3000,
+        "architecture": "x86_64"
+      },
+      "gpu": [
+        {
+          "name": "NVIDIA GeForce RTX 4080",
+          "vendor": "NVIDIA",
+          "vram_bytes": 17179869184,
+          "driver_version": "537.13"
+        }
+      ],
+      "memory": {
+        "total_bytes": 34359738368,
+        "speed_mhz": 5600,
+        "type": "DDR5",
+        "slots_used": 2,
+        "slots_total": 4
+      },
+      "disk": [
+        {
+          "device": "\\\\.\\PhysicalDrive0",
+          "model": "Samsung 990 Pro 512GB",
+          "total_bytes": 512110190592,
+          "type": "nvme"
+        },
+        {
+          "device": "\\\\.\\PhysicalDrive1",
+          "model": "Seagate Barracuda 1TB",
+          "total_bytes": 1099511627776,
+          "type": "hdd"
+        }
+      ],
+      "network": [
+        {
+          "name": "Ethernet",
+          "mac_address": "AA:BB:CC:DD:EE:FF",
+          "type": "ethernet",
+          "speed_mbps": 1000
+        },
+        {
+          "name": "Wi-Fi",
+          "mac_address": "11:22:33:44:55:66",
+          "type": "wireless",
+          "speed_mbps": 433
+        }
+      ],
+      "display": [
+        {
+          "name": "Dell U2723QE",
+          "width": 3840,
+          "height": 2160,
+          "refresh_rate_hz": 60,
+          "is_primary": true
+        },
+        {
+          "name": "Dell S2722DC",
+          "width": 2560,
+          "height": 1440,
+          "refresh_rate_hz": 75,
+          "is_primary": false
+        }
+      ],
+      "battery": {
+        "present": false
+      }
+    }
+  }
+}

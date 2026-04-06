@@ -1,0 +1,42 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "f2a3b4c5-d6e7-8901-bcde-f01234567890",
+    "type": "inference.embed",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 120,
+    "attempt": 1,
+    "input": {
+      "texts": ["Jarvis plugin pack", "desktop automation"],
+      "model": "nomic-embed-text"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "f2a3b4c5-d6e7-8901-bcde-f01234567890",
+    "job_type": "inference.embed",
+    "status": "completed",
+    "summary": "Embedded 2 text(s) at 768 dimensions.",
+    "attempt": 1,
+    "structured_output": {
+      "embeddings": [
+        [0.021, -0.043, 0.087, 0.012],
+        [0.034, -0.021, 0.065, 0.009]
+      ],
+      "model": "nomic-embed-text",
+      "runtime": "ollama",
+      "dimensions": 768
+    }
+  }
+}

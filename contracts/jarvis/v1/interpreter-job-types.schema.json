@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/interpreter-job-types.schema.json",
+  "title": "Jarvis Interpreter Job Types",
+  "type": "object",
+  "$defs": {
+    "interpreter_step": {
+      "type": "object",
+      "required": ["type", "content"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["code", "output", "error"]
+        },
+        "language": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "active_session": {
+      "type": "object",
+      "required": ["session_id", "task", "started_at", "status"],
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["running", "completed", "failed"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "interpreter_run_task_input": {
+      "type": "object",
+      "required": ["task", "auto_approve"],
+      "properties": {
+        "task": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context": {
+          "type": "string"
+        },
+        "auto_approve": {
+          "type": "boolean"
+        },
+        "model": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "interpreter_run_task_output": {
+      "type": "object",
+      "required": ["session_id", "steps", "artifacts"],
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "steps": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/interpreter_step" }
+        },
+        "final_output": {
+          "type": "string"
+        },
+        "artifacts": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "interpreter_run_code_input": {
+      "type": "object",
+      "required": ["language", "code", "timeout_seconds"],
+      "properties": {
+        "language": {
+          "type": "string",
+          "enum": ["python", "javascript", "shell"]
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 600
+        }
+      },
+      "additionalProperties": false
+    },
+    "interpreter_run_code_output": {
+      "type": "object",
+      "required": ["exit_code", "stdout", "stderr", "execution_time_ms"],
+      "properties": {
+        "exit_code": {
+          "type": "integer"
+        },
+        "stdout": {
+          "type": "string"
+        },
+        "stderr": {
+          "type": "string"
+        },
+        "execution_time_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "interpreter_status_input": {
+      "type": "object",
+      "properties": {
+        "session_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false
+    },
+    "interpreter_status_output": {
+      "type": "object",
+      "required": ["active_sessions"],
+      "properties": {
+        "active_sessions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/active_session" }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

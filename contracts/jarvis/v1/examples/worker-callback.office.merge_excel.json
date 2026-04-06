@@ -1,0 +1,44 @@
+{
+  "contract_version": "jarvis.v1",
+  "job_id": "0ce28058-7f44-4e7d-aec6-c4406af9c931",
+  "job_type": "office.merge_excel",
+  "attempt": 1,
+  "status": "completed",
+  "summary": "Merged two workbooks into one normalized workbook.",
+  "worker_id": "office-worker-01",
+  "artifacts": [
+    {
+      "artifact_id": "e2fb570a-58ab-4b2b-b5cd-55cf75f0ca49",
+      "kind": "xlsx",
+      "name": "merged-report.xlsx",
+      "path": "C:\\Jarvis\\artifacts\\merged-report.xlsx",
+      "path_context": "windows-host",
+      "path_style": "windows",
+      "size_bytes": 184220
+    }
+  ],
+  "structured_output": {
+    "output_artifact_id": "e2fb570a-58ab-4b2b-b5cd-55cf75f0ca49",
+    "source_file_count": 2,
+    "sheets_created": 1,
+    "rows_written": 1242,
+    "rows_deduped": 18,
+    "warnings": []
+  },
+  "metrics": {
+    "started_at": "2026-04-04T12:00:00Z",
+    "finished_at": "2026-04-04T12:03:12Z",
+    "queue_seconds": 1.2,
+    "run_seconds": 192.4,
+    "attempt": 1,
+    "worker_id": "office-worker-01"
+  },
+  "logs": [
+    {
+      "timestamp": "2026-04-04T12:00:01Z",
+      "level": "info",
+      "message": "Job accepted",
+      "source": "office-worker-01"
+    }
+  ]
+}

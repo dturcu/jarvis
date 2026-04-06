@@ -1,0 +1,38 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "8a4f7132-8491-45fc-ae14-a3b4340e5220",
+    "type": "device.clipboard_set",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 60,
+    "attempt": 1,
+    "input": {
+      "text": "Hello from Jarvis",
+      "mode": "replace"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "8a4f7132-8491-45fc-ae14-a3b4340e5220",
+    "job_type": "device.clipboard_set",
+    "status": "completed",
+    "summary": "Wrote text to the clipboard.",
+    "attempt": 1,
+    "structured_output": {
+      "applied": true,
+      "format": "text",
+      "item_count": 1
+    }
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0014-4000-8000-000000000014",
+    "type": "calendar.brief",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "consultant"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 300,
+    "attempt": 1,
+    "input": {
+      "event_id": "evt-iso26262-003",
+      "calendar_id": "primary",
+      "include_history": true
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0014-4000-8000-000000000014",
+    "job_type": "calendar.brief",
+    "status": "completed",
+    "summary": "Generated meeting brief for 'ISO 26262 evidence audit kick-off' on 2026-04-08T10:00:00.000Z.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "event_id": "evt-iso26262-003",
+      "title": "ISO 26262 evidence audit kick-off",
+      "start": "2026-04-08T10:00:00.000Z",
+      "attendees": [
+        { "email": "t.hofmann@bmw.com", "name": "Thomas Hofmann", "company": "BMW Group" },
+        { "email": "s.bauer@bmw.com", "name": "Sabine Bauer", "company": "BMW Group" },
+        { "email": "p.chen@bmw.com", "name": "Peter Chen", "company": "BMW Group" },
+        { "email": "consultant@jarvis.local", "name": "Jarvis Consultant" }
+      ],
+      "key_topics": [
+        "Safety goal review and ASIL classification",
+        "Part 4 and Part 6 evidence scope definition",
+        "Open action items from pre-audit checklist",
+        "Timeline and deliverable milestones"
+      ],
+      "recommended_agenda": [
+        "10 min — Introductions and project scope recap",
+        "20 min — Review of current evidence package status",
+        "25 min — Gap analysis and open technical items",
+        "15 min — Audit schedule and next steps"
+      ],
+      "context_notes": "ISO 26262 evidence audit kick-off for BMW iX3 project. Attendees represent the OEM safety team. Thomas Hofmann is the project safety manager. Part 4 (system level) and Part 6 (software level) are in scope. All materials are governed by the signed NDA.",
+      "action_items_from_last_meeting": [
+        "Follow up on open ASIL classification items for the propulsion control unit",
+        "Send updated software safety plan draft by EOW",
+        "Confirm availability of hardware-software interface specification"
+      ]
+    }
+  }
+}

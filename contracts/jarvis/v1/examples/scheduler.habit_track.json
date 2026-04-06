@@ -1,0 +1,50 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "e5f6a7b8-c9d0-1234-efab-345678901234",
+    "type": "scheduler.habit_track",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "operator"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "habit_id": "habit-exercise-01",
+      "action": "log",
+      "value": 1
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "e5f6a7b8-c9d0-1234-efab-345678901234",
+    "job_type": "scheduler.habit_track",
+    "status": "completed",
+    "summary": "Logged value 1 for habit 'habit-exercise-01'.",
+    "attempt": 1,
+    "structured_output": {
+      "action": "log",
+      "habit": {
+        "habit_id": "habit-exercise-01",
+        "label": "Daily Exercise",
+        "enabled": true,
+        "created_at": "2026-03-01T08:00:00.000Z",
+        "last_logged_at": "2026-04-04T08:00:00.000Z"
+      },
+      "entry": {
+        "entry_id": "entry-00000042",
+        "habit_id": "habit-exercise-01",
+        "value": 1,
+        "logged_at": "2026-04-04T08:00:00.000Z"
+      }
+    }
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d0c00004-0001-4000-8000-000000000004",
+    "type": "document.compare",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "legal-counsel"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 600,
+    "attempt": 1,
+    "input": {
+      "file_path_a": "/tmp/nda-v1.pdf",
+      "file_path_b": "/tmp/nda-v2.pdf",
+      "compare_mode": "clauses"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d0c00004-0001-4000-8000-000000000004",
+    "job_type": "document.compare",
+    "status": "completed",
+    "summary": "Compared /tmp/nda-v1.pdf vs /tmp/nda-v2.pdf: 7 changes found, 4 major.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "file_a": "/tmp/nda-v1.pdf",
+      "file_b": "/tmp/nda-v2.pdf",
+      "total_changes": 7,
+      "major_changes": 4,
+      "changes": [
+        {
+          "change_type": "modified",
+          "section": "Intellectual Property Assignment",
+          "description": "IP assignment clause broadened to include pre-existing IP.",
+          "significance": "major"
+        },
+        {
+          "change_type": "modified",
+          "section": "Governing Law",
+          "description": "Jurisdiction changed from Delaware to Massachusetts.",
+          "significance": "major"
+        },
+        {
+          "change_type": "added",
+          "section": "Non-Compete",
+          "description": "New 24-month non-compete clause added.",
+          "significance": "major"
+        },
+        {
+          "change_type": "removed",
+          "section": "Limitation of Liability",
+          "description": "Mutual $1M USD liability cap removed.",
+          "significance": "major"
+        },
+        {
+          "change_type": "modified",
+          "section": "Confidentiality Period",
+          "description": "Confidentiality period extended from 3 to 5 years.",
+          "significance": "moderate"
+        },
+        {
+          "change_type": "added",
+          "section": "Definitions",
+          "description": "Added definition for Derivative Works.",
+          "significance": "minor"
+        },
+        {
+          "change_type": "modified",
+          "section": "Notice Period",
+          "description": "Notice period changed from 30 to 60 days.",
+          "significance": "minor"
+        }
+      ],
+      "similarity_score": 0.72,
+      "compared_at": "2026-04-04T12:00:00.000Z"
+    }
+  }
+}

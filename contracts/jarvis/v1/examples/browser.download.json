@@ -1,0 +1,55 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "c3f26637-308d-460a-b237-c9175c0783eb",
+    "type": "browser.download",
+    "session_key": "agent:main:telegram:dm:123456789",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "604",
+      "chat_id": "123456789"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 300,
+    "attempt": 1,
+    "input": {
+      "source_url": "https://example.com/files/q2-report.pdf",
+      "expected_kind": "pdf",
+      "output_name": "q2-report.pdf"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "c3f26637-308d-460a-b237-c9175c0783eb",
+    "job_type": "browser.download",
+    "status": "completed",
+    "summary": "Downloaded one PDF from the source URL.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "9b4bb3fa-5171-48f1-a66f-8a0d1a23d6f7",
+        "kind": "pdf",
+        "name": "q2-report.pdf",
+        "path": "/srv/browser/artifacts/q2-report.pdf",
+        "path_context": "linux-container",
+        "path_style": "posix",
+        "size_bytes": 481220,
+        "checksum_sha256": "0f7e2a0f6f6fd8ce5e2c4f7d9f40c0c1a1b47c8f77bc0a5ad4f46d9c88b9d111"
+      }
+    ],
+    "structured_output": {
+      "downloaded_artifact_id": "9b4bb3fa-5171-48f1-a66f-8a0d1a23d6f7",
+      "resolved_url": "https://cdn.example.com/files/q2-report.pdf",
+      "content_type": "application/pdf",
+      "bytes": 481220,
+      "checksum_sha256": "0f7e2a0f6f6fd8ce5e2c4f7d9f40c0c1a1b47c8f77bc0a5ad4f46d9c88b9d111"
+    }
+  }
+}

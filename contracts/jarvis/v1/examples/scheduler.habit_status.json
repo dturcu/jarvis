@@ -1,0 +1,54 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "f6a7b8c9-d0e1-2345-fabc-456789012345",
+    "type": "scheduler.habit_status",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "operator"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "habit_id": "habit-exercise-01",
+      "days_back": 7
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "f6a7b8c9-d0e1-2345-fabc-456789012345",
+    "job_type": "scheduler.habit_status",
+    "status": "completed",
+    "summary": "Habit status for 'habit-exercise-01' over the past 7 days.",
+    "attempt": 1,
+    "structured_output": {
+      "habits": [
+        {
+          "habit_id": "habit-exercise-01",
+          "label": "Daily Exercise",
+          "days_back": 7,
+          "log_count": 5,
+          "total_value": 5,
+          "average_value": 1,
+          "last_logged_at": "2026-04-04T08:00:00.000Z",
+          "entries": [
+            {
+              "entry_id": "entry-00000042",
+              "habit_id": "habit-exercise-01",
+              "value": 1,
+              "logged_at": "2026-04-04T08:00:00.000Z"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

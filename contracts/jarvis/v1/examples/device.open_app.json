@@ -1,0 +1,48 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "3d2873bb-db7a-469b-8917-4063439dd943",
+    "type": "device.open_app",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 180,
+    "attempt": 1,
+    "input": {
+      "app": {
+        "app_id": "notepad"
+      },
+      "arguments": [],
+      "wait_for_window": true
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "3d2873bb-db7a-469b-8917-4063439dd943",
+    "job_type": "device.open_app",
+    "status": "completed",
+    "summary": "Launched Notepad and detected the new window.",
+    "attempt": 1,
+    "structured_output": {
+      "launched": true,
+      "app_id": "notepad",
+      "process_id": 9020,
+      "window": {
+        "window_id": "win-notepad",
+        "title": "Untitled - Notepad",
+        "app_id": "notepad",
+        "process_id": 9020,
+        "is_focused": true
+      }
+    }
+  }
+}

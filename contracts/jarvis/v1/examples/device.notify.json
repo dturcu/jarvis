@@ -1,0 +1,38 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "2ab734b6-03c8-4376-83b1-9347d0c5a308",
+    "type": "device.notify",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "title": "Jarvis",
+      "body": "Build finished successfully",
+      "urgency": "normal"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "2ab734b6-03c8-4376-83b1-9347d0c5a308",
+    "job_type": "device.notify",
+    "status": "completed",
+    "summary": "Sent the local device notification.",
+    "attempt": 1,
+    "structured_output": {
+      "delivered": true,
+      "notification_id": "toast-001"
+    }
+  }
+}

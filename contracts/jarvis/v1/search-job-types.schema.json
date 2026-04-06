@@ -1,0 +1,365 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/search-job-types.schema.json",
+  "title": "Jarvis Search and Scrape Job Types",
+  "type": "object",
+  "$defs": {
+    "string_array": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "search_query_input": {
+      "type": "object",
+      "required": [
+        "query"
+      ],
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1
+        },
+        "freshness": {
+          "type": "string",
+          "enum": [
+            "any",
+            "24h",
+            "7d",
+            "30d"
+          ]
+        },
+        "max_results": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "domains_allow": {
+          "$ref": "#/$defs/string_array"
+        },
+        "domains_deny": {
+          "$ref": "#/$defs/string_array"
+        },
+        "language": {
+          "type": "string",
+          "minLength": 2
+        }
+      },
+      "additionalProperties": false
+    },
+    "search_result": {
+      "type": "object",
+      "required": [
+        "rank",
+        "title",
+        "url",
+        "snippet",
+        "source"
+      ],
+      "properties": {
+        "rank": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "snippet": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "search_query_output": {
+      "type": "object",
+      "required": [
+        "results"
+      ],
+      "properties": {
+        "results": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/search_result"
+          }
+        },
+        "export_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "search_fetch_input": {
+      "type": "object",
+      "required": [
+        "urls",
+        "fetch_mode"
+      ],
+      "properties": {
+        "urls": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "fetch_mode": {
+          "type": "string",
+          "enum": [
+            "html",
+            "markdown",
+            "text",
+            "raw"
+          ]
+        },
+        "extract_metadata": {
+          "type": "boolean"
+        },
+        "output_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "fetched_item": {
+      "type": "object",
+      "required": [
+        "url",
+        "status_code",
+        "content_type"
+      ],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "status_code": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 599
+        },
+        "content_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "artifact_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "search_fetch_output": {
+      "type": "object",
+      "required": [
+        "fetched"
+      ],
+      "properties": {
+        "fetched": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/fetched_item"
+          }
+        },
+        "aggregate_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "scrape_field": {
+      "type": "object",
+      "required": [
+        "name",
+        "type",
+        "description",
+        "required"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "string",
+            "number",
+            "boolean",
+            "date",
+            "url"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "scrape_extract_input": {
+      "type": "object",
+      "required": [
+        "targets",
+        "fields",
+        "output_format",
+        "output_name"
+      ],
+      "properties": {
+        "targets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/scrape_field"
+          }
+        },
+        "max_pages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "output_format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "csv",
+            "xlsx"
+          ]
+        },
+        "output_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "scrape_extract_output": {
+      "type": "object",
+      "required": [
+        "record_count",
+        "output_artifact_id",
+        "fields",
+        "warnings"
+      ],
+      "properties": {
+        "record_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fields": {
+          "$ref": "#/$defs/string_array"
+        },
+        "warnings": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    },
+    "scrape_crawl_input": {
+      "type": "object",
+      "required": [
+        "seed_urls",
+        "allowed_domains",
+        "max_pages",
+        "extraction_profile",
+        "output_name"
+      ],
+      "properties": {
+        "seed_urls": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "allowed_domains": {
+          "$ref": "#/$defs/string_array"
+        },
+        "max_pages": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000
+        },
+        "follow_patterns": {
+          "$ref": "#/$defs/string_array"
+        },
+        "exclude_patterns": {
+          "$ref": "#/$defs/string_array"
+        },
+        "extraction_profile": {
+          "type": "string",
+          "enum": [
+            "discovery",
+            "content",
+            "tables",
+            "files"
+          ]
+        },
+        "output_name": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "scrape_crawl_output": {
+      "type": "object",
+      "required": [
+        "page_count",
+        "discovered_urls",
+        "output_artifact_id",
+        "warnings"
+      ],
+      "properties": {
+        "page_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "discovered_urls": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "output_artifact_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "warnings": {
+          "$ref": "#/$defs/string_array"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

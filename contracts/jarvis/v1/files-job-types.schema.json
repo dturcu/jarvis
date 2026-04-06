@@ -1,0 +1,419 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json",
+  "title": "Jarvis Files Job Types",
+  "type": "object",
+  "$defs": {
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "encoding": {
+      "type": "string",
+      "enum": [
+        "utf8",
+        "base64"
+      ]
+    },
+    "files_inspect_input": {
+      "type": "object",
+      "required": [
+        "paths"
+      ],
+      "properties": {
+        "root_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          },
+          "minItems": 1
+        },
+        "recursive": {
+          "type": "boolean"
+        },
+        "include_stats": {
+          "type": "boolean"
+        },
+        "preview_lines": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        }
+      },
+      "additionalProperties": false
+    },
+    "files_inspect_output": {
+      "type": "object",
+      "required": [
+        "root_path",
+        "entries"
+      ],
+      "properties": {
+        "root_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "files_read_input": {
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "root_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "encoding": {
+          "$ref": "#/$defs/encoding"
+        }
+      },
+      "additionalProperties": false
+    },
+    "files_read_output": {
+      "type": "object",
+      "required": [
+        "root_path",
+        "path",
+        "encoding",
+        "content"
+      ],
+      "properties": {
+        "root_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "encoding": {
+          "$ref": "#/$defs/encoding"
+        },
+        "content": {
+          "type": "string"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "modified_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "files_search_input": {
+      "type": "object",
+      "required": [
+        "query"
+      ],
+      "properties": {
+        "root_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "query": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "case_sensitive": {
+          "type": "boolean"
+        },
+        "include_contents": {
+          "type": "boolean"
+        },
+        "max_results": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        }
+      },
+      "additionalProperties": false
+    },
+    "files_search_output": {
+      "type": "object",
+      "required": [
+        "root_path",
+        "query",
+        "matches"
+      ],
+      "properties": {
+        "root_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "query": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "matches": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "files_write_input": {
+      "type": "object",
+      "required": [
+        "path",
+        "content"
+      ],
+      "properties": {
+        "root_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "content": {
+          "type": "string"
+        },
+        "encoding": {
+          "$ref": "#/$defs/encoding"
+        },
+        "create_directories": {
+          "type": "boolean"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "files_write_output": {
+      "type": "object",
+      "required": [
+        "root_path",
+        "path",
+        "encoding",
+        "size_bytes"
+      ],
+      "properties": {
+        "root_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "encoding": {
+          "$ref": "#/$defs/encoding"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "files_patch_input": {
+      "type": "object",
+      "required": [
+        "path",
+        "operations"
+      ],
+      "properties": {
+        "root_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "find",
+              "replace"
+            ],
+            "properties": {
+              "find": {
+                "type": "string"
+              },
+              "replace": {
+                "type": "string"
+              },
+              "all": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "encoding": {
+          "$ref": "#/$defs/encoding"
+        },
+        "create_directories": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "files_patch_output": {
+      "type": "object",
+      "required": [
+        "root_path",
+        "path",
+        "replacement_count",
+        "before_preview",
+        "after_preview"
+      ],
+      "properties": {
+        "root_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "replacement_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "before_preview": {
+          "type": "string"
+        },
+        "after_preview": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "files_copy_input": {
+      "type": "object",
+      "required": [
+        "source_path",
+        "destination_path"
+      ],
+      "properties": {
+        "root_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "source_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "destination_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "create_directories": {
+          "type": "boolean"
+        },
+        "overwrite": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "files_copy_output": {
+      "type": "object",
+      "required": [
+        "root_path",
+        "source_path",
+        "destination_path",
+        "size_bytes"
+      ],
+      "properties": {
+        "root_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "source_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "destination_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "files_move_input": {
+      "$ref": "#/$defs/files_copy_input"
+    },
+    "files_move_output": {
+      "type": "object",
+      "required": [
+        "root_path",
+        "source_path",
+        "destination_path"
+      ],
+      "properties": {
+        "root_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "source_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "destination_path": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "files_preview_input": {
+      "type": "object",
+      "required": [
+        "path"
+      ],
+      "properties": {
+        "root_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "max_lines": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "encoding": {
+          "$ref": "#/$defs/encoding"
+        }
+      },
+      "additionalProperties": false
+    },
+    "files_preview_output": {
+      "type": "object",
+      "required": [
+        "root_path",
+        "path",
+        "encoding",
+        "line_count",
+        "preview"
+      ],
+      "properties": {
+        "root_path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "encoding": {
+          "$ref": "#/$defs/encoding"
+        },
+        "line_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "preview": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

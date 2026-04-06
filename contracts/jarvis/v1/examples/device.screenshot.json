@@ -1,0 +1,52 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "fb3cb56d-928b-4591-a931-9f51cc8c6809",
+    "type": "device.screenshot",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 120,
+    "attempt": 1,
+    "input": {
+      "target": "desktop",
+      "format": "png",
+      "output_name": "desktop.png"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "fb3cb56d-928b-4591-a931-9f51cc8c6809",
+    "job_type": "device.screenshot",
+    "status": "completed",
+    "summary": "Captured the desktop screenshot.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "0a82f650-cd8d-4656-b29d-db2d60f8bd04",
+        "kind": "png",
+        "name": "desktop.png",
+        "path": "C:\\Jarvis\\artifacts\\desktop.png",
+        "path_context": "windows-host",
+        "path_style": "windows",
+        "size_bytes": 488201
+      }
+    ],
+    "structured_output": {
+      "capture_artifact_id": "0a82f650-cd8d-4656-b29d-db2d60f8bd04",
+      "target": "desktop",
+      "format": "png",
+      "width": 1920,
+      "height": 1080
+    }
+  }
+}

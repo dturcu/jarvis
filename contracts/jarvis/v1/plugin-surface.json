@@ -1,0 +1,476 @@
+{
+  "contract_version": "jarvis.v1",
+  "plugins": [
+    {
+      "id": "@jarvis/core",
+      "role": "policy and orchestration",
+      "tools": [
+        "jarvis_plan",
+        "jarvis_run_job",
+        "jarvis_get_job",
+        "jarvis_list_artifacts",
+        "jarvis_request_approval"
+      ],
+      "commands": [
+        "/approve"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Owns policy evaluation, approvals, model selection, capability routing, and sub-agent policy.",
+        "Registers hook-based approval pauses for risky tool calls."
+      ]
+    },
+    {
+      "id": "@jarvis/jobs",
+      "role": "worker broker",
+      "tools": [
+        "job_submit",
+        "job_status",
+        "job_cancel",
+        "job_artifacts",
+        "job_retry"
+      ],
+      "commands": [],
+      "http_routes": [
+        {
+          "method": "POST",
+          "path": "/jarvis/jobs/claim",
+          "auth": "plugin"
+        },
+        {
+          "method": "POST",
+          "path": "/jarvis/jobs/heartbeat",
+          "auth": "plugin"
+        },
+        {
+          "method": "POST",
+          "path": "/jarvis/jobs/callback",
+          "auth": "plugin"
+        }
+      ],
+      "notes": [
+        "Owns queue submission, status, retries, artifact registration, and worker callbacks."
+      ]
+    },
+    {
+      "id": "@jarvis/dispatch",
+      "role": "session dispatch",
+      "tools": [
+        "dispatch_to_session",
+        "dispatch_followup",
+        "dispatch_broadcast",
+        "dispatch_notify_completion",
+        "dispatch_spawn_worker_agent"
+      ],
+      "commands": [
+        "/dispatch",
+        "/followup",
+        "/broadcast",
+        "/sendto"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Uses OpenClaw sessions_send and sessions_spawn only.",
+        "Never sends Telegram messages directly from a worker."
+      ]
+    },
+    {
+      "id": "@jarvis/office",
+      "role": "office facade",
+      "tools": [
+        "office_inspect",
+        "office_transform",
+        "office_merge_excel",
+        "office_fill_docx",
+        "office_build_pptx",
+        "office_extract_tables",
+        "office_preview"
+      ],
+      "commands": [
+        "/excel",
+        "/word",
+        "/ppt",
+        "/office-status"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Compiles deterministic office job specs.",
+        "Delegates execution to adapter-backed external workers.",
+        "Does not manipulate Office files in-process."
+      ]
+    },
+    {
+      "id": "@jarvis/files",
+      "role": "safe file broker",
+      "tools": [
+        "files_inspect",
+        "files_read",
+        "files_search",
+        "files_write",
+        "files_patch",
+        "files_copy",
+        "files_move",
+        "files_preview"
+      ],
+      "commands": [
+        "/files"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Wraps approved-root file access with deterministic read, write, patch, copy, move, and preview flows.",
+        "Read-only file operations can run without approval; destructive operations require approval unless the root is pre-authorized."
+      ]
+    },
+    {
+      "id": "@jarvis/browser",
+      "role": "browser facade",
+      "tools": [
+        "browser_run_task",
+        "browser_extract",
+        "browser_capture",
+        "browser_download"
+      ],
+      "commands": [
+        "/browser"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Brokers browser work onto OpenClaw's managed browser stack rather than creating a second browser runtime.",
+        "Pairs deterministic browser job specs with approval-aware execution for privileged browser actions."
+      ]
+    },
+    {
+      "id": "@jarvis/device",
+      "role": "desktop and device broker",
+      "tools": [
+        "device_snapshot",
+        "device_list_windows",
+        "device_open_app",
+        "device_focus_window",
+        "device_screenshot",
+        "device_click",
+        "device_type",
+        "device_hotkey",
+        "device_clipboard_get",
+        "device_clipboard_set",
+        "device_notify",
+        "device_audio_get",
+        "device_audio_set",
+        "device_display_get",
+        "device_display_set",
+        "device_power_action",
+        "device_network_status",
+        "device_network_control",
+        "device_window_layout",
+        "device_virtual_desktop_list",
+        "device_virtual_desktop_switch",
+        "device_focus_mode",
+        "device_app_usage"
+      ],
+      "commands": [
+        "/device",
+        "/windows",
+        "/clipboard",
+        "/notify"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Compiles deterministic host-observation and desktop-control job specs.",
+        "Delegates execution to a separate desktop-host worker and never automates the machine inside the Gateway process.",
+        "Forms the base control plane for future file, browser, app, and publish workflows on the current device."
+      ]
+    },
+    {
+      "id": "@jarvis/system",
+      "role": "system intelligence",
+      "tools": [
+        "system_monitor_cpu",
+        "system_monitor_memory",
+        "system_monitor_disk",
+        "system_monitor_network",
+        "system_monitor_battery",
+        "system_list_processes",
+        "system_kill_process",
+        "system_hardware_info"
+      ],
+      "commands": [
+        "/system",
+        "/processes",
+        "/hardware"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Monitors CPU, memory, disk, network, battery. Manages processes. Reports hardware inventory."
+      ]
+    },
+    {
+      "id": "@jarvis/inference",
+      "role": "local LLM runtime integration",
+      "tools": [
+        "inference_chat",
+        "inference_embed",
+        "inference_list_models",
+        "inference_rag_index",
+        "inference_rag_query",
+        "inference_batch_submit",
+        "inference_batch_status"
+      ],
+      "commands": [
+        "/inference",
+        "/models",
+        "/rag"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Auto-detects Ollama and LM Studio runtimes at their default ports.",
+        "Routes requests to the optimal local model based on requested tier (haiku/sonnet/opus).",
+        "Falls back to adjacent tiers when exact match is unavailable.",
+        "Provides RAG indexing and querying backed by local embeddings.",
+        "Supports async batch inference with status polling."
+      ]
+    },
+    {
+      "id": "@jarvis/scheduler",
+      "role": "proactive scheduler and alert engine",
+      "tools": [
+        "scheduler_create_schedule",
+        "scheduler_list_schedules",
+        "scheduler_delete_schedule",
+        "scheduler_create_alert",
+        "scheduler_create_workflow",
+        "scheduler_run_workflow",
+        "scheduler_habit_track",
+        "scheduler_habit_status"
+      ],
+      "commands": [
+        "/schedule",
+        "/alerts"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Manages recurring job schedules using cron expressions or fixed intervals.",
+        "Evaluates threshold alert rules against metric paths extracted from job outputs.",
+        "Uses an in-memory store for schedule and alert records; no SQLite dependency.",
+        "Supports scope groups for organizational isolation of schedules."
+      ]
+    },
+    {
+      "id": "@jarvis/interpreter",
+      "role": "open interpreter bridge for multi-step automation",
+      "tools": [
+        "interpreter_run_task",
+        "interpreter_run_code",
+        "interpreter_status"
+      ],
+      "commands": [
+        "/interpret",
+        "/run-code"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Orchestrates Open Interpreter for complex multi-step automation tasks.",
+        "Requires user approval before any code execution due to arbitrary code execution risk.",
+        "Supports Python, JavaScript, and shell code execution via direct subprocess spawning.",
+        "Session tracking allows monitoring of long-running interpreter tasks."
+      ]
+    },
+    {
+      "id": "@jarvis/voice",
+      "role": "voice interface",
+      "tools": [
+        "voice_listen",
+        "voice_transcribe",
+        "voice_speak",
+        "voice_wake_word_start",
+        "voice_wake_word_stop"
+      ],
+      "commands": [
+        "/voice",
+        "/listen",
+        "/speak"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Captures microphone audio via ffmpeg or sox and stores as WAV artifacts.",
+        "Transcribes audio artifacts using Whisper STT (whisper.cpp or faster-whisper).",
+        "Synthesises speech via Piper TTS (cross-platform) or Windows SAPI (PowerShell fallback).",
+        "Manages persistent wake word detection sessions with configurable keyword and sensitivity."
+      ]
+    },
+    {
+      "id": "@jarvis/security",
+      "role": "security and defense",
+      "tools": [
+        "security_scan_processes",
+        "security_whitelist_update",
+        "security_network_audit",
+        "security_file_integrity_check",
+        "security_file_integrity_baseline",
+        "security_firewall_rule",
+        "security_lockdown"
+      ],
+      "commands": [
+        "/security",
+        "/lockdown",
+        "/audit"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Scans running processes against a configurable whitelist and flags suspicious activity.",
+        "Audits active network connections and identifies connections to known malicious ports.",
+        "Provides SHA-256 file integrity baselines and change detection.",
+        "Manages Windows Firewall rules via netsh for inbound and outbound traffic control.",
+        "Lockdown mode kills non-whitelisted processes, blocks outbound traffic, and locks the screen."
+      ]
+    },
+    {
+      "id": "@jarvis/agent",
+      "role": "autonomous agent lifecycle management",
+      "tools": [
+        "agent_start",
+        "agent_step",
+        "agent_status",
+        "agent_pause",
+        "agent_resume",
+        "agent_configure"
+      ],
+      "commands": [
+        "/agent",
+        "/agents"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Manages the full lifecycle of autonomous agents: registration, starting, stepping, pausing, resuming, and configuring.",
+        "Uses an in-memory AgentRuntime and AgentMemoryStore for short-term and long-term memory management.",
+        "Supports multiple trigger kinds: manual, schedule, event, and threshold.",
+        "Approval is required for agent start and resume when configured gates are active."
+      ]
+    },
+    {
+      "id": "@jarvis/calendar",
+      "role": "calendar and scheduling intelligence",
+      "tools": [
+        "calendar_list_events",
+        "calendar_create_event",
+        "calendar_update_event",
+        "calendar_find_free",
+        "calendar_brief"
+      ],
+      "commands": [
+        "/calendar",
+        "/meetings"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Lists, creates, and updates calendar events via the calendar worker adapter.",
+        "Finds free time slots across multiple attendees within a search window.",
+        "Generates structured meeting preparation briefs including key topics, recommended agenda, and attendee context.",
+        "Event creation requires approval; updates are conditional based on scope; read operations require no approval."
+      ]
+    },
+    {
+      "id": "@jarvis/email",
+      "role": "email management and inbox intelligence",
+      "tools": [
+        "email_search",
+        "email_read",
+        "email_draft",
+        "email_send",
+        "email_label",
+        "email_list_threads"
+      ],
+      "commands": [
+        "/email",
+        "/inbox"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Searches inbox using Gmail query syntax (from:, subject:, label:, free text).",
+        "Reads full message body, headers, and attachment metadata by message ID.",
+        "Creates drafts in Gmail without sending; draft_id is returned for later use.",
+        "Sending always requires user approval to prevent accidental outbound email.",
+        "Applies or removes Gmail labels conditionally; removal from INBOX is guarded by approval.",
+        "Lists threads grouped by thread_id with participant and recency metadata."
+      ]
+    },
+    {
+      "id": "@jarvis/web",
+      "role": "web intelligence and research",
+      "tools": [
+        "web_search_news",
+        "web_scrape_profile",
+        "web_monitor_page",
+        "web_enrich_contact",
+        "web_track_jobs",
+        "web_competitive_intel"
+      ],
+      "commands": [
+        "/web",
+        "/intel"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Searches news sources and the web for articles and information about companies or topics.",
+        "Scrapes structured profile data from company pages, LinkedIn profiles, and job postings.",
+        "Monitors web pages for content changes across runs using stable page identifiers and content hashes.",
+        "Enriches contact records with role, company size, industry, and LinkedIn data sourced from the web.",
+        "Tracks job postings at target companies and filters by keyword relevance for talent intelligence.",
+        "Gathers competitive intelligence including key facts, recent news, and product/team signals."
+      ]
+    },
+    {
+      "id": "@jarvis/crm",
+      "role": "CRM pipeline and contact management",
+      "tools": [
+        "crm_add_contact",
+        "crm_update_contact",
+        "crm_list_pipeline",
+        "crm_move_stage",
+        "crm_add_note",
+        "crm_search",
+        "crm_digest"
+      ],
+      "commands": [
+        "/crm",
+        "/pipeline"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Manages an in-memory CRM pipeline with stages: prospect → qualified → contacted → meeting → proposal → negotiation → won | lost | parked.",
+        "Supports full-text search across contact name, company, tags, and notes.",
+        "Generates pipeline digest reports including hot leads (score > 70 in late stages) and stale contact detection.",
+        "Contact creation and mutation operations are conditional-approval; read and digest operations require no approval."
+      ]
+    },
+    {
+      "id": "@jarvis/document",
+      "role": "document intelligence and automotive safety compliance",
+      "tools": [
+        "document_ingest",
+        "document_extract_clauses",
+        "document_analyze_compliance",
+        "document_compare",
+        "document_generate_report"
+      ],
+      "commands": [
+        "/document",
+        "/analyze"
+      ],
+      "http_routes": [],
+      "notes": [
+        "Ingests PDF, DOCX, TXT, and MD documents extracting text, structure, and tables.",
+        "Extracts and classifies NDA/contract clauses with risk assessment (low, medium, high, critical).",
+        "Analyzes compliance against ISO 26262, ASPICE, IEC 61508, and ISO 21434 with gap reporting.",
+        "Compares two document versions and classifies changes by significance (minor, moderate, major).",
+        "Generates structured reports from templates (evidence gap, compliance summary, NDA analysis, proposal, custom) in DOCX, PDF, or Markdown."
+      ]
+    }
+  ],
+  "boundary_rules": [
+    "Only OpenClaw talks to Telegram.",
+    "OpenClaw remains the source of truth for sessions, routing, channel connections, and browser primitives.",
+    "Workers communicate back through the jobs callback route and never directly to chat channels.",
+    "Approval is required for external dispatch, unrestricted python execution, privileged browser actions, and destructive file edits.",
+    "Desktop and device automation runs in a separate host worker, not inside the Gateway process."
+  ]
+}

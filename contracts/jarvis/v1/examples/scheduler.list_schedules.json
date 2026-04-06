@@ -1,0 +1,50 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-e5f6-7890-abcd-ef0123456702",
+    "type": "scheduler.list_schedules",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "scope_group": "monitoring",
+      "enabled_only": true
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-e5f6-7890-abcd-ef0123456702",
+    "job_type": "scheduler.list_schedules",
+    "status": "completed",
+    "summary": "Found 1 schedule(s) in scope group 'monitoring'.",
+    "attempt": 1,
+    "structured_output": {
+      "schedules": [
+        {
+          "schedule_id": "sched-0000-0001-0001-000000000001",
+          "job_type": "system.monitor_cpu",
+          "input": { "sample_count": 3 },
+          "cron_expression": "*/5 * * * *",
+          "next_fire_at": "2026-04-04T12:05:00.000Z",
+          "enabled": true,
+          "scope_group": "monitoring",
+          "label": "CPU check every 5 minutes",
+          "created_at": "2026-04-04T12:00:00.000Z",
+          "updated_at": "2026-04-04T12:00:00.000Z"
+        }
+      ],
+      "total": 1
+    }
+  }
+}

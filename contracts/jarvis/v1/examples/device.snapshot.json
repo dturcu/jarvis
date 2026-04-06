@@ -1,0 +1,100 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "8b0a69fc-7e6b-49db-85d5-54841b365ad0",
+    "type": "device.snapshot",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 120,
+    "attempt": 1,
+    "input": {
+      "include": {
+        "windows": true,
+        "displays": true,
+        "clipboard": true,
+        "active_window": true
+      },
+      "capture_screenshot": true,
+      "output_name": "device-snapshot.png"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "8b0a69fc-7e6b-49db-85d5-54841b365ad0",
+    "job_type": "device.snapshot",
+    "status": "completed",
+    "summary": "Captured the current device snapshot.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "799f104d-c7e0-4dbe-b0fb-54d286e33714",
+        "kind": "png",
+        "name": "device-snapshot.png",
+        "path": "C:\\Jarvis\\artifacts\\device-snapshot.png",
+        "path_context": "windows-host",
+        "path_style": "windows",
+        "size_bytes": 265114
+      }
+    ],
+    "structured_output": {
+      "host": {
+        "platform": "windows",
+        "hostname": "WORKSTATION-01",
+        "user": "daniel"
+      },
+      "observed_at": "2026-04-04T12:00:00Z",
+      "active_window": {
+        "window_id": "win-vscode",
+        "title": "Playground - Visual Studio Code",
+        "app_id": "code",
+        "process_id": 4312,
+        "is_focused": true,
+        "bounds": {
+          "x": 0,
+          "y": 0,
+          "width": 1920,
+          "height": 1040
+        }
+      },
+      "windows": [
+        {
+          "window_id": "win-vscode",
+          "title": "Playground - Visual Studio Code",
+          "app_id": "code",
+          "process_id": 4312,
+          "is_focused": true,
+          "bounds": {
+            "x": 0,
+            "y": 0,
+            "width": 1920,
+            "height": 1040
+          }
+        }
+      ],
+      "displays": [
+        {
+          "display_id": "display-1",
+          "width": 1920,
+          "height": 1080,
+          "scale_factor": 1,
+          "is_primary": true
+        }
+      ],
+      "clipboard": {
+        "has_text": true,
+        "text_preview": "Draft proposal for Acme"
+      },
+      "screenshot_artifact_id": "799f104d-c7e0-4dbe-b0fb-54d286e33714"
+    }
+  }
+}

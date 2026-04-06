@@ -1,0 +1,43 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0012-4000-8000-000000000012",
+    "type": "calendar.update_event",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "consultant"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 60,
+    "attempt": 1,
+    "input": {
+      "event_id": "evt-tier1-002",
+      "calendar_id": "primary",
+      "location": "Zoom call - link in invite",
+      "description": "Updated: Present functional safety consulting proposal to Continental AG powertrain division. Format changed to remote.",
+      "send_updates": true
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0012-4000-8000-000000000012",
+    "job_type": "calendar.update_event",
+    "status": "completed",
+    "summary": "Updated event 'evt-tier1-002': location, description changed.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "event_id": "evt-tier1-002",
+      "calendar_id": "primary",
+      "updated_at": "2026-04-04T12:00:00.000Z",
+      "changes_applied": ["location", "description"]
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ec000004-0004-4000-8000-000000000004",
+    "type": "security.file_integrity_check",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 600,
+    "attempt": 1,
+    "input": {
+      "paths": [
+        "C:\\Windows\\System32\\cmd.exe",
+        "C:\\Windows\\System32\\notepad.exe"
+      ],
+      "baseline_id": "baseline-2026-01-01"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ec000004-0004-4000-8000-000000000004",
+    "job_type": "security.file_integrity_check",
+    "status": "completed",
+    "summary": "Checked 2 file(s). Changes: +0 added, -0 removed, ~1 modified.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "checked_at": "2026-04-04T12:00:15.000Z",
+      "baseline_id": "baseline-2026-01-01",
+      "baseline_label": "January 2026 baseline",
+      "files": [
+        {
+          "path": "C:\\Windows\\System32\\cmd.exe",
+          "hash": "aabb1122334455667788990011223344556677889900aabb1122334455667788",
+          "size": 329216,
+          "last_modified": "2026-03-15T08:30:00.000Z"
+        },
+        {
+          "path": "C:\\Windows\\System32\\notepad.exe",
+          "hash": "ff00112233445566778899aabbccddeeff00112233445566778899aabbccddee",
+          "size": 212992,
+          "last_modified": "2026-04-01T10:00:00.000Z"
+        }
+      ],
+      "diff": {
+        "added": [],
+        "removed": [],
+        "modified": ["C:\\Windows\\System32\\notepad.exe"],
+        "unchanged": 1
+      }
+    }
+  }
+}

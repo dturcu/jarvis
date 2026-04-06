@@ -1,0 +1,269 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json",
+  "title": "Jarvis CRM Job Types",
+  "type": "object",
+  "$defs": {
+    "pipeline_stage": {
+      "type": "string",
+      "enum": [
+        "prospect",
+        "qualified",
+        "contacted",
+        "meeting",
+        "proposal",
+        "negotiation",
+        "won",
+        "lost",
+        "parked"
+      ]
+    },
+    "contact_record": {
+      "type": "object",
+      "required": ["contact_id", "name", "company", "tags", "stage", "score", "created_at", "updated_at"],
+      "properties": {
+        "contact_id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "company": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "minLength": 1 },
+        "linkedin_url": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "stage": { "$ref": "#/$defs/pipeline_stage" },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "last_contact_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "note_record": {
+      "type": "object",
+      "required": ["note_id", "contact_id", "content", "note_type", "created_at"],
+      "properties": {
+        "note_id": { "type": "string", "minLength": 1 },
+        "contact_id": { "type": "string", "minLength": 1 },
+        "content": { "type": "string", "minLength": 1 },
+        "note_type": { "type": "string", "minLength": 1 },
+        "created_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "stage_counts": {
+      "type": "object",
+      "required": ["prospect", "qualified", "contacted", "meeting", "proposal", "negotiation", "won", "lost", "parked"],
+      "properties": {
+        "prospect": { "type": "integer", "minimum": 0 },
+        "qualified": { "type": "integer", "minimum": 0 },
+        "contacted": { "type": "integer", "minimum": 0 },
+        "meeting": { "type": "integer", "minimum": 0 },
+        "proposal": { "type": "integer", "minimum": 0 },
+        "negotiation": { "type": "integer", "minimum": 0 },
+        "won": { "type": "integer", "minimum": 0 },
+        "lost": { "type": "integer", "minimum": 0 },
+        "parked": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "crm_add_contact_input": {
+      "type": "object",
+      "required": ["name", "company"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "company": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "minLength": 1 },
+        "linkedin_url": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "notes": { "type": "string", "minLength": 1 },
+        "stage": { "$ref": "#/$defs/pipeline_stage" }
+      },
+      "additionalProperties": false
+    },
+    "crm_add_contact_output": {
+      "type": "object",
+      "required": ["contact"],
+      "properties": {
+        "contact": { "$ref": "#/$defs/contact_record" }
+      },
+      "additionalProperties": false
+    },
+    "crm_update_contact_input": {
+      "type": "object",
+      "required": ["contact_id"],
+      "properties": {
+        "contact_id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "company": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 },
+        "email": { "type": "string", "minLength": 1 },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "last_contact_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "crm_update_contact_output": {
+      "type": "object",
+      "required": ["contact", "changes_applied"],
+      "properties": {
+        "contact": { "$ref": "#/$defs/contact_record" },
+        "changes_applied": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "crm_list_pipeline_input": {
+      "type": "object",
+      "properties": {
+        "stage": { "$ref": "#/$defs/pipeline_stage" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "min_score": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "limit": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "crm_list_pipeline_output": {
+      "type": "object",
+      "required": ["contacts", "total_count", "stage_counts"],
+      "properties": {
+        "contacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/contact_record" }
+        },
+        "total_count": { "type": "integer", "minimum": 0 },
+        "stage_counts": { "$ref": "#/$defs/stage_counts" }
+      },
+      "additionalProperties": false
+    },
+    "crm_move_stage_input": {
+      "type": "object",
+      "required": ["contact_id", "new_stage"],
+      "properties": {
+        "contact_id": { "type": "string", "minLength": 1 },
+        "new_stage": { "$ref": "#/$defs/pipeline_stage" },
+        "reason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "crm_move_stage_output": {
+      "type": "object",
+      "required": ["contact_id", "previous_stage", "new_stage", "moved_at"],
+      "properties": {
+        "contact_id": { "type": "string", "minLength": 1 },
+        "previous_stage": { "$ref": "#/$defs/pipeline_stage" },
+        "new_stage": { "$ref": "#/$defs/pipeline_stage" },
+        "moved_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "crm_add_note_input": {
+      "type": "object",
+      "required": ["contact_id", "content"],
+      "properties": {
+        "contact_id": { "type": "string", "minLength": 1 },
+        "content": { "type": "string", "minLength": 1 },
+        "note_type": {
+          "type": "string",
+          "enum": ["call", "email", "meeting", "observation", "proposal", "general"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "crm_add_note_output": {
+      "type": "object",
+      "required": ["note"],
+      "properties": {
+        "note": { "$ref": "#/$defs/note_record" }
+      },
+      "additionalProperties": false
+    },
+    "crm_search_input": {
+      "type": "object",
+      "required": ["query"],
+      "properties": {
+        "query": { "type": "string", "minLength": 1 },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["name", "company", "notes", "tags"]
+          }
+        },
+        "stage": { "$ref": "#/$defs/pipeline_stage" }
+      },
+      "additionalProperties": false
+    },
+    "crm_search_output": {
+      "type": "object",
+      "required": ["contacts", "total_matches", "query"],
+      "properties": {
+        "contacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/contact_record" }
+        },
+        "total_matches": { "type": "integer", "minimum": 0 },
+        "query": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "crm_digest_input": {
+      "type": "object",
+      "properties": {
+        "include_parked": { "type": "boolean" },
+        "days_since_contact": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "recent_movement": {
+      "type": "object",
+      "required": ["contact_id", "name", "from", "to", "moved_at"],
+      "properties": {
+        "contact_id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "from": { "$ref": "#/$defs/pipeline_stage" },
+        "to": { "$ref": "#/$defs/pipeline_stage" },
+        "moved_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "crm_digest_output": {
+      "type": "object",
+      "required": ["total_contacts", "stage_distribution", "hot_leads", "stale_contacts", "recent_movements", "digest_at"],
+      "properties": {
+        "total_contacts": { "type": "integer", "minimum": 0 },
+        "stage_distribution": { "$ref": "#/$defs/stage_counts" },
+        "hot_leads": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/contact_record" }
+        },
+        "stale_contacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/contact_record" }
+        },
+        "recent_movements": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/recent_movement" }
+        },
+        "digest_at": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

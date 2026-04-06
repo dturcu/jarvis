@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "references": [
+    { "path": "../jarvis-shared" },
+    { "path": "../jarvis-supervisor" },
+    { "path": "../jarvis-inference" }
+  ],
+  "include": ["src/**/*.ts"]
+}

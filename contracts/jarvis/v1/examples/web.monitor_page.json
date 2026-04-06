@@ -1,0 +1,44 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b2c3d4e5-0003-4000-8000-000000000103",
+    "type": "web.monitor_page",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 300,
+    "attempt": 1,
+    "input": {
+      "url": "https://karriere.bertrandt.com/jobs?category=safety",
+      "page_id": "bertrandt-safety-jobs",
+      "selector": ".job-listing-container"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b2c3d4e5-0003-4000-8000-000000000103",
+    "job_type": "web.monitor_page",
+    "status": "completed",
+    "summary": "Page bertrandt-safety-jobs has changed since last check.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "url": "https://karriere.bertrandt.com/jobs?category=safety",
+      "page_id": "bertrandt-safety-jobs",
+      "has_changed": true,
+      "change_summary": "New job postings detected in safety category since last monitoring cycle.",
+      "current_hash": "sha256-abc123def456",
+      "previous_hash": "sha256-789abc012def",
+      "checked_at": "2026-04-04T12:00:00Z"
+    }
+  }
+}

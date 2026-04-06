@@ -1,0 +1,34 @@
+{
+  "name": "@jarvis/runtime",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Jarvis standalone daemon — autonomous agent execution runtime",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "tsx src/daemon.ts"
+  },
+  "dependencies": {
+    "@jarvis/shared": "file:../jarvis-shared",
+    "@jarvis/agent-framework": "file:../jarvis-agent-framework",
+    "@jarvis/agents": "file:../jarvis-agents",
+    "@jarvis/inference": "file:../jarvis-inference",
+    "@jarvis/inference-worker": "file:../jarvis-inference-worker",
+    "@jarvis/email-worker": "file:../jarvis-email-worker",
+    "@jarvis/document-worker": "file:../jarvis-document-worker",
+    "@jarvis/crm-worker": "file:../jarvis-crm-worker",
+    "@jarvis/web-worker": "file:../jarvis-web-worker",
+    "@jarvis/calendar-worker": "file:../jarvis-calendar-worker",
+    "@jarvis/desktop-host-worker": "file:../jarvis-desktop-host-worker",
+    "@jarvis/browser-worker": "file:../jarvis-browser-worker",
+    "@jarvis/social-worker": "file:../jarvis-social-worker",
+    "@jarvis/system-worker": "file:../jarvis-system-worker",
+    "@jarvis/office-worker": "file:../jarvis-office-worker",
+    "@jarvis/interpreter-worker": "file:../jarvis-interpreter-worker",
+    "@jarvis/voice-worker": "file:../jarvis-voice-worker",
+    "@jarvis/security-worker": "file:../jarvis-security-worker",
+    "@jarvis/time-worker": "file:../jarvis-time-worker",
+    "@jarvis/drive-worker": "file:../jarvis-drive-worker",
+    "@jarvis/scheduler": "file:../jarvis-scheduler"
+  }
+}

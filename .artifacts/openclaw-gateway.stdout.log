@@ -1,0 +1,142 @@
+2026-04-04T10:35:00.695+01:00 [gateway] force: killed pid 11892 on port 18789
+2026-04-04T10:35:01.465+01:00 Registered plugin command: /approve (plugin: jarvis-core)
+2026-04-04T10:35:01.487+01:00 Registered plugin command: /dispatch (plugin: jarvis-dispatch)
+2026-04-04T10:35:01.491+01:00 Registered plugin command: /followup (plugin: jarvis-dispatch)
+2026-04-04T10:35:01.493+01:00 Registered plugin command: /broadcast (plugin: jarvis-dispatch)
+2026-04-04T10:35:01.494+01:00 Registered plugin command: /sendto (plugin: jarvis-dispatch)
+2026-04-04T10:35:01.500+01:00 Registered plugin command: /excel (plugin: jarvis-office)
+2026-04-04T10:35:01.501+01:00 Registered plugin command: /word (plugin: jarvis-office)
+2026-04-04T10:35:01.503+01:00 Registered plugin command: /ppt (plugin: jarvis-office)
+2026-04-04T10:35:01.504+01:00 Registered plugin command: /office-status (plugin: jarvis-office)
+2026-04-04T10:35:01.515+01:00 Registered plugin command: /device (plugin: jarvis-device)
+2026-04-04T10:35:01.516+01:00 Registered plugin command: /windows (plugin: jarvis-device)
+2026-04-04T10:35:01.517+01:00 Registered plugin command: /clipboard (plugin: jarvis-device)
+2026-04-04T10:35:01.519+01:00 Registered plugin command: /notify (plugin: jarvis-device)
+2026-04-04T10:35:01.611+01:00 Registered plugin command: /pair (plugin: device-pair)
+2026-04-04T10:35:01.616+01:00 Registered plugin command: /phone (plugin: phone-control)
+2026-04-04T10:35:01.622+01:00 Registered plugin command: /voice (plugin: talk-voice)
+2026-04-04T10:35:01.634+01:00 [canvas] host mounted at http://127.0.0.1:18789/__openclaw__/canvas/ (root C:\Users\DanielV2\.openclaw-jarvis-smoke\canvas)
+2026-04-04T10:35:01.674+01:00 bonjour: starting (hostname=openclaw, instance="NucBox_EVO-X2 (OpenClaw)", gatewayPort=18789, minimal=true)
+2026-04-04T10:35:01.826+01:00 [heartbeat] started
+2026-04-04T10:35:01.828+01:00 [health-monitor] started (interval: 300s, startup-grace: 60s, channel-connect-grace: 120s)
+2026-04-04T10:35:01.833+01:00 [gateway] agent model: anthropic/claude-opus-4-6
+2026-04-04T10:35:01.837+01:00 [gateway] listening on ws://127.0.0.1:18789, ws://[::1]:18789 (PID 2576)
+2026-04-04T10:35:01.839+01:00 [gateway] log file: C:\Users\DanielV2\AppData\Local\Temp\openclaw\openclaw-2026-04-04.log
+2026-04-04T10:35:02.048+01:00 [hooks:loader] Registered hook: boot-md -> gateway:startup
+2026-04-04T10:35:02.053+01:00 [hooks:loader] Registered hook: bootstrap-extra-files -> agent:bootstrap
+2026-04-04T10:35:02.056+01:00 [hooks:loader] Registered hook: command-logger -> command
+2026-04-04T10:35:02.063+01:00 [hooks:loader] Registered hook: session-memory -> command:new, command:reset
+2026-04-04T10:35:02.065+01:00 [hooks] loaded 4 internal hook handlers
+2026-04-04T10:35:02.067+01:00 [plugins] Jarvis jobs state ready: 0 jobs, 0 approvals, 0 dispatches
+2026-04-04T10:35:02.078+01:00 [browser/server] Browser control listening on http://127.0.0.1:18791/ (auth=off)
+2026-04-04T10:35:02.219+01:00 Registered plugin command: /approve (plugin: jarvis-core)
+2026-04-04T10:35:02.227+01:00 Registered plugin command: /dispatch (plugin: jarvis-dispatch)
+2026-04-04T10:35:02.229+01:00 Registered plugin command: /followup (plugin: jarvis-dispatch)
+2026-04-04T10:35:02.231+01:00 Registered plugin command: /broadcast (plugin: jarvis-dispatch)
+2026-04-04T10:35:02.232+01:00 Registered plugin command: /sendto (plugin: jarvis-dispatch)
+2026-04-04T10:35:02.236+01:00 Registered plugin command: /excel (plugin: jarvis-office)
+2026-04-04T10:35:02.238+01:00 Registered plugin command: /word (plugin: jarvis-office)
+2026-04-04T10:35:02.239+01:00 Registered plugin command: /ppt (plugin: jarvis-office)
+2026-04-04T10:35:02.240+01:00 Registered plugin command: /office-status (plugin: jarvis-office)
+2026-04-04T10:35:02.244+01:00 Registered plugin command: /device (plugin: jarvis-device)
+2026-04-04T10:35:02.245+01:00 Registered plugin command: /windows (plugin: jarvis-device)
+2026-04-04T10:35:02.246+01:00 Registered plugin command: /clipboard (plugin: jarvis-device)
+2026-04-04T10:35:02.247+01:00 Registered plugin command: /notify (plugin: jarvis-device)
+2026-04-04T10:35:02.347+01:00 Registered plugin command: /pair (plugin: device-pair)
+2026-04-04T10:35:02.488+01:00 Registered plugin command: /phone (plugin: phone-control)
+2026-04-04T10:35:02.509+01:00 Registered plugin command: /voice (plugin: talk-voice)
+2026-04-04T10:35:02.575+01:00 [hooks/boot-md] boot-md skipped for agent startup run
+2026-04-04T10:35:14.024+01:00 [ws] ← open remoteAddr=127.0.0.1 conn=0631c9f7…8eca
+2026-04-04T10:35:14.050+01:00 [gateway] device pairing auto-approved device=298d16581aaa38354d245ec77d824f6e88eb4d86fe7cc211cfd2213e4f2d83c6 role=operator
+2026-04-04T10:35:14.052+01:00 [ws] ← connect client=cli version=2026.4.2 mode=cli clientId=cli platform=win32 auth=none
+2026-04-04T10:35:14.054+01:00 [ws] → hello-ok methods=112 events=24 presence=1 stateVersion=1
+2026-04-04T10:35:14.056+01:00 [ws] → event health seq=1 clients=1 presenceVersion=1 healthVersion=3
+2026-04-04T10:35:14.060+01:00 [ws] ⇄ res ✓ health 0ms cached=true id=951285e4…1870
+2026-04-04T10:35:14.061+01:00 [ws] → event health seq=2 clients=1 presenceVersion=1 healthVersion=4
+2026-04-04T10:35:14.069+01:00 [ws] → close code=1005 durationMs=48 handshake=connected lastFrameType=req lastFrameMethod=health lastFrameId=951285e4-e05a-4ac4-a050-34b82baf1870
+2026-04-04T10:35:20.766+01:00 [ws] ← open remoteAddr=127.0.0.1 conn=648978c7…e29e
+2026-04-04T10:35:20.779+01:00 [ws] → close code=1008 reason=connect failed durationMs=7 cause=device-required handshake=failed lastFrameType=req lastFrameMethod=connect lastFrameId=bc0c385a-2f45-4f46-9770-adc4a151a9c5
+2026-04-04T10:35:21.119+01:00 [ws] ← open remoteAddr=127.0.0.1 conn=ce1c5430…f05b
+2026-04-04T10:35:21.140+01:00 [gateway] device pairing auto-approved device=9b6c3da248bbbec6ca17eae17a6a434efd4b581b7c75d2df765e447311975d8a role=operator
+2026-04-04T10:35:21.144+01:00 [ws] ← connect client=cli version=2026.4.2 mode=cli clientId=cli platform=win32 auth=none
+2026-04-04T10:35:21.146+01:00 [ws] → hello-ok methods=112 events=24 presence=1 stateVersion=1
+2026-04-04T10:35:21.148+01:00 [ws] → event health seq=3 clients=1 presenceVersion=1 healthVersion=5
+2026-04-04T10:35:21.151+01:00 [ws] ⇄ res ✓ health 0ms cached=true id=a9fd4a65…d126
+2026-04-04T10:35:21.153+01:00 [ws] → event health seq=4 clients=1 presenceVersion=1 healthVersion=6
+2026-04-04T10:35:21.157+01:00 [ws] → close code=1005 durationMs=37 handshake=connected lastFrameType=req lastFrameMethod=health lastFrameId=a9fd4a65-4130-4488-b55e-08a47871d126
+2026-04-04T10:36:45.928+01:00 [ws] ← open remoteAddr=127.0.0.1 conn=4ee44dfd…bb3c
+2026-04-04T10:36:46.300+01:00 [ws] ← connect client=cli version=2026.4.2 mode=cli clientId=cli platform=win32 auth=none
+2026-04-04T10:36:46.302+01:00 [ws] → hello-ok methods=112 events=24 presence=1 stateVersion=1
+2026-04-04T10:36:46.304+01:00 [ws] → event health seq=5 clients=1 presenceVersion=1 healthVersion=8
+2026-04-04T10:36:46.317+01:00 [ws] ⇄ res ✓ agent 11ms runId=e1975ecf-5b6b-4002-b0e6-1ca36fef88bd id=479ae1a3…3448
+2026-04-04T10:36:53.822+01:00 [diagnostic] lane enqueue: lane=session:agent:main:main queueSize=1
+2026-04-04T10:36:53.824+01:00 [diagnostic] lane dequeue: lane=session:agent:main:main waitMs=2 queueSize=0
+2026-04-04T10:36:53.825+01:00 [diagnostic] lane enqueue: lane=main queueSize=1
+2026-04-04T10:36:53.826+01:00 [diagnostic] lane dequeue: lane=main waitMs=1 queueSize=0
+2026-04-04T10:36:53.952+01:00 Registered plugin command: /approve (plugin: jarvis-core)
+2026-04-04T10:36:53.960+01:00 Registered plugin command: /dispatch (plugin: jarvis-dispatch)
+2026-04-04T10:36:53.962+01:00 Registered plugin command: /followup (plugin: jarvis-dispatch)
+2026-04-04T10:36:53.964+01:00 Registered plugin command: /broadcast (plugin: jarvis-dispatch)
+2026-04-04T10:36:53.965+01:00 Registered plugin command: /sendto (plugin: jarvis-dispatch)
+2026-04-04T10:36:53.969+01:00 Registered plugin command: /excel (plugin: jarvis-office)
+2026-04-04T10:36:53.970+01:00 Registered plugin command: /word (plugin: jarvis-office)
+2026-04-04T10:36:53.971+01:00 Registered plugin command: /ppt (plugin: jarvis-office)
+2026-04-04T10:36:53.972+01:00 Registered plugin command: /office-status (plugin: jarvis-office)
+2026-04-04T10:36:53.976+01:00 Registered plugin command: /device (plugin: jarvis-device)
+2026-04-04T10:36:53.977+01:00 Registered plugin command: /windows (plugin: jarvis-device)
+2026-04-04T10:36:53.978+01:00 Registered plugin command: /clipboard (plugin: jarvis-device)
+2026-04-04T10:36:53.980+01:00 Registered plugin command: /notify (plugin: jarvis-device)
+2026-04-04T10:36:54.008+01:00 Registered plugin command: /pair (plugin: device-pair)
+2026-04-04T10:36:54.071+01:00 Registered plugin command: /phone (plugin: phone-control)
+2026-04-04T10:36:54.086+01:00 Registered plugin command: /voice (plugin: talk-voice)
+2026-04-04T10:36:55.054+01:00 [ws] → event agent seq=6 clients=1 run=e1975ecf…88bd agent=main session=main stream=lifecycle aseq=1 phase=error error=FailoverError: No API key found for provider "anthropic". Auth store: C:\Users\DanielV2\.openclaw-jarvis-smoke\agents\m…
+2026-04-04T10:36:55.056+01:00 [ws] → event chat seq=7 clients=1
+2026-04-04T10:36:55.057+01:00 [ws] ⇄ res ✗ agent errorCode=UNAVAILABLE errorMessage=FailoverError: No API key found for provider "anthropic". Auth store: C:\Users\DanielV2\.openclaw-jarvis-smoke\agents\main\agent\auth-profiles.json (agentDir: C:\Users\DanielV2\.openclaw-jarvis-smoke\agents\main\agent). Configure auth for t... runId=e1975ecf-5b6b-4002-b0e6-1ca36fef88bd error=FailoverError: No API key found for provider "anthropic". Auth store: C:\Users\DanielV2\.openclaw-jarvis-smoke\agents\main\agent\auth-profiles.json (agentDir: C:\Users\DanielV2\.openclaw-jarvis-smoke\agents\main\agent). Configure auth for t... id=479ae1a3…3448
+2026-04-04T10:36:55.073+01:00 [ws] → close code=1005 durationMs=9143 handshake=connected lastFrameType=req lastFrameMethod=agent lastFrameId=479ae1a3-e82d-46a9-911a-fc34eb773448
+2026-04-04T10:37:26.211+01:00 [ws] ← open remoteAddr=127.0.0.1 conn=33146a9e…2e0e
+2026-04-04T10:37:26.226+01:00 [ws] ← connect client=cli version=2026.4.2 mode=cli clientId=cli platform=win32 auth=none
+2026-04-04T10:37:26.227+01:00 [ws] → hello-ok methods=112 events=24 presence=1 stateVersion=1
+2026-04-04T10:37:26.229+01:00 [ws] → event health seq=8 clients=1 presenceVersion=1 healthVersion=10
+2026-04-04T10:37:26.239+01:00 [ws] ⇄ res ✓ status 8ms id=d32f8a7a…41aa
+2026-04-04T10:37:26.249+01:00 [ws] → close code=1005 durationMs=37 handshake=connected lastFrameType=req lastFrameMethod=status lastFrameId=d32f8a7a-3b08-473c-b33e-21bfd75041aa
+2026-04-04T10:38:00.352+01:00 [ws] ← open remoteAddr=127.0.0.1 conn=8c389987…b117
+2026-04-04T10:38:00.366+01:00 [ws] ← open remoteAddr=127.0.0.1 conn=6a131d9e…09a3
+2026-04-04T10:38:00.384+01:00 [ws] ← connect client=cli version=2026.4.2 mode=cli clientId=cli platform=win32 auth=none conn=8c389987…b117
+2026-04-04T10:38:00.386+01:00 [ws] → hello-ok methods=112 events=24 presence=1 stateVersion=1
+2026-04-04T10:38:00.388+01:00 [ws] → event health seq=9 clients=1 presenceVersion=1 healthVersion=11
+2026-04-04T10:38:00.391+01:00 [ws] ⇄ res ✓ status 1ms id=fe634ae7…f7b3
+2026-04-04T10:38:00.393+01:00 [ws] ← connect client=cli version=2026.4.2 mode=cli clientId=cli platform=win32 auth=none conn=6a131d9e…09a3
+2026-04-04T10:38:00.395+01:00 [ws] → hello-ok methods=112 events=24 presence=1 stateVersion=1
+2026-04-04T10:38:00.397+01:00 [ws] → event health seq=10 clients=2 presenceVersion=1 healthVersion=12
+2026-04-04T10:38:00.399+01:00 [ws] → close code=1005 durationMs=48 handshake=connected lastFrameType=req lastFrameMethod=status lastFrameId=fe634ae7-1507-4ed8-a346-56e06df7f7b3 conn=8c389987…b117
+2026-04-04T10:38:00.404+01:00 [ws] ⇄ res ✓ health 0ms cached=true conn=6a131d9e…09a3 id=34b92c88…c9fb
+2026-04-04T10:38:00.405+01:00 [ws] → event health seq=11 clients=1 presenceVersion=1 healthVersion=13
+2026-04-04T10:38:00.408+01:00 [ws] → close code=1005 durationMs=43 handshake=connected lastFrameType=req lastFrameMethod=health lastFrameId=34b92c88-8543-40bd-9634-30b652cac9fb
+2026-04-04T10:38:32.991+01:00 [reload] config change detected; evaluating reload (meta.lastTouchedAt, agents.defaults.model, agents.defaults.models, gateway)
+2026-04-04T10:38:33.280+01:00 [gateway] signal SIGUSR1 received
+2026-04-04T10:38:33.281+01:00 [gateway] received SIGUSR1; restarting
+2026-04-04T10:38:33.297+01:00 [plugins] Jarvis jobs state stopped
+2026-04-04T10:38:33.299+01:00 [gmail-watcher] gmail watcher stopped
+2026-04-04T10:38:33.302+01:00 [gateway] restart mode: in-process restart (win32: detached respawn unsupported without Scheduled Task markers)
+2026-04-04T10:38:33.665+01:00 [canvas] host mounted at http://127.0.0.1:18789/__openclaw__/canvas/ (root C:\Users\DanielV2\.openclaw-jarvis-smoke\canvas)
+2026-04-04T10:38:33.671+01:00 bonjour: starting (hostname=openclaw, instance="NucBox_EVO-X2 (OpenClaw)", gatewayPort=18789, minimal=true)
+2026-04-04T10:38:33.682+01:00 [heartbeat] started
+2026-04-04T10:38:33.684+01:00 [health-monitor] started (interval: 300s, startup-grace: 60s, channel-connect-grace: 120s)
+2026-04-04T10:38:33.694+01:00 [gateway] agent model: openai-codex/gpt-5.4
+2026-04-04T10:38:33.696+01:00 [gateway] listening on ws://127.0.0.1:18789, ws://[::1]:18789 (PID 2576)
+2026-04-04T10:38:33.697+01:00 [gateway] log file: C:\Users\DanielV2\AppData\Local\Temp\openclaw\openclaw-2026-04-04.log
+2026-04-04T10:38:33.862+01:00 [hooks:loader] Registered hook: boot-md -> gateway:startup
+2026-04-04T10:38:33.864+01:00 [hooks:loader] Registered hook: bootstrap-extra-files -> agent:bootstrap
+2026-04-04T10:38:33.865+01:00 [hooks:loader] Registered hook: command-logger -> command
+2026-04-04T10:38:33.866+01:00 [hooks:loader] Registered hook: session-memory -> command:new, command:reset
+2026-04-04T10:38:33.867+01:00 [hooks] loaded 4 internal hook handlers
+2026-04-04T10:38:38.868+01:00 [plugins] Jarvis jobs state ready: 0 jobs, 0 approvals, 0 dispatches
+2026-04-04T10:38:38.875+01:00 [browser/server] Browser control listening on http://127.0.0.1:18791/ (auth=off)
+2026-04-04T10:38:40.720+01:00 [hooks/boot-md] boot-md skipped for agent startup run
+2026-04-04T10:39:00.971+01:00 [ws] ← open remoteAddr=127.0.0.1 conn=1afed656…cd9c
+2026-04-04T10:39:00.989+01:00 [ws] ← connect client=cli version=2026.4.2 mode=cli clientId=cli platform=win32 auth=none
+2026-04-04T10:39:00.990+01:00 [ws] → hello-ok methods=112 events=24 presence=1 stateVersion=1
+2026-04-04T10:39:00.993+01:00 [ws] → event health seq=1 clients=1 presenceVersion=1 healthVersion=16
+2026-04-04T10:39:00.994+01:00 [ws] ⇄ res ✓ health 0ms cached=true id=19e035c3…143c
+2026-04-04T10:39:00.996+01:00 [ws] → event health seq=2 clients=1 presenceVersion=1 healthVersion=17
+2026-04-04T10:39:01.006+01:00 [ws] → close code=1005 durationMs=35 handshake=connected lastFrameType=req lastFrameMethod=health lastFrameId=19e035c3-8a32-4d29-90c5-617e16de143c

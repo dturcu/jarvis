@@ -1,0 +1,43 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ec000002-0002-4000-8000-000000000002",
+    "type": "security.whitelist_update",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "action": "add",
+      "process_names": ["notepad.exe", "mspaint.exe"]
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ec000002-0002-4000-8000-000000000002",
+    "job_type": "security.whitelist_update",
+    "status": "completed",
+    "summary": "Whitelist updated: added 2 entry(ies).",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "updated_at": "2026-04-04T12:00:05.000Z",
+      "action": "add",
+      "added_names": ["notepad.exe", "mspaint.exe"],
+      "removed_names": [],
+      "added_hashes": [],
+      "removed_hashes": [],
+      "whitelist_size": 7
+    }
+  }
+}

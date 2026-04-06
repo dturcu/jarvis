@@ -1,0 +1,42 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "type": "device.focus_mode",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "operator"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "enabled": true,
+      "blocked_apps": ["slack", "discord"],
+      "mute_notifications": true,
+      "duration_minutes": 90
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "job_type": "device.focus_mode",
+    "status": "completed",
+    "summary": "Focus mode enabled for 90 minutes. 2 app(s) blocked, notifications muted.",
+    "attempt": 1,
+    "structured_output": {
+      "enabled": true,
+      "active": true,
+      "blocked_apps": ["slack", "discord"],
+      "muted_notifications": true,
+      "ends_at": "2026-04-04T11:30:00.000Z"
+    }
+  }
+}

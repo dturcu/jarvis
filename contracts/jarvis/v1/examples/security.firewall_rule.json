@@ -1,0 +1,44 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ec000006-0006-4000-8000-000000000006",
+    "type": "security.firewall_rule",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 60,
+    "attempt": 1,
+    "input": {
+      "action": "add",
+      "direction": "inbound",
+      "port": 4444,
+      "protocol": "tcp",
+      "rule_name": "Jarvis-Block-4444-Inbound"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ec000006-0006-4000-8000-000000000006",
+    "job_type": "security.firewall_rule",
+    "status": "completed",
+    "summary": "Added firewall rule 'Jarvis-Block-4444-Inbound'.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "applied_at": "2026-04-04T12:00:25.000Z",
+      "operation": "add",
+      "rule_name": "Jarvis-Block-4444-Inbound",
+      "success": true,
+      "message": "Rule 'Jarvis-Block-4444-Inbound' added successfully."
+    }
+  }
+}

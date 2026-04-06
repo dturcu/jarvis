@@ -1,0 +1,68 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ee6c8c9e-8fe9-4f9b-8d9b-1a27bfef2b03",
+    "type": "python.run",
+    "session_key": "agent:main:telegram:group:-1001234567890",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "605",
+      "chat_id": "-1001234567890"
+    },
+    "priority": "high",
+    "approval_state": "approved",
+    "timeout_seconds": 900,
+    "attempt": 1,
+    "input": {
+      "entrypoint": {
+        "kind": "inline",
+        "code": "print('hello from jarvis')",
+        "filename": "main.py"
+      },
+      "args": [
+        "--mode",
+        "dry-run"
+      ],
+      "env": {
+        "JARVIS_MODE": "dry-run"
+      },
+      "timeout_seconds": 60,
+      "allow_network": false,
+      "output_name": "python-run.log"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ee6c8c9e-8fe9-4f9b-8d9b-1a27bfef2b03",
+    "job_type": "python.run",
+    "status": "completed",
+    "summary": "Executed a small inline Python program.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "5df0c1ec-9008-4f35-a3da-988e84d5e1f8",
+        "kind": "txt",
+        "name": "python-run.log",
+        "path": "C:\\Jarvis\\artifacts\\python-run.log",
+        "path_context": "windows-host",
+        "path_style": "windows",
+        "size_bytes": 24
+      }
+    ],
+    "structured_output": {
+      "exit_code": 0,
+      "stdout_text": "hello from jarvis\n",
+      "stderr_text": "",
+      "produced_artifact_ids": [
+        "5df0c1ec-9008-4f35-a3da-988e84d5e1f8"
+      ],
+      "warnings": []
+    }
+  }
+}

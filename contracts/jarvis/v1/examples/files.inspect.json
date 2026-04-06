@@ -1,0 +1,54 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "0a9d6d02-5eef-4424-a7cc-f6d56a2b8711",
+    "type": "files.inspect",
+    "session_key": "agent:main:cli:local:files",
+    "requested_by": {
+      "channel": "cli",
+      "user_id": "operator"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 120,
+    "attempt": 1,
+    "input": {
+      "root_path": "C:/workspace",
+      "paths": [
+        "docs",
+        "notes.txt"
+      ],
+      "recursive": true,
+      "include_stats": true,
+      "preview_lines": 8
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null,
+      "capability_route": "files"
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "0a9d6d02-5eef-4424-a7cc-f6d56a2b8711",
+    "job_type": "files.inspect",
+    "status": "completed",
+    "summary": "Inspected 2 paths.",
+    "attempt": 1,
+    "structured_output": {
+      "root_path": "C:/workspace",
+      "entries": [
+        {
+          "path": "docs",
+          "kind": "directory"
+        },
+        {
+          "path": "notes.txt",
+          "kind": "file",
+          "preview": "first line"
+        }
+      ]
+    }
+  }
+}

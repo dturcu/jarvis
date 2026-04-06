@@ -1,0 +1,62 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "c1b2c3d4-0006-4000-8000-000000000106",
+    "type": "crm.search",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 60,
+    "attempt": 1,
+    "input": {
+      "query": "AUTOSAR",
+      "fields": ["name", "company", "tags"]
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "c1b2c3d4-0006-4000-8000-000000000106",
+    "job_type": "crm.search",
+    "status": "completed",
+    "summary": "Found 2 contact(s) matching \"AUTOSAR\".",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "contacts": [
+        {
+          "contact_id": "a0b1c2d3-1111-4000-8000-aabbccddeeff",
+          "name": "Klaus Berger",
+          "company": "Bertrandt",
+          "role": "Senior Systems Architect",
+          "tags": ["AUTOSAR", "safety", "Adaptive Platform"],
+          "stage": "qualified",
+          "score": 55,
+          "created_at": "2026-04-04T10:00:00Z",
+          "updated_at": "2026-04-04T11:00:00Z"
+        },
+        {
+          "contact_id": "f0b1c2d3-6666-4000-8000-aabbccddeeff",
+          "name": "François Sagnely",
+          "company": "Bertrandt",
+          "role": "VP Engineering",
+          "tags": ["AUTOSAR", "safety"],
+          "stage": "contacted",
+          "score": 75,
+          "created_at": "2026-03-15T08:00:00Z",
+          "updated_at": "2026-03-28T14:00:00Z"
+        }
+      ],
+      "total_matches": 2,
+      "query": "AUTOSAR"
+    }
+  }
+}

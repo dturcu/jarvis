@@ -1,0 +1,74 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "769b9861-06f8-4a5e-84bb-fd2ce4a7b6b2",
+    "type": "python.transform",
+    "session_key": "agent:main:telegram:dm:123456789",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "606",
+      "chat_id": "123456789"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 900,
+    "attempt": 1,
+    "input": {
+      "script": {
+        "kind": "inline",
+        "code": "import json\nprint(json.dumps({'rows': 2}))",
+        "filename": "transform.py"
+      },
+      "inputs": [
+        {
+          "artifact_id": "1fe1eabc-1f9e-4c55-96a0-54f4b9bbf0d7",
+          "name": "source.csv",
+          "kind": "csv"
+        }
+      ],
+      "parameters": {
+        "delimiter": ","
+      },
+      "allow_network": false,
+      "output_name": "transformed.csv"
+    },
+    "artifacts_in": [
+      {
+        "artifact_id": "1fe1eabc-1f9e-4c55-96a0-54f4b9bbf0d7",
+        "name": "source.csv",
+        "kind": "csv"
+      }
+    ],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "769b9861-06f8-4a5e-84bb-fd2ce4a7b6b2",
+    "job_type": "python.transform",
+    "status": "completed",
+    "summary": "Transformed one CSV input into a normalized CSV output.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "0d9a0a8e-1d25-4a41-97d0-4f1b39e1c9cd",
+        "kind": "csv",
+        "name": "transformed.csv",
+        "path": "/data/artifacts/transformed.csv",
+        "path_context": "wsl-ubuntu",
+        "path_style": "posix",
+        "size_bytes": 112
+      }
+    ],
+    "structured_output": {
+      "output_artifact_ids": [
+        "0d9a0a8e-1d25-4a41-97d0-4f1b39e1c9cd"
+      ],
+      "row_count": 2,
+      "warnings": []
+    }
+  }
+}

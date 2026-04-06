@@ -1,0 +1,9 @@
+{
+  "id": "jarvis-browser",
+  "enabledByDefault": false,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

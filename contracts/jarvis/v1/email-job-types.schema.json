@@ -1,0 +1,377 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json",
+  "title": "Jarvis Email Job Types",
+  "type": "object",
+  "$defs": {
+    "email_message": {
+      "type": "object",
+      "required": ["message_id", "thread_id", "subject", "from", "to", "date", "snippet", "has_attachments", "labels"],
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "thread_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject": {
+          "type": "string"
+        },
+        "from": {
+          "type": "string",
+          "minLength": 1
+        },
+        "to": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "snippet": {
+          "type": "string"
+        },
+        "has_attachments": {
+          "type": "boolean"
+        },
+        "labels": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "email_attachment": {
+      "type": "object",
+      "required": ["filename", "content_type", "size_bytes"],
+      "properties": {
+        "filename": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "email_thread": {
+      "type": "object",
+      "required": ["thread_id", "subject", "snippet", "message_count", "last_message_date", "participants"],
+      "properties": {
+        "thread_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject": {
+          "type": "string"
+        },
+        "snippet": {
+          "type": "string"
+        },
+        "message_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "last_message_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "participants": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "email_search_input": {
+      "type": "object",
+      "required": ["query"],
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Gmail search syntax query string."
+        },
+        "max_results": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "page_token": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "email_search_output": {
+      "type": "object",
+      "required": ["messages", "total_results"],
+      "properties": {
+        "messages": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/email_message" }
+        },
+        "total_results": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "next_page_token": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "email_read_input": {
+      "type": "object",
+      "required": ["message_id"],
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "include_raw": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "email_read_output": {
+      "type": "object",
+      "required": ["message_id", "thread_id", "subject", "from", "to", "date", "body_text", "attachments", "labels"],
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "thread_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "subject": {
+          "type": "string"
+        },
+        "from": {
+          "type": "string",
+          "minLength": 1
+        },
+        "to": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "cc": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "body_text": {
+          "type": "string"
+        },
+        "body_html": {
+          "type": "string"
+        },
+        "attachments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/email_attachment" }
+        },
+        "labels": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "email_draft_input": {
+      "type": "object",
+      "required": ["to", "subject", "body"],
+      "properties": {
+        "to": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cc": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "reply_to_message_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "email_draft_output": {
+      "type": "object",
+      "required": ["draft_id", "message_id", "created_at"],
+      "properties": {
+        "draft_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "thread_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "email_send_input": {
+      "type": "object",
+      "properties": {
+        "draft_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "to": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "subject": {
+          "type": "string",
+          "minLength": 1
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cc": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "reply_to_message_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "anyOf": [
+        { "required": ["draft_id"] },
+        { "required": ["to", "subject", "body"] }
+      ],
+      "additionalProperties": false
+    },
+    "email_send_output": {
+      "type": "object",
+      "required": ["message_id", "thread_id", "sent_at"],
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "thread_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sent_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "email_label_input": {
+      "type": "object",
+      "required": ["message_id", "action", "labels"],
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "type": "string",
+          "enum": ["add", "remove"]
+        },
+        "labels": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "email_label_output": {
+      "type": "object",
+      "required": ["message_id", "action", "labels_applied", "labels_removed"],
+      "properties": {
+        "message_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "type": "string",
+          "enum": ["add", "remove"]
+        },
+        "labels_applied": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "labels_removed": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "email_list_threads_input": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "type": "string",
+          "minLength": 1
+        },
+        "max_results": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        }
+      },
+      "additionalProperties": false
+    },
+    "email_list_threads_output": {
+      "type": "object",
+      "required": ["threads", "total_results"],
+      "properties": {
+        "threads": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/email_thread" }
+        },
+        "total_results": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

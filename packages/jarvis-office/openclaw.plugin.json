@@ -1,0 +1,9 @@
+{
+  "id": "jarvis-office",
+  "enabledByDefault": false,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

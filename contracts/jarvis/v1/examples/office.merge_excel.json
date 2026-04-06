@@ -1,0 +1,88 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "0ce28058-7f44-4e7d-aec6-c4406af9c931",
+    "type": "office.merge_excel",
+    "session_key": "agent:main:telegram:group:-1001234567890:topic:42",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "502",
+      "chat_id": "-1001234567890"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 900,
+    "attempt": 1,
+    "input": {
+      "files": [
+        {
+          "artifact_id": "c4a6e74f-e604-412f-b8f6-48c176d68ed3",
+          "name": "north.xlsx",
+          "kind": "xlsx"
+        },
+        {
+          "artifact_id": "d6056f0e-2ed2-4d65-b1dd-f24755dc0145",
+          "name": "south.xlsx",
+          "kind": "xlsx"
+        }
+      ],
+      "mode": "by_header_union",
+      "sheet_policy": "first_sheet",
+      "header_row": 1,
+      "normalize_headers": true,
+      "empty_row_policy": "drop",
+      "dedupe": {
+        "enabled": true,
+        "keys": [
+          "SKU",
+          "Date"
+        ]
+      },
+      "output_name": "merged-report.xlsx"
+    },
+    "artifacts_in": [
+      {
+        "artifact_id": "c4a6e74f-e604-412f-b8f6-48c176d68ed3",
+        "name": "north.xlsx",
+        "kind": "xlsx"
+      },
+      {
+        "artifact_id": "d6056f0e-2ed2-4d65-b1dd-f24755dc0145",
+        "name": "south.xlsx",
+        "kind": "xlsx"
+      }
+    ],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "0ce28058-7f44-4e7d-aec6-c4406af9c931",
+    "job_type": "office.merge_excel",
+    "status": "completed",
+    "summary": "Merged two workbooks into one normalized workbook.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "e2fb570a-58ab-4b2b-b5cd-55cf75f0ca49",
+        "kind": "xlsx",
+        "name": "merged-report.xlsx",
+        "path": "C:\\Jarvis\\artifacts\\merged-report.xlsx",
+        "path_context": "windows-host",
+        "path_style": "windows",
+        "size_bytes": 184220
+      }
+    ],
+    "structured_output": {
+      "output_artifact_id": "e2fb570a-58ab-4b2b-b5cd-55cf75f0ca49",
+      "source_file_count": 2,
+      "sheets_created": 1,
+      "rows_written": 1242,
+      "rows_deduped": 18,
+      "warnings": []
+    }
+  }
+}

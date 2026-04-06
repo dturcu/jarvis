@@ -1,0 +1,39 @@
+{
+  "profile": "jarvis-smoke",
+  "createdAt": "2026-04-04T11:46:27.086Z",
+  "bundleDir": "C:\\Users\\DanielV2\\.openclaw-jarvis-backups\\jarvis-smoke\\2026-04-04T11-46-27.015Z",
+  "configPath": "C:\\Users\\DanielV2\\.openclaw-jarvis-smoke\\openclaw.json",
+  "profileDir": "C:\\Users\\DanielV2\\.openclaw-jarvis-smoke",
+  "workspacePath": "C:\\Users\\DanielV2\\Documents\\Playground\\.artifacts\\runtime-smoke\\workspace-jarvis-smoke",
+  "copiedWorkspace": true,
+  "copiedArtifacts": [
+    "C:\\Users\\DanielV2\\.openclaw-jarvis-backups\\jarvis-smoke\\2026-04-04T11-46-27.015Z\\reports\\latest.json"
+  ],
+  "configSummary": {
+    "gatewayMode": "local",
+    "gatewayAuthMode": "token",
+    "gatewayPort": 18899,
+    "primaryModel": "lmstudio/jarvis-smoke-32k",
+    "primaryModelIdentifier": "jarvis-smoke-32k",
+    "lmstudioBaseUrl": "http://127.0.0.1:1234/v1",
+    "lmstudioModelIdentifier": "jarvis-smoke-32k",
+    "workspacePath": "C:\\Users\\DanielV2\\Documents\\Playground\\.artifacts\\runtime-smoke\\workspace-jarvis-smoke",
+    "pluginLoadPaths": [
+      "C:\\Users\\DanielV2\\Documents\\Playground\\packages\\jarvis-core",
+      "C:\\Users\\DanielV2\\Documents\\Playground\\packages\\jarvis-jobs",
+      "C:\\Users\\DanielV2\\Documents\\Playground\\packages\\jarvis-device",
+      "C:\\Users\\DanielV2\\Documents\\Playground\\packages\\jarvis-office",
+      "C:\\Users\\DanielV2\\Documents\\Playground\\packages\\jarvis-dispatch"
+    ],
+    "enabledPluginIds": [
+      "jarvis-core",
+      "jarvis-jobs",
+      "jarvis-device",
+      "jarvis-office",
+      "jarvis-dispatch"
+    ],
+    "bootstrapMaxChars": 1200,
+    "bootstrapTotalMaxChars": 4000,
+    "skipBootstrap": true
+  }
+}

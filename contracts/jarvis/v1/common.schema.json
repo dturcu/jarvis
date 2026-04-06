@@ -1,0 +1,412 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/common.schema.json",
+  "title": "Jarvis Common Types",
+  "type": "object",
+  "$defs": {
+    "contract_version": {
+      "type": "string",
+      "const": "jarvis.v1"
+    },
+    "uuid": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "non_empty_string": {
+      "type": "string",
+      "minLength": 1
+    },
+    "channel": {
+      "type": "string",
+      "enum": [
+        "telegram",
+        "whatsapp",
+        "discord",
+        "slack",
+        "signal",
+        "imessage",
+        "googlechat",
+        "mattermost",
+        "msteams",
+        "web",
+        "cli",
+        "api",
+        "unknown"
+      ]
+    },
+    "session_ref": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Opaque OpenClaw session key, for example agent:main:telegram:group:12345."
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "low",
+        "normal",
+        "high",
+        "urgent"
+      ]
+    },
+    "approval_state": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "approved",
+        "rejected",
+        "expired",
+        "cancelled",
+        "not_required"
+      ]
+    },
+    "job_status": {
+      "type": "string",
+      "enum": [
+        "queued",
+        "running",
+        "awaiting_approval",
+        "completed",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "tool_status": {
+      "type": "string",
+      "enum": [
+        "accepted",
+        "in_progress",
+        "awaiting_approval",
+        "completed",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "log_level": {
+      "type": "string",
+      "enum": [
+        "debug",
+        "info",
+        "warning",
+        "error"
+      ]
+    },
+    "path_context": {
+      "type": "string",
+      "enum": [
+        "windows-host",
+        "wsl-ubuntu",
+        "linux-container",
+        "linux-host",
+        "remote-worker",
+        "unknown"
+      ]
+    },
+    "path_style": {
+      "type": "string",
+      "enum": [
+        "windows",
+        "posix",
+        "uri",
+        "unknown"
+      ]
+    },
+    "requested_by": {
+      "type": "object",
+      "required": [
+        "channel",
+        "user_id"
+      ],
+      "properties": {
+        "channel": {
+          "$ref": "#/$defs/channel"
+        },
+        "user_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "message_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "chat_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "username": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "display_name": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "approval_ref": {
+      "type": "object",
+      "required": [
+        "approval_id",
+        "state"
+      ],
+      "properties": {
+        "approval_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "state": {
+          "$ref": "#/$defs/approval_state"
+        },
+        "reason": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "requested_scopes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/non_empty_string"
+          },
+          "uniqueItems": true
+        },
+        "requested_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "artifact_ref": {
+      "type": "object",
+      "required": [
+        "artifact_id"
+      ],
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "kind": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "path_context": {
+          "$ref": "#/$defs/path_context"
+        },
+        "path_style": {
+          "$ref": "#/$defs/path_style"
+        },
+        "checksum_sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "dependentRequired": {
+        "path": [
+          "path_context",
+          "path_style"
+        ],
+        "path_context": [
+          "path"
+        ],
+        "path_style": [
+          "path"
+        ]
+      },
+      "additionalProperties": false
+    },
+    "artifact_record": {
+      "type": "object",
+      "required": [
+        "artifact_id",
+        "kind",
+        "name"
+      ],
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "kind": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "name": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "path": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "path_context": {
+          "$ref": "#/$defs/path_context"
+        },
+        "path_style": {
+          "$ref": "#/$defs/path_style"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "checksum_sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "mime_type": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "preview": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "metadata": {
+          "type": "object"
+        }
+      },
+      "dependentRequired": {
+        "path": [
+          "path_context",
+          "path_style"
+        ],
+        "path_context": [
+          "path"
+        ],
+        "path_style": [
+          "path"
+        ]
+      },
+      "additionalProperties": false
+    },
+    "job_error": {
+      "type": "object",
+      "required": [
+        "code",
+        "message",
+        "retryable"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "message": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "field": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "external_code": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "details": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "retry_policy": {
+      "type": "object",
+      "required": [
+        "mode",
+        "max_attempts"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "never",
+            "manual",
+            "exponential"
+          ]
+        },
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "initial_backoff_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_backoff_seconds": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "log_entry": {
+      "type": "object",
+      "required": [
+        "timestamp",
+        "level",
+        "message"
+      ],
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "level": {
+          "$ref": "#/$defs/log_level"
+        },
+        "message": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "source": {
+          "$ref": "#/$defs/non_empty_string"
+        },
+        "data": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "properties": {
+        "queued_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "approved_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "finished_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "queue_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "run_seconds": {
+          "type": "number",
+          "minimum": 0
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "worker_id": {
+          "$ref": "#/$defs/non_empty_string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

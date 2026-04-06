@@ -1,0 +1,44 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "c1b2c3d4-0005-4000-8000-000000000105",
+    "type": "crm.add_note",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "contact_id": "a0b1c2d3-1111-4000-8000-aabbccddeeff",
+      "content": "Spoke briefly at the AUTOSAR DevCon booth. Interested in ISO 26262 toolchain review. Prefers email contact. Follow up in 2 weeks.",
+      "note_type": "meeting"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "c1b2c3d4-0005-4000-8000-000000000105",
+    "job_type": "crm.add_note",
+    "status": "completed",
+    "summary": "Added meeting note to contact Klaus Berger.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "note": {
+        "note_id": "n0b1c2d3-5555-4000-8000-aabbccddeeff",
+        "contact_id": "a0b1c2d3-1111-4000-8000-aabbccddeeff",
+        "content": "Spoke briefly at the AUTOSAR DevCon booth. Interested in ISO 26262 toolchain review. Prefers email contact. Follow up in 2 weeks.",
+        "note_type": "meeting",
+        "created_at": "2026-04-04T11:30:00Z"
+      }
+    }
+  }
+}

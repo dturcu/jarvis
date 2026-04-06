@@ -1,0 +1,40 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0007-4000-8000-000000000007",
+    "type": "system.kill_process",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "pid": 9832,
+      "force": false
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-0007-4000-8000-000000000007",
+    "job_type": "system.kill_process",
+    "status": "completed",
+    "summary": "Process 9832 (notepad.exe) terminated successfully.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "killed": true,
+      "pid": 9832,
+      "name": "notepad.exe",
+      "signal_sent": "SIGTERM"
+    }
+  }
+}

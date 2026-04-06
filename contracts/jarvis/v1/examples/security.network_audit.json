@@ -1,0 +1,75 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ec000003-0003-4000-8000-000000000003",
+    "type": "security.network_audit",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 300,
+    "attempt": 1,
+    "input": {
+      "include_listening": true,
+      "include_established": true,
+      "suspicious_only": false
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ec000003-0003-4000-8000-000000000003",
+    "job_type": "security.network_audit",
+    "status": "completed",
+    "summary": "Audited 3 connection(s). 1 suspicious.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "audited_at": "2026-04-04T12:00:10.000Z",
+      "total_connections": 3,
+      "suspicious_count": 1,
+      "listening_count": 1,
+      "established_count": 2,
+      "connections": [
+        {
+          "local_address": "0.0.0.0",
+          "local_port": 3389,
+          "remote_address": "0.0.0.0",
+          "remote_port": 0,
+          "state": "LISTEN",
+          "process_name": "svchost.exe",
+          "pid": 1024,
+          "suspicious": false
+        },
+        {
+          "local_address": "192.168.1.100",
+          "local_port": 54321,
+          "remote_address": "8.8.8.8",
+          "remote_port": 443,
+          "state": "ESTABLISHED",
+          "process_name": "chrome.exe",
+          "pid": 1204,
+          "suspicious": false
+        },
+        {
+          "local_address": "192.168.1.100",
+          "local_port": 59999,
+          "remote_address": "203.0.113.99",
+          "remote_port": 4444,
+          "state": "ESTABLISHED",
+          "process_name": "suspicious.exe",
+          "pid": 9801,
+          "suspicious": true,
+          "suspicious_reason": "Known malicious port: 4444"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@jarvis/system",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "openclaw": {
+    "extensions": ["./dist/index.js"]
+  },
+  "dependencies": {
+    "@jarvis/shared": "file:../jarvis-shared",
+    "@sinclair/typebox": "^0.34.49",
+    "openclaw": "^2026.4.2"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b2c3d4e5-f6a7-8901-bcde-f01234567890",
+    "type": "interpreter.run_code",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 300,
+    "attempt": 1,
+    "input": {
+      "language": "python",
+      "code": "import sys\nresult = sum(range(1, 101))\nprint(f'Sum of 1..100 = {result}')",
+      "timeout_seconds": 60
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b2c3d4e5-f6a7-8901-bcde-f01234567890",
+    "job_type": "interpreter.run_code",
+    "status": "completed",
+    "summary": "Code executed in python (exit_code=0, 42ms).",
+    "attempt": 1,
+    "structured_output": {
+      "exit_code": 0,
+      "stdout": "Sum of 1..100 = 5050\n",
+      "stderr": "",
+      "execution_time_ms": 42
+    }
+  }
+}

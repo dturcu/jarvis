@@ -1,0 +1,276 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json",
+  "title": "Jarvis Security Job Types",
+  "type": "object",
+  "$defs": {
+    "process_scan_entry": {
+      "type": "object",
+      "required": ["pid", "name", "cpu_percent", "memory_mb", "user", "whitelisted", "suspicious"],
+      "properties": {
+        "pid": { "type": "integer", "minimum": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "hash": { "type": "string", "minLength": 1 },
+        "cpu_percent": { "type": "number", "minimum": 0 },
+        "memory_mb": { "type": "number", "minimum": 0 },
+        "user": { "type": "string", "minLength": 1 },
+        "whitelisted": { "type": "boolean" },
+        "suspicious": { "type": "boolean" },
+        "suspicious_reason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "network_connection_entry": {
+      "type": "object",
+      "required": ["local_address", "local_port", "remote_address", "remote_port", "state", "suspicious"],
+      "properties": {
+        "local_address": { "type": "string", "minLength": 1 },
+        "local_port": { "type": "integer", "minimum": 0 },
+        "remote_address": { "type": "string", "minLength": 1 },
+        "remote_port": { "type": "integer", "minimum": 0 },
+        "state": { "type": "string", "minLength": 1 },
+        "process_name": { "type": "string", "minLength": 1 },
+        "pid": { "type": "integer", "minimum": 1 },
+        "suspicious": { "type": "boolean" },
+        "suspicious_reason": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "file_hash_entry": {
+      "type": "object",
+      "required": ["path", "hash", "size", "last_modified"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "hash": { "type": "string", "minLength": 1 },
+        "size": { "type": "integer", "minimum": 0 },
+        "last_modified": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "file_integrity_diff": {
+      "type": "object",
+      "required": ["added", "removed", "modified", "unchanged"],
+      "properties": {
+        "added": { "type": "array", "items": { "type": "string" } },
+        "removed": { "type": "array", "items": { "type": "string" } },
+        "modified": { "type": "array", "items": { "type": "string" } },
+        "unchanged": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "firewall_rule_entry": {
+      "type": "object",
+      "required": ["name", "direction", "action", "enabled"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "direction": { "type": "string", "enum": ["inbound", "outbound"] },
+        "action": { "type": "string", "enum": ["allow", "block"] },
+        "protocol": { "type": "string", "minLength": 1 },
+        "local_port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "program": { "type": "string", "minLength": 1 },
+        "enabled": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "lockdown_action": {
+      "type": "object",
+      "required": ["action", "success"],
+      "properties": {
+        "action": { "type": "string", "minLength": 1 },
+        "success": { "type": "boolean" },
+        "details": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "security_scan_processes_input": {
+      "type": "object",
+      "properties": {
+        "whitelist_only": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "security_scan_processes_output": {
+      "type": "object",
+      "required": ["scanned_at", "total_count", "suspicious_count", "non_whitelisted_count", "processes"],
+      "properties": {
+        "scanned_at": { "type": "string", "format": "date-time" },
+        "total_count": { "type": "integer", "minimum": 0 },
+        "suspicious_count": { "type": "integer", "minimum": 0 },
+        "non_whitelisted_count": { "type": "integer", "minimum": 0 },
+        "processes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/process_scan_entry" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "security_whitelist_update_input": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": { "type": "string", "enum": ["add", "remove"] },
+        "process_names": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "process_hashes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "security_whitelist_update_output": {
+      "type": "object",
+      "required": ["updated_at", "action", "added_names", "removed_names", "added_hashes", "removed_hashes", "whitelist_size"],
+      "properties": {
+        "updated_at": { "type": "string", "format": "date-time" },
+        "action": { "type": "string", "enum": ["add", "remove"] },
+        "added_names": { "type": "array", "items": { "type": "string" } },
+        "removed_names": { "type": "array", "items": { "type": "string" } },
+        "added_hashes": { "type": "array", "items": { "type": "string" } },
+        "removed_hashes": { "type": "array", "items": { "type": "string" } },
+        "whitelist_size": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "security_network_audit_input": {
+      "type": "object",
+      "properties": {
+        "include_listening": { "type": "boolean" },
+        "include_established": { "type": "boolean" },
+        "suspicious_only": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "security_network_audit_output": {
+      "type": "object",
+      "required": ["audited_at", "total_connections", "suspicious_count", "listening_count", "established_count", "connections"],
+      "properties": {
+        "audited_at": { "type": "string", "format": "date-time" },
+        "total_connections": { "type": "integer", "minimum": 0 },
+        "suspicious_count": { "type": "integer", "minimum": 0 },
+        "listening_count": { "type": "integer", "minimum": 0 },
+        "established_count": { "type": "integer", "minimum": 0 },
+        "connections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/network_connection_entry" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "security_file_integrity_check_input": {
+      "type": "object",
+      "required": ["paths"],
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "baseline_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "security_file_integrity_check_output": {
+      "type": "object",
+      "required": ["checked_at", "files"],
+      "properties": {
+        "checked_at": { "type": "string", "format": "date-time" },
+        "baseline_id": { "type": "string", "minLength": 1 },
+        "baseline_label": { "type": "string", "minLength": 1 },
+        "files": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/file_hash_entry" }
+        },
+        "diff": { "$ref": "#/$defs/file_integrity_diff" }
+      },
+      "additionalProperties": false
+    },
+    "security_file_integrity_baseline_input": {
+      "type": "object",
+      "required": ["paths"],
+      "properties": {
+        "paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1
+        },
+        "label": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "security_file_integrity_baseline_output": {
+      "type": "object",
+      "required": ["baseline_id", "created_at", "file_count", "files"],
+      "properties": {
+        "baseline_id": { "type": "string", "minLength": 1 },
+        "created_at": { "type": "string", "format": "date-time" },
+        "label": { "type": "string", "minLength": 1 },
+        "file_count": { "type": "integer", "minimum": 0 },
+        "files": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/file_hash_entry" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "security_firewall_rule_input": {
+      "type": "object",
+      "required": ["action"],
+      "properties": {
+        "action": { "type": "string", "enum": ["add", "remove", "list"] },
+        "direction": { "type": "string", "enum": ["inbound", "outbound"] },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "protocol": { "type": "string", "enum": ["tcp", "udp"] },
+        "program": { "type": "string", "minLength": 1 },
+        "rule_name": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "security_firewall_rule_output": {
+      "type": "object",
+      "required": ["applied_at", "operation", "success", "message"],
+      "properties": {
+        "applied_at": { "type": "string", "format": "date-time" },
+        "operation": { "type": "string", "enum": ["add", "remove", "list"] },
+        "rule_name": { "type": "string", "minLength": 1 },
+        "rules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/firewall_rule_entry" }
+        },
+        "success": { "type": "boolean" },
+        "message": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "security_lockdown_input": {
+      "type": "object",
+      "required": ["level"],
+      "properties": {
+        "level": { "type": "string", "enum": ["standard", "maximum"] },
+        "kill_non_whitelisted": { "type": "boolean" },
+        "block_outbound": { "type": "boolean" },
+        "lock_screen": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "security_lockdown_output": {
+      "type": "object",
+      "required": ["activated_at", "level", "actions_taken", "processes_killed", "firewall_rules_added", "screen_locked"],
+      "properties": {
+        "activated_at": { "type": "string", "format": "date-time" },
+        "level": { "type": "string", "enum": ["standard", "maximum"] },
+        "actions_taken": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/lockdown_action" }
+        },
+        "processes_killed": { "type": "integer", "minimum": 0 },
+        "firewall_rules_added": { "type": "integer", "minimum": 0 },
+        "screen_locked": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

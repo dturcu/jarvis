@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json",
+  "title": "Jarvis Voice Job Types",
+  "type": "object",
+  "$defs": {
+    "transcription_segment": {
+      "type": "object",
+      "required": ["start", "end", "text"],
+      "properties": {
+        "start": { "type": "number", "minimum": 0 },
+        "end": { "type": "number", "minimum": 0 },
+        "text": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "voice_listen_input": {
+      "type": "object",
+      "required": ["duration_seconds"],
+      "properties": {
+        "duration_seconds": { "type": "number", "minimum": 1, "maximum": 300 },
+        "device_id": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "voice_listen_output": {
+      "type": "object",
+      "required": ["audio_artifact_id", "duration_seconds", "format", "sample_rate"],
+      "properties": {
+        "audio_artifact_id": { "type": "string", "minLength": 1 },
+        "duration_seconds": { "type": "number", "minimum": 0 },
+        "format": { "type": "string", "minLength": 1 },
+        "sample_rate": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "voice_transcribe_input": {
+      "type": "object",
+      "required": ["audio_artifact_id"],
+      "properties": {
+        "audio_artifact_id": { "type": "string", "minLength": 1 },
+        "language": { "type": "string", "minLength": 2, "maxLength": 5 },
+        "model": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "voice_transcribe_output": {
+      "type": "object",
+      "required": ["text", "language", "confidence", "segments"],
+      "properties": {
+        "text": { "type": "string" },
+        "language": { "type": "string", "minLength": 2 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "segments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/transcription_segment" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "voice_speak_input": {
+      "type": "object",
+      "required": ["text"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "voice": { "type": "string", "minLength": 1 },
+        "speed": { "type": "number", "minimum": 0.5, "maximum": 3.0 },
+        "output_name": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "voice_speak_output": {
+      "type": "object",
+      "required": ["audio_artifact_id", "duration_seconds", "voice", "format"],
+      "properties": {
+        "audio_artifact_id": { "type": "string", "minLength": 1 },
+        "duration_seconds": { "type": "number", "minimum": 0 },
+        "voice": { "type": "string", "minLength": 1 },
+        "format": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "voice_wake_word_start_input": {
+      "type": "object",
+      "required": ["keyword", "sensitivity"],
+      "properties": {
+        "keyword": { "type": "string", "minLength": 1 },
+        "sensitivity": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "voice_wake_word_start_output": {
+      "type": "object",
+      "required": ["session_id", "keyword", "listening"],
+      "properties": {
+        "session_id": { "type": "string", "minLength": 1 },
+        "keyword": { "type": "string", "minLength": 1 },
+        "listening": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "voice_wake_word_stop_input": {
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    },
+    "voice_wake_word_stop_output": {
+      "type": "object",
+      "required": ["session_id", "stopped"],
+      "properties": {
+        "session_id": { "type": "string", "minLength": 1 },
+        "stopped": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

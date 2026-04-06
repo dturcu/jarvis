@@ -1,0 +1,69 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "f31e45da-ed57-45fe-95dd-9f2f95440433",
+    "type": "office.fill_docx",
+    "session_key": "agent:main:telegram:dm:123456789",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "504",
+      "chat_id": "123456789"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 600,
+    "attempt": 1,
+    "input": {
+      "template_artifact_id": "89b0288f-2643-4fbc-aec0-445d133e03cb",
+      "variables": {
+        "client_name": "Acme",
+        "date": "2026-04-04",
+        "items": [
+          {
+            "name": "Service A",
+            "price": 1000
+          }
+        ]
+      },
+      "strict_variables": true,
+      "output_name": "proposal.docx"
+    },
+    "artifacts_in": [
+      {
+        "artifact_id": "89b0288f-2643-4fbc-aec0-445d133e03cb",
+        "name": "proposal-template.docx",
+        "kind": "docx"
+      }
+    ],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "f31e45da-ed57-45fe-95dd-9f2f95440433",
+    "job_type": "office.fill_docx",
+    "status": "completed",
+    "summary": "Filled one proposal document template.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "5f97da47-5f3b-48eb-95b0-00d82355e1a4",
+        "kind": "docx",
+        "name": "proposal.docx",
+        "path": "C:\\Jarvis\\artifacts\\proposal.docx",
+        "path_context": "windows-host",
+        "path_style": "windows",
+        "size_bytes": 51218
+      }
+    ],
+    "structured_output": {
+      "output_artifact_id": "5f97da47-5f3b-48eb-95b0-00d82355e1a4",
+      "placeholders_resolved": 9,
+      "unresolved_placeholders": [],
+      "warnings": []
+    }
+  }
+}

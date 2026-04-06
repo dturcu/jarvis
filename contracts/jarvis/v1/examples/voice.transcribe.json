@@ -1,0 +1,43 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b1c2d3e4-f5a6-7890-bcde-f01234567802",
+    "type": "voice.transcribe",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 120,
+    "attempt": 1,
+    "input": {
+      "audio_artifact_id": "audio-11111111-2222-3333-4444-555555555555",
+      "language": "en",
+      "model": "base"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b1c2d3e4-f5a6-7890-bcde-f01234567802",
+    "job_type": "voice.transcribe",
+    "status": "completed",
+    "summary": "Transcribed audio artifact 'audio-11111111-2222-3333-4444-555555555555' using model 'base' in language 'en'.",
+    "attempt": 1,
+    "structured_output": {
+      "text": "What is the weather like today?",
+      "language": "en",
+      "confidence": 0.94,
+      "segments": [
+        { "start": 0.0, "end": 1.2, "text": "What is the" },
+        { "start": 1.2, "end": 2.5, "text": " weather like today?" }
+      ]
+    }
+  }
+}

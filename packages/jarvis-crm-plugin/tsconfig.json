@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist"
+  },
+  "references": [
+    { "path": "../jarvis-shared" },
+    { "path": "../jarvis-crm-worker" }
+  ],
+  "include": ["src/**/*.ts"]
+}

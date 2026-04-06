@@ -1,0 +1,42 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d0e1f2a3-b4c5-6789-3456-890123456789",
+    "type": "device.virtual_desktop_switch",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "direction": "next"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d0e1f2a3-b4c5-6789-3456-890123456789",
+    "job_type": "device.virtual_desktop_switch",
+    "status": "completed",
+    "summary": "Switched to the next virtual desktop: 'Communication'.",
+    "attempt": 1,
+    "structured_output": {
+      "switched": true,
+      "desktop": {
+        "desktop_id": "vd-00000002",
+        "name": "Communication",
+        "index": 1,
+        "is_current": true,
+        "window_count": 2
+      }
+    }
+  }
+}

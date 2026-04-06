@@ -1,0 +1,48 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a14ea29e-3fd7-4bc4-9e93-abef6f772d61",
+    "type": "files.patch",
+    "session_key": "agent:main:cli:local:files",
+    "requested_by": {
+      "channel": "cli",
+      "user_id": "operator"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 120,
+    "attempt": 1,
+    "input": {
+      "root_path": "C:/workspace",
+      "path": "notes.txt",
+      "operations": [
+        {
+          "find": "old",
+          "replace": "new"
+        }
+      ],
+      "encoding": "utf8"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null,
+      "capability_route": "files"
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a14ea29e-3fd7-4bc4-9e93-abef6f772d61",
+    "job_type": "files.patch",
+    "status": "completed",
+    "summary": "Patched 1 replacement in notes.txt.",
+    "attempt": 1,
+    "structured_output": {
+      "root_path": "C:/workspace",
+      "path": "notes.txt",
+      "replacement_count": 1,
+      "before_preview": "old value",
+      "after_preview": "new value"
+    }
+  }
+}

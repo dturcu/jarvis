@@ -1,0 +1,9 @@
+{
+  "id": "jarvis-core",
+  "enabledByDefault": false,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

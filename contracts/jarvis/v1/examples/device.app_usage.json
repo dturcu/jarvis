@@ -1,0 +1,51 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "type": "device.app_usage",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "operator"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 60,
+    "attempt": 1,
+    "input": {
+      "since_hours": 8,
+      "top_n": 5
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+    "job_type": "device.app_usage",
+    "status": "completed",
+    "summary": "Retrieved app usage for the past 8 hours. Top 5 apps returned.",
+    "attempt": 1,
+    "structured_output": {
+      "apps": [
+        {
+          "app_id": "vscode",
+          "display_name": "Visual Studio Code",
+          "duration_seconds": 14400,
+          "window_count": 3
+        },
+        {
+          "app_id": "chrome",
+          "display_name": "Google Chrome",
+          "duration_seconds": 7200,
+          "window_count": 8
+        }
+      ],
+      "total_tracked_seconds": 25200,
+      "since": "2026-04-04T02:00:00.000Z"
+    }
+  }
+}

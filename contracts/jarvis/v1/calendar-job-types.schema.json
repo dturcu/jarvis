@@ -1,0 +1,418 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json",
+  "title": "Jarvis Calendar Job Types",
+  "type": "object",
+  "$defs": {
+    "calendar_attendee": {
+      "type": "object",
+      "required": ["email"],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "response": {
+          "type": "string",
+          "enum": ["accepted", "declined", "tentative", "needsAction"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "calendar_event": {
+      "type": "object",
+      "required": ["event_id", "calendar_id", "title", "start", "end", "attendees", "organizer", "status", "is_all_day"],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calendar_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "location": {
+          "type": "string"
+        },
+        "attendees": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/calendar_attendee"
+          }
+        },
+        "organizer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": ["confirmed", "tentative", "cancelled"]
+        },
+        "is_all_day": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "free_slot": {
+      "type": "object",
+      "required": ["start", "end", "duration_minutes"],
+      "properties": {
+        "start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "duration_minutes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "calendar_list_events_input": {
+      "type": "object",
+      "required": ["start_date", "end_date"],
+      "properties": {
+        "calendar_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end_date": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "max_results": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "query": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "calendar_list_events_output": {
+      "type": "object",
+      "required": ["events", "total_count", "calendar_id"],
+      "properties": {
+        "events": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/calendar_event"
+          }
+        },
+        "total_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "calendar_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "calendar_create_event_input": {
+      "type": "object",
+      "required": ["title", "start", "end"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "attendees": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "email"
+          }
+        },
+        "calendar_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "send_invites": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "calendar_create_event_output": {
+      "type": "object",
+      "required": ["event_id", "calendar_id", "title", "start", "end", "created_at"],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calendar_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "calendar_update_event_input": {
+      "type": "object",
+      "required": ["event_id"],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calendar_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "description": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string"
+        },
+        "send_updates": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "calendar_update_event_output": {
+      "type": "object",
+      "required": ["event_id", "calendar_id", "updated_at", "changes_applied"],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calendar_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "changes_applied": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "calendar_find_free_input": {
+      "type": "object",
+      "required": ["attendees", "duration_minutes", "start_search", "end_search"],
+      "properties": {
+        "attendees": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "email"
+          },
+          "minItems": 1
+        },
+        "duration_minutes": {
+          "type": "integer",
+          "minimum": 5
+        },
+        "start_search": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "end_search": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "working_hours_only": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "calendar_find_free_output": {
+      "type": "object",
+      "required": ["slots", "total_slots", "searched_attendees"],
+      "properties": {
+        "slots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/free_slot"
+          }
+        },
+        "total_slots": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "searched_attendees": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "calendar_brief_input": {
+      "type": "object",
+      "required": ["event_id"],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "calendar_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "include_history": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "calendar_brief_attendee": {
+      "type": "object",
+      "required": ["email"],
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "company": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "calendar_brief_output": {
+      "type": "object",
+      "required": ["event_id", "title", "start", "attendees", "key_topics", "recommended_agenda", "context_notes"],
+      "properties": {
+        "event_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "attendees": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/calendar_brief_attendee"
+          }
+        },
+        "key_topics": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "recommended_agenda": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "context_notes": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action_items_from_last_meeting": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

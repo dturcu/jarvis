@@ -1,0 +1,36 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "e5f6a7b8-c9d0-1234-ef01-345678901234",
+    "type": "device.power_action",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "approved",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "action": "lock"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "e5f6a7b8-c9d0-1234-ef01-345678901234",
+    "job_type": "device.power_action",
+    "status": "completed",
+    "summary": "Power action 'lock' initiated successfully.",
+    "attempt": 1,
+    "structured_output": {
+      "initiated": true,
+      "action": "lock"
+    }
+  }
+}

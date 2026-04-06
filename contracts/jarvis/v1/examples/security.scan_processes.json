@@ -1,0 +1,64 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ec000001-0001-4000-8000-000000000001",
+    "type": "security.scan_processes",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 120,
+    "attempt": 1,
+    "input": {
+      "whitelist_only": false
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "ec000001-0001-4000-8000-000000000001",
+    "job_type": "security.scan_processes",
+    "status": "completed",
+    "summary": "Scanned 4 process(es). 1 suspicious, 1 non-whitelisted.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "scanned_at": "2026-04-04T12:00:00.000Z",
+      "total_count": 4,
+      "suspicious_count": 1,
+      "non_whitelisted_count": 1,
+      "processes": [
+        {
+          "pid": 1204,
+          "name": "chrome.exe",
+          "path": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+          "hash": "aabbcc001122",
+          "cpu_percent": 8.7,
+          "memory_mb": 892.3,
+          "user": "daniel",
+          "whitelisted": true,
+          "suspicious": false
+        },
+        {
+          "pid": 9801,
+          "name": "suspicious.exe",
+          "path": "C:\\Temp\\suspicious.exe",
+          "hash": "deadbeefcafe",
+          "cpu_percent": 15.3,
+          "memory_mb": 128.0,
+          "user": "SYSTEM",
+          "whitelisted": false,
+          "suspicious": true,
+          "suspicious_reason": "High CPU usage from non-whitelisted process"
+        }
+      ]
+    }
+  }
+}

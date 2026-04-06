@@ -1,0 +1,56 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-e001-4000-8000-000000000100",
+    "type": "email.search",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "consultant"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 120,
+    "attempt": 1,
+    "input": {
+      "query": "subject:RFQ ISO 26262",
+      "max_results": 10
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a1b2c3d4-e001-4000-8000-000000000100",
+    "job_type": "email.search",
+    "status": "completed",
+    "summary": "Found 1 message(s) matching query \"subject:RFQ ISO 26262\".",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "messages": [
+        {
+          "message_id": "msg-002",
+          "thread_id": "thread-002",
+          "subject": "RFQ: ISO 26262 safety analysis — brake controller ECU",
+          "from": "procurement@automotech.com",
+          "to": ["consulting@jarvis-safety.com"],
+          "date": "2026-04-03T11:30:00.000Z",
+          "snippet": "We require a ASIL-D compliant safety analysis for our next-generation brake controller ECU.",
+          "has_attachments": true,
+          "labels": ["INBOX", "IMPORTANT"]
+        }
+      ],
+      "total_results": 1
+    },
+    "metrics": {
+      "started_at": "2026-04-04T12:00:00.000Z",
+      "finished_at": "2026-04-04T12:00:00.800Z",
+      "attempt": 1,
+      "worker_id": "email-worker"
+    }
+  }
+}

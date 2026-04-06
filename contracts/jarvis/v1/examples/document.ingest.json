@@ -1,0 +1,73 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d0c00001-0001-4000-8000-000000000001",
+    "type": "document.ingest",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "engineer"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 600,
+    "attempt": 1,
+    "input": {
+      "file_path": "/tmp/safety-plan.pdf",
+      "extract_structure": true,
+      "extract_tables": true
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d0c00001-0001-4000-8000-000000000001",
+    "job_type": "document.ingest",
+    "status": "completed",
+    "summary": "Ingested safety plan PDF: 4820 words, 18 pages, 6 sections extracted.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "file_path": "/tmp/safety-plan.pdf",
+      "file_type": "pdf",
+      "page_count": 18,
+      "word_count": 4820,
+      "text": "1. Safety Goals\nThis document defines the safety goals for the Electronic Brake Control System (EBCS)...",
+      "sections": [
+        {
+          "heading": "1. Safety Goals",
+          "level": 1,
+          "content": "This document defines the safety goals for the Electronic Brake Control System (EBCS).",
+          "page": 1
+        },
+        {
+          "heading": "2. ASIL Decomposition",
+          "level": 1,
+          "content": "ASIL D is assigned to the primary braking function. Decomposition yields ASIL B + ASIL B.",
+          "page": 3
+        }
+      ],
+      "tables": [
+        {
+          "caption": "Safety Goal Summary",
+          "headers": ["ID", "Safety Goal", "ASIL", "Safe State"],
+          "rows": [
+            ["SG-01", "No unintended braking", "D", "Release brake"],
+            ["SG-02", "No loss of braking", "D", "Mechanical fallback"]
+          ],
+          "page": 4
+        }
+      ],
+      "metadata": {
+        "author": "Safety Engineering Team",
+        "created": "2026-01-10",
+        "title": "EBCS Safety Plan v1.2"
+      },
+      "ingested_at": "2026-04-04T12:00:00.000Z"
+    }
+  }
+}

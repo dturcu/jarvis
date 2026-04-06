@@ -1,0 +1,46 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b2c3d4e5-0002-4000-8000-000000000102",
+    "type": "web.scrape_profile",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 600,
+    "attempt": 1,
+    "input": {
+      "url": "https://www.bertrandt.com/en/company/about-us",
+      "profile_type": "company",
+      "extract_fields": ["name", "industry", "employees", "specializations"]
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b2c3d4e5-0002-4000-8000-000000000102",
+    "job_type": "web.scrape_profile",
+    "status": "completed",
+    "summary": "Scraped company profile from https://www.bertrandt.com/en/company/about-us.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "url": "https://www.bertrandt.com/en/company/about-us",
+      "profile_type": "company",
+      "data": {
+        "name": "Bertrandt AG",
+        "industry": "Engineering Services",
+        "employees": "13000+",
+        "specializations": ["AUTOSAR", "ISO 26262", "Functional Safety", "Chassis Development"]
+      },
+      "scraped_at": "2026-04-04T12:00:00Z"
+    }
+  }
+}

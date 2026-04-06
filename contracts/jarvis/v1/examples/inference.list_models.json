@@ -1,0 +1,50 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a3b4c5d6-e7f8-9012-cdef-012345678901",
+    "type": "inference.list_models",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 30,
+    "attempt": 1,
+    "input": {
+      "runtime": "all"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "a3b4c5d6-e7f8-9012-cdef-012345678901",
+    "job_type": "inference.list_models",
+    "status": "completed",
+    "summary": "Found 2 local model(s) across 1 runtime(s).",
+    "attempt": 1,
+    "structured_output": {
+      "models": [
+        {
+          "id": "llama3.2:3b",
+          "runtime": "ollama",
+          "tier": "haiku",
+          "capabilities": ["chat", "code"]
+        },
+        {
+          "id": "nomic-embed-text",
+          "runtime": "ollama",
+          "tier": "haiku",
+          "capabilities": ["embedding"]
+        }
+      ],
+      "runtimes_available": ["ollama"],
+      "total_count": 2
+    }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "4d5f0d9a-2b40-4d3d-9d06-8b4b7f7c1e59",
+    "type": "scrape.extract",
+    "session_key": "agent:main:telegram:group:-1001234567890",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "611",
+      "chat_id": "-1001234567890"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 900,
+    "attempt": 1,
+    "input": {
+      "targets": [
+        "https://example.com/products"
+      ],
+      "fields": [
+        {
+          "name": "product_name",
+          "type": "string",
+          "description": "Visible product title",
+          "required": true
+        },
+        {
+          "name": "price",
+          "type": "string",
+          "description": "Displayed product price",
+          "required": false
+        }
+      ],
+      "output_format": "json",
+      "output_name": "products.json"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "4d5f0d9a-2b40-4d3d-9d06-8b4b7f7c1e59",
+    "job_type": "scrape.extract",
+    "status": "completed",
+    "summary": "Extracted a product list into structured JSON.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "f4e7b2fd-9c3d-4d5a-9e23-0d4f8f89b0d7",
+        "kind": "json",
+        "name": "products.json",
+        "path": "/srv/scrape/artifacts/products.json",
+        "path_context": "linux-container",
+        "path_style": "posix",
+        "size_bytes": 2811
+      }
+    ],
+    "structured_output": {
+      "record_count": 2,
+      "output_artifact_id": "f4e7b2fd-9c3d-4d5a-9e23-0d4f8f89b0d7",
+      "fields": [
+        "product_name",
+        "price"
+      ],
+      "warnings": []
+    }
+  }
+}

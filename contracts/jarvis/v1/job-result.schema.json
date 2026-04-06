@@ -1,0 +1,1121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/job-result.schema.json",
+  "title": "Jarvis Job Result",
+  "type": "object",
+  "required": [
+    "contract_version",
+    "job_id",
+    "job_type",
+    "status",
+    "summary",
+    "attempt"
+  ],
+  "properties": {
+    "contract_version": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/contract_version"
+    },
+    "job_id": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/uuid"
+    },
+    "job_type": {
+      "type": "string",
+      "enum": [
+        "files.inspect",
+        "files.read",
+        "files.search",
+        "files.write",
+        "files.patch",
+        "files.copy",
+        "files.move",
+        "files.preview",
+        "office.inspect",
+        "office.merge_excel",
+        "office.transform_excel",
+        "office.fill_docx",
+        "office.build_pptx",
+        "office.extract_tables",
+        "office.preview",
+        "browser.run_task",
+        "browser.extract",
+        "browser.capture",
+        "browser.download",
+        "python.run",
+        "python.transform",
+        "python.analyze",
+        "python.report",
+        "search.query",
+        "search.fetch",
+        "scrape.extract",
+        "scrape.crawl",
+        "device.snapshot",
+        "device.list_windows",
+        "device.open_app",
+        "device.focus_window",
+        "device.screenshot",
+        "device.click",
+        "device.type_text",
+        "device.hotkey",
+        "device.clipboard_get",
+        "device.clipboard_set",
+        "device.notify",
+        "device.audio_get",
+        "device.audio_set",
+        "device.display_get",
+        "device.display_set",
+        "device.power_action",
+        "device.network_status",
+        "device.network_control",
+        "device.window_layout",
+        "device.virtual_desktop_list",
+        "device.virtual_desktop_switch",
+        "system.monitor_cpu",
+        "system.monitor_memory",
+        "system.monitor_disk",
+        "system.monitor_network",
+        "system.monitor_battery",
+        "system.list_processes",
+        "system.kill_process",
+        "system.hardware_info",
+        "inference.chat",
+        "inference.embed",
+        "inference.list_models",
+        "inference.rag_index",
+        "inference.rag_query",
+        "inference.batch_submit",
+        "inference.batch_status",
+        "scheduler.create_schedule",
+        "scheduler.list_schedules",
+        "scheduler.delete_schedule",
+        "scheduler.create_alert",
+        "device.focus_mode",
+        "device.app_usage",
+        "scheduler.create_workflow",
+        "scheduler.run_workflow",
+        "scheduler.habit_track",
+        "scheduler.habit_status",
+        "interpreter.run_task",
+        "interpreter.run_code",
+        "interpreter.status",
+        "voice.listen",
+        "voice.transcribe",
+        "voice.speak",
+        "voice.wake_word_start",
+        "voice.wake_word_stop",
+        "security.scan_processes",
+        "security.whitelist_update",
+        "security.network_audit",
+        "security.file_integrity_check",
+        "security.file_integrity_baseline",
+        "security.firewall_rule",
+        "security.lockdown",
+        "agent.start",
+        "agent.step",
+        "agent.status",
+        "agent.pause",
+        "agent.resume",
+        "agent.configure",
+        "calendar.list_events",
+        "calendar.create_event",
+        "calendar.update_event",
+        "calendar.find_free",
+        "calendar.brief",
+        "email.search",
+        "email.read",
+        "email.draft",
+        "email.send",
+        "email.label",
+        "email.list_threads",
+        "web.search_news",
+        "web.scrape_profile",
+        "web.monitor_page",
+        "web.enrich_contact",
+        "web.track_jobs",
+        "web.competitive_intel",
+        "crm.add_contact",
+        "crm.update_contact",
+        "crm.list_pipeline",
+        "crm.move_stage",
+        "crm.add_note",
+        "crm.search",
+        "crm.digest",
+        "document.ingest",
+        "document.extract_clauses",
+        "document.analyze_compliance",
+        "document.compare",
+        "document.generate_report"
+      ]
+    },
+    "status": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/job_status"
+    },
+    "summary": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/non_empty_string"
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "approval_id": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/non_empty_string"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/artifact_record"
+      }
+    },
+    "structured_output": {
+      "type": "object"
+    },
+    "error": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/job_error"
+    },
+    "logs": {
+      "type": "array",
+      "items": {
+        "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/log_entry"
+      }
+    },
+    "metrics": {
+      "$ref": "https://jarvis.contracts.local/jarvis/v1/common.schema.json#/$defs/metrics"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "failed"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "error"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "awaiting_approval"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "approval_id"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "completed"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "structured_output"
+        ]
+      }
+    }
+  ],
+  "oneOf": [
+    {
+      "properties": {
+        "job_type": {
+          "const": "files.inspect"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_inspect_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "files.read"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_read_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "files.search"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_search_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "files.write"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_write_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "files.patch"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_patch_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "files.copy"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_copy_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "files.move"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_move_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "files.preview"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/files-job-types.schema.json#/$defs/files_preview_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "office.inspect"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_inspect_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "office.merge_excel"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_merge_excel_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "office.transform_excel"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_transform_excel_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "office.fill_docx"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_fill_docx_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "office.build_pptx"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_build_pptx_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "office.extract_tables"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_extract_tables_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "office.preview"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/office-job-types.schema.json#/$defs/office_preview_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "browser.run_task"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_run_task_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "browser.extract"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_extract_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "browser.capture"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_capture_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "browser.download"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_download_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "python.run"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/python-job-types.schema.json#/$defs/python_run_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "python.transform"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/python-job-types.schema.json#/$defs/python_transform_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "python.analyze"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/python-job-types.schema.json#/$defs/python_analyze_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "python.report"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/python-job-types.schema.json#/$defs/python_report_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "search.query"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/search-job-types.schema.json#/$defs/search_query_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "search.fetch"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/search-job-types.schema.json#/$defs/search_fetch_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "scrape.extract"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/search-job-types.schema.json#/$defs/scrape_extract_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "scrape.crawl"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/search-job-types.schema.json#/$defs/scrape_crawl_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "device.snapshot"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_snapshot_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "device.list_windows"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_list_windows_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "device.open_app"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_open_app_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "device.focus_window"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_focus_window_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "device.screenshot"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_screenshot_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "device.click"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_click_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "device.type_text"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_type_text_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "device.hotkey"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_hotkey_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "device.clipboard_get"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_clipboard_get_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "device.clipboard_set"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_clipboard_set_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": {
+          "const": "device.notify"
+        },
+        "structured_output": {
+          "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_notify_output"
+        }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "device.audio_get" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_audio_get_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "device.audio_set" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_audio_set_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "device.display_get" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_display_get_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "device.display_set" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_display_set_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "device.power_action" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_power_action_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "device.network_status" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_network_status_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "device.network_control" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_network_control_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "device.window_layout" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_window_layout_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "device.virtual_desktop_list" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_virtual_desktop_list_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "device.virtual_desktop_switch" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_virtual_desktop_switch_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "system.monitor_cpu" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_monitor_cpu_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "system.monitor_memory" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_monitor_memory_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "system.monitor_disk" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_monitor_disk_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "system.monitor_network" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_monitor_network_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "system.monitor_battery" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_monitor_battery_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "system.list_processes" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_list_processes_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "system.kill_process" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_kill_process_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "system.hardware_info" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/system-job-types.schema.json#/$defs/system_hardware_info_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "inference.chat" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_chat_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "inference.embed" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_embed_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "inference.list_models" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_list_models_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "inference.rag_index" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_rag_index_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "inference.rag_query" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_rag_query_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "inference.batch_submit" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_batch_submit_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "inference.batch_status" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_batch_status_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "scheduler.create_schedule" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_create_schedule_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "scheduler.list_schedules" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_list_schedules_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "scheduler.delete_schedule" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_delete_schedule_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "scheduler.create_alert" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_create_alert_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "device.focus_mode" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_focus_mode_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "device.app_usage" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/device-job-types.schema.json#/$defs/device_app_usage_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "scheduler.create_workflow" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_create_workflow_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "scheduler.run_workflow" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_run_workflow_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "scheduler.habit_track" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_habit_track_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "scheduler.habit_status" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/scheduler-job-types.schema.json#/$defs/scheduler_habit_status_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "interpreter.run_task" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/interpreter-job-types.schema.json#/$defs/interpreter_run_task_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "interpreter.run_code" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/interpreter-job-types.schema.json#/$defs/interpreter_run_code_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "interpreter.status" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/interpreter-job-types.schema.json#/$defs/interpreter_status_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "voice.listen" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json#/$defs/voice_listen_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "voice.transcribe" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json#/$defs/voice_transcribe_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "voice.speak" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json#/$defs/voice_speak_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "voice.wake_word_start" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json#/$defs/voice_wake_word_start_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "voice.wake_word_stop" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/voice-job-types.schema.json#/$defs/voice_wake_word_stop_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "security.scan_processes" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_scan_processes_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "security.whitelist_update" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_whitelist_update_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "security.network_audit" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_network_audit_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "security.file_integrity_check" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_file_integrity_check_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "security.file_integrity_baseline" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_file_integrity_baseline_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "security.firewall_rule" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_firewall_rule_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "security.lockdown" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/security-job-types.schema.json#/$defs/security_lockdown_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "agent.start" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_start_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "agent.step" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_step_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "agent.status" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_status_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "agent.pause" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_pause_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "agent.resume" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_resume_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "agent.configure" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/agent-job-types.schema.json#/$defs/agent_configure_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "calendar.list_events" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json#/$defs/calendar_list_events_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "calendar.create_event" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json#/$defs/calendar_create_event_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "calendar.update_event" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json#/$defs/calendar_update_event_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "calendar.find_free" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json#/$defs/calendar_find_free_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "calendar.brief" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/calendar-job-types.schema.json#/$defs/calendar_brief_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "email.search" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_search_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "email.read" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_read_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "email.draft" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_draft_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "email.send" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_send_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "email.label" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_label_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "email.list_threads" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/email-job-types.schema.json#/$defs/email_list_threads_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "web.search_news" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_search_news_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "web.scrape_profile" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_scrape_profile_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "web.monitor_page" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_monitor_page_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "web.enrich_contact" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_enrich_contact_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "web.track_jobs" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_track_jobs_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "web.competitive_intel" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/web-job-types.schema.json#/$defs/web_competitive_intel_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "crm.add_contact" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_add_contact_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "crm.update_contact" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_update_contact_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "crm.list_pipeline" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_list_pipeline_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "crm.move_stage" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_move_stage_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "crm.add_note" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_add_note_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "crm.search" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_search_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "crm.digest" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/crm-job-types.schema.json#/$defs/crm_digest_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "document.ingest" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_ingest_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "document.extract_clauses" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_extract_clauses_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "document.analyze_compliance" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_analyze_compliance_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "document.compare" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_compare_output" }
+      }
+    },
+    {
+      "properties": {
+        "job_type": { "const": "document.generate_report" },
+        "structured_output": { "$ref": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_generate_report_output" }
+      }
+    }
+  ],
+  "additionalProperties": false
+}

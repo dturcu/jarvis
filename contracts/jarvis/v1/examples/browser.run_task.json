@@ -1,0 +1,66 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "99548530-7f49-4da4-b2ff-8099c4125514",
+    "type": "browser.run_task",
+    "session_key": "agent:main:telegram:group:-1001234567890",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "601",
+      "chat_id": "-1001234567890"
+    },
+    "priority": "high",
+    "approval_state": "approved",
+    "timeout_seconds": 900,
+    "attempt": 1,
+    "input": {
+      "task": "Log in to the vendor portal and capture the current invoice balance.",
+      "start_url": "https://vendor.example.com/login",
+      "allowed_domains": [
+        "vendor.example.com"
+      ],
+      "capture_evidence": true,
+      "allow_authenticated_session": true,
+      "max_steps": 25,
+      "output_name": "vendor-balance.json"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null,
+      "capability_route": "browser-worker"
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "99548530-7f49-4da4-b2ff-8099c4125514",
+    "job_type": "browser.run_task",
+    "status": "completed",
+    "summary": "Captured the current invoice balance from the vendor portal.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "136f23e0-a819-49e7-b16d-a9f74f530fb5",
+        "kind": "png",
+        "name": "vendor-balance.png",
+        "path": "/srv/browser/artifacts/vendor-balance.png",
+        "path_context": "linux-container",
+        "path_style": "posix",
+        "size_bytes": 118442
+      }
+    ],
+    "structured_output": {
+      "final_url": "https://vendor.example.com/dashboard",
+      "steps_completed": 11,
+      "extracted_data": {
+        "balance_due": "$18,420.15",
+        "currency": "USD"
+      },
+      "evidence_artifact_ids": [
+        "136f23e0-a819-49e7-b16d-a9f74f530fb5"
+      ],
+      "warnings": []
+    }
+  }
+}

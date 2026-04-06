@@ -1,0 +1,53 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d0c00005-0001-4000-8000-000000000005",
+    "type": "document.generate_report",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "safety-engineer"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 900,
+    "attempt": 1,
+    "input": {
+      "template": "evidence_gap",
+      "data": {
+        "project": "EBCS Safety Plan",
+        "framework": "iso_26262",
+        "asil": "B",
+        "gaps": [
+          "Missing unit test plan",
+          "Incomplete TSR traceability"
+        ]
+      },
+      "output_format": "docx",
+      "output_path": "/tmp/evidence-gap-report.docx",
+      "title": "EBCS Evidence Gap Report - ISO 26262 ASIL B"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "d0c00005-0001-4000-8000-000000000005",
+    "job_type": "document.generate_report",
+    "status": "completed",
+    "summary": "Generated evidence_gap report as docx: EBCS Evidence Gap Report - ISO 26262 ASIL B with 6 sections at /tmp/evidence-gap-report.docx.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "output_path": "/tmp/evidence-gap-report.docx",
+      "output_format": "docx",
+      "template": "evidence_gap",
+      "title": "EBCS Evidence Gap Report - ISO 26262 ASIL B",
+      "section_count": 6,
+      "generated_at": "2026-04-04T12:00:00.000Z"
+    }
+  }
+}

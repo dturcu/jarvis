@@ -1,0 +1,138 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "baseUrl": ".",
+    "paths": {
+      "@jarvis/shared": [
+        "./packages/jarvis-shared/src/index.ts"
+      ],
+      "@jarvis/core": [
+        "./packages/jarvis-core/src/index.ts"
+      ],
+      "@jarvis/jobs": [
+        "./packages/jarvis-jobs/src/index.ts"
+      ],
+      "@jarvis/dispatch": [
+        "./packages/jarvis-dispatch/src/index.ts"
+      ],
+      "@jarvis/office": [
+        "./packages/jarvis-office/src/index.ts"
+      ],
+      "@jarvis/files": [
+        "./packages/jarvis-files/src/index.ts"
+      ],
+      "@jarvis/browser": [
+        "./packages/jarvis-browser/src/index.ts"
+      ],
+      "@jarvis/device": [
+        "./packages/jarvis-device/src/index.ts"
+      ],
+      "@jarvis/desktop-host-worker": [
+        "./packages/jarvis-desktop-host-worker/src/index.ts"
+      ],
+      "@jarvis/supervisor": [
+        "./packages/jarvis-supervisor/src/index.ts"
+      ],
+      "@jarvis/system": [
+        "./packages/jarvis-system/src/index.ts"
+      ],
+      "@jarvis/system-worker": [
+        "./packages/jarvis-system-worker/src/index.ts"
+      ],
+      "@jarvis/inference": [
+        "./packages/jarvis-inference/src/index.ts"
+      ],
+      "@jarvis/inference-worker": [
+        "./packages/jarvis-inference-worker/src/index.ts"
+      ],
+      "@jarvis/scheduler": [
+        "./packages/jarvis-scheduler/src/index.ts"
+      ],
+      "@jarvis/interpreter": [
+        "./packages/jarvis-interpreter/src/index.ts"
+      ],
+      "@jarvis/interpreter-worker": [
+        "./packages/jarvis-interpreter-worker/src/index.ts"
+      ],
+      "@jarvis/voice": [
+        "./packages/jarvis-voice/src/index.ts"
+      ],
+      "@jarvis/voice-worker": [
+        "./packages/jarvis-voice-worker/src/index.ts"
+      ],
+      "@jarvis/security": [
+        "./packages/jarvis-security/src/index.ts"
+      ],
+      "@jarvis/security-worker": [
+        "./packages/jarvis-security-worker/src/index.ts"
+      ],
+      "@jarvis/agent-framework": [
+        "./packages/jarvis-agent-framework/src/index.ts"
+      ],
+      "@jarvis/agent": [
+        "./packages/jarvis-agent-plugin/src/index.ts"
+      ],
+      "@jarvis/agent-worker": [
+        "./packages/jarvis-agent-worker/src/index.ts"
+      ],
+      "@jarvis/calendar-worker": [
+        "./packages/jarvis-calendar-worker/src/index.ts"
+      ],
+      "@jarvis/calendar": [
+        "./packages/jarvis-calendar-plugin/src/index.ts"
+      ],
+      "@jarvis/email-worker": [
+        "./packages/jarvis-email-worker/src/index.ts"
+      ],
+      "@jarvis/email": [
+        "./packages/jarvis-email-plugin/src/index.ts"
+      ],
+      "@jarvis/crm-worker": [
+        "./packages/jarvis-crm-worker/src/index.ts"
+      ],
+      "@jarvis/crm": [
+        "./packages/jarvis-crm-plugin/src/index.ts"
+      ],
+      "@jarvis/web-worker": [
+        "./packages/jarvis-web-worker/src/index.ts"
+      ],
+      "@jarvis/web": [
+        "./packages/jarvis-web-plugin/src/index.ts"
+      ],
+      "@jarvis/agents": [
+        "./packages/jarvis-agents/src/index.ts"
+      ],
+      "@jarvis/document-worker": [
+        "./packages/jarvis-document-worker/src/index.ts"
+      ],
+      "@jarvis/document": [
+        "./packages/jarvis-document-plugin/src/index.ts"
+      ],
+      "@jarvis/browser-worker": [
+        "./packages/jarvis-browser-worker/src/index.ts"
+      ],
+      "@jarvis/social-worker": [
+        "./packages/jarvis-social-worker/src/index.ts"
+      ],
+      "@jarvis/office-worker": [
+        "./packages/jarvis-office-worker/src/index.ts"
+      ]
+    },
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "composite": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "ignoreDeprecations": "6.0",
+    "lib": [
+      "ES2022"
+    ]
+  }
+}

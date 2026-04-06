@@ -1,0 +1,10 @@
+{
+  "id": "jarvis-jobs",
+  "name": "Jarvis Jobs",
+  "description": "Jarvis job broker, status, retry, artifact, and callback plugin",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

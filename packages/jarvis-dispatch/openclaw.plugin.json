@@ -1,0 +1,9 @@
+{
+  "id": "jarvis-dispatch",
+  "enabledByDefault": false,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

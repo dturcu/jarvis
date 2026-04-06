@@ -1,0 +1,24 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "example-social-scan_feed",
+    "type": "social.scan_feed",
+    "session_key": "example-session",
+    "requested_by": { "source": "agent", "agent_id": "example" },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 60,
+    "attempt": 1,
+    "input": {},
+    "artifacts_in": [],
+    "metadata": { "agent_id": "example", "thread_key": null }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "example-social-scan_feed",
+    "job_type": "social.scan_feed",
+    "status": "completed",
+    "summary": "Example result for social.scan_feed",
+    "attempt": 1
+  }
+}

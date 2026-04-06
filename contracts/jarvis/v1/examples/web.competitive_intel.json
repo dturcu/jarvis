@@ -1,0 +1,56 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b2c3d4e5-0006-4000-8000-000000000106",
+    "type": "web.competitive_intel",
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 600,
+    "attempt": 1,
+    "input": {
+      "company_name": "Bertrandt",
+      "aspects": ["news", "team", "customers"]
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "b2c3d4e5-0006-4000-8000-000000000106",
+    "job_type": "web.competitive_intel",
+    "status": "completed",
+    "summary": "Gathered competitive intelligence on Bertrandt AG: 5 key facts, 1 recent news item.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "company_name": "Bertrandt AG",
+      "summary": "Bertrandt AG is a leading German engineering services company with deep expertise in AUTOSAR, functional safety (ISO 26262), and chassis development. The company serves all major German OEMs and is aggressively expanding its safety software competency center.",
+      "key_facts": [
+        "13,000+ employees across 50+ locations",
+        "Strong focus on ISO 26262 ASIL-D certification services",
+        "Recent 200-engineer hiring push in Munich for safety software",
+        "Strategic partnership with Vector Informatik for AUTOSAR tooling",
+        "Revenue ~1.2B EUR in FY2025"
+      ],
+      "recent_news": [
+        {
+          "title": "Bertrandt AG Expands AUTOSAR Software Team Amid Safety Push",
+          "url": "https://www.automotive-engineering.de/bertrandt-autosar-expansion",
+          "source": "Automotive Engineering Today",
+          "published_at": "2026-03-28T09:00:00Z",
+          "snippet": "Bertrandt AG has announced a significant hiring push in its AUTOSAR and functional safety division, targeting ISO 26262 ASIL-D expertise across Munich and Stuttgart.",
+          "relevance_score": 0.95
+        }
+      ],
+      "intel_gathered_at": "2026-04-04T12:00:00Z"
+    }
+  }
+}

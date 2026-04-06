@@ -1,0 +1,77 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "8c2c3bf8-5b2f-4df3-b2b3-38f4a9dfe4d0",
+    "type": "search.query",
+    "session_key": "agent:main:telegram:group:-1001234567890",
+    "requested_by": {
+      "channel": "telegram",
+      "user_id": "123456789",
+      "message_id": "609",
+      "chat_id": "-1001234567890"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 120,
+    "attempt": 1,
+    "input": {
+      "query": "OpenClaw plugin SDK documentation",
+      "freshness": "30d",
+      "max_results": 3,
+      "domains_allow": [
+        "docs.openclaw.ai"
+      ],
+      "language": "en"
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "main",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "8c2c3bf8-5b2f-4df3-b2b3-38f4a9dfe4d0",
+    "job_type": "search.query",
+    "status": "completed",
+    "summary": "Returned three search results for the requested docs query.",
+    "attempt": 1,
+    "artifacts": [
+      {
+        "artifact_id": "73b88f52-2d77-4ea0-8b24-2e29f89eb4c8",
+        "kind": "json",
+        "name": "search-results.json",
+        "path": "/srv/search/artifacts/search-results.json",
+        "path_context": "linux-container",
+        "path_style": "posix",
+        "size_bytes": 1412
+      }
+    ],
+    "structured_output": {
+      "results": [
+        {
+          "rank": 1,
+          "title": "OpenClaw Plugin SDK",
+          "url": "https://docs.openclaw.ai/tools/plugin",
+          "snippet": "Build native plugins using definePluginEntry, registerTool, and registerCommand.",
+          "source": "docs.openclaw.ai"
+        },
+        {
+          "rank": 2,
+          "title": "OpenClaw Session Tools",
+          "url": "https://docs.openclaw.ai/concepts/session-tool",
+          "snippet": "Session tools provide cross-session send and spawn capabilities.",
+          "source": "docs.openclaw.ai"
+        },
+        {
+          "rank": 3,
+          "title": "OpenClaw Browser Tools",
+          "url": "https://docs.openclaw.ai/tools/browser",
+          "snippet": "Browser automation is built into the OpenClaw shell.",
+          "source": "docs.openclaw.ai"
+        }
+      ],
+      "export_artifact_id": "73b88f52-2d77-4ea0-8b24-2e29f89eb4c8"
+    }
+  }
+}
