@@ -7,6 +7,20 @@ export type WorkflowInput = {
   options?: string[];
 };
 
+export type WorkflowOutputField = {
+  name: string;
+  label: string;
+  type: "text" | "list" | "document" | "table";
+  required: boolean;
+};
+
+export type WorkflowSafetyRules = {
+  outbound_default: "draft" | "send" | "blocked";
+  preview_recommended: boolean;
+  retry_safe: boolean;
+  retry_requires_approval: boolean;
+};
+
 export type WorkflowDefinition = {
   workflow_id: string;
   name: string;
@@ -16,6 +30,8 @@ export type WorkflowDefinition = {
   inputs: WorkflowInput[];
   approval_summary: string;
   preview_available: boolean;
+  output_fields?: WorkflowOutputField[];
+  safety_rules?: WorkflowSafetyRules;
 };
 
 export const V1_WORKFLOWS: WorkflowDefinition[] = [
@@ -31,6 +47,18 @@ export const V1_WORKFLOWS: WorkflowDefinition[] = [
     ],
     approval_summary: "Report generation requires approval",
     preview_available: true,
+    output_fields: [
+      { name: "recommendation", label: "Overall recommendation", type: "text", required: true },
+      { name: "risks", label: "Identified risks", type: "list", required: true },
+      { name: "clause_analysis", label: "Clause-by-clause analysis", type: "table", required: true },
+      { name: "next_actions", label: "Suggested next actions", type: "list", required: true },
+    ],
+    safety_rules: {
+      outbound_default: "draft",
+      preview_recommended: true,
+      retry_safe: true,
+      retry_requires_approval: false,
+    },
   },
   {
     workflow_id: "rfq-analysis",
@@ -44,6 +72,17 @@ export const V1_WORKFLOWS: WorkflowDefinition[] = [
     ],
     approval_summary: "Outbound emails require approval",
     preview_available: true,
+    output_fields: [
+      { name: "summary", label: "Analysis summary", type: "text", required: true },
+      { name: "gap_matrix", label: "Compliance gap matrix", type: "table", required: true },
+      { name: "recommendations", label: "Recommendations", type: "list", required: true },
+    ],
+    safety_rules: {
+      outbound_default: "draft",
+      preview_recommended: true,
+      retry_safe: true,
+      retry_requires_approval: false,
+    },
   },
   {
     workflow_id: "bd-pipeline",
@@ -56,6 +95,17 @@ export const V1_WORKFLOWS: WorkflowDefinition[] = [
     ],
     approval_summary: "Emails and CRM stage changes require approval",
     preview_available: true,
+    output_fields: [
+      { name: "leads", label: "Enriched leads", type: "list", required: true },
+      { name: "crm_updates", label: "CRM updates made", type: "list", required: false },
+      { name: "outreach_drafts", label: "Outreach drafts", type: "list", required: false },
+    ],
+    safety_rules: {
+      outbound_default: "draft",
+      preview_recommended: false,
+      retry_safe: false,
+      retry_requires_approval: true,
+    },
   },
   {
     workflow_id: "staffing-check",
@@ -68,6 +118,16 @@ export const V1_WORKFLOWS: WorkflowDefinition[] = [
     ],
     approval_summary: "Email notifications require approval",
     preview_available: false,
+    output_fields: [
+      { name: "utilization", label: "Utilization report", type: "text", required: true },
+      { name: "gaps", label: "Forecasted gaps", type: "list", required: true },
+    ],
+    safety_rules: {
+      outbound_default: "blocked",
+      preview_recommended: false,
+      retry_safe: true,
+      retry_requires_approval: false,
+    },
   },
   {
     workflow_id: "weekly-report",
@@ -80,5 +140,15 @@ export const V1_WORKFLOWS: WorkflowDefinition[] = [
     ],
     approval_summary: "Individual agent approvals apply",
     preview_available: false,
+    output_fields: [
+      { name: "summary", label: "Weekly summary", type: "text", required: true },
+      { name: "action_items", label: "Action items", type: "list", required: true },
+    ],
+    safety_rules: {
+      outbound_default: "draft",
+      preview_recommended: false,
+      retry_safe: true,
+      retry_requires_approval: false,
+    },
   },
 ];

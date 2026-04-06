@@ -24,5 +24,5 @@ export {
 export { getHealthReport, getReadinessReport, type HealthReport, type HealthStatus, type ReadinessReport } from "./health.js";
 export { DbSchedulerStore } from "./db-scheduler.js";
 export { isReadOnlyAction, getReadOnlySuffixes } from "./action-classifier.js";
-export { V1_WORKFLOWS, type WorkflowDefinition, type WorkflowInput } from "./workflows.js";
+export { V1_WORKFLOWS, type WorkflowDefinition, type WorkflowInput, type WorkflowOutputField, type WorkflowSafetyRules } from "./workflows.js";
 export { STARTER_PACKS, type StarterPack } from "./starter-packs.js";

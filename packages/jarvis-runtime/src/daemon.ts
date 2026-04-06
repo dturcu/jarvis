@@ -333,7 +333,9 @@ async function main() {
         const tableCheck = runtimeDb.prepare(
           "SELECT COUNT(*) as n FROM sqlite_master WHERE type='table' AND name IN ('runs','approvals','agent_commands','daemon_heartbeats')",
         ).get() as { n: number };
-        const configValid = config.lmstudio_url && config.adapter_mode;
+        // Re-read config from disk so operator edits are observed without restart
+        const latestConfig = loadConfig();
+        const configValid = latestConfig.lmstudio_url && latestConfig.adapter_mode;
 
         if (tableCheck.n >= 4 && configValid) {
           logger.info("Safe mode conditions cleared — resuming normal operation");

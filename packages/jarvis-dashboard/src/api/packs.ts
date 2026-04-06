@@ -39,13 +39,21 @@ packsRouter.post('/:packId/apply', (req, res) => {
   try {
     db = getDb()
     const now = new Date().toISOString()
-    const upsert = db.prepare(
-      "INSERT OR REPLACE INTO settings (key, value_json, updated_at) VALUES (?, ?, ?)"
-    )
 
-    upsert.run('enabled_agents', JSON.stringify(pack.enabled_agents), now)
-    upsert.run('adapter_mode', JSON.stringify(pack.adapter_mode), now)
-    upsert.run('approval_policy', JSON.stringify(pack.approval_policy), now)
+    // Atomic: all settings applied together or none
+    db.exec('BEGIN')
+    try {
+      const upsert = db.prepare(
+        "INSERT OR REPLACE INTO settings (key, value_json, updated_at) VALUES (?, ?, ?)"
+      )
+      upsert.run('enabled_agents', JSON.stringify(pack.enabled_agents), now)
+      upsert.run('adapter_mode', JSON.stringify(pack.adapter_mode), now)
+      upsert.run('approval_policy', JSON.stringify(pack.approval_policy), now)
+      db.exec('COMMIT')
+    } catch (e) {
+      try { db.exec('ROLLBACK') } catch { /* best-effort */ }
+      throw e
+    }
 
     const actor = getActor(req as AuthenticatedRequest)
     writeAuditLog(actor.type, actor.id, 'pack.applied', 'pack', packId, {

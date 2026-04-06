@@ -34,6 +34,24 @@ workflowsRouter.post('/:workflowId/start', (req, res) => {
   const wf = V1_WORKFLOWS.find(w => w.workflow_id === req.params.workflowId)
   if (!wf) { res.status(404).json({ error: 'Workflow not found' }); return }
 
+  // Validate inputs against workflow definition
+  const errors: string[] = []
+  for (const input of wf.inputs) {
+    const value = req.body?.[input.name]
+    if (input.required && (value === undefined || value === null || value === '')) {
+      errors.push(`${input.label} is required`)
+    }
+    if (value !== undefined && value !== null && value !== '') {
+      if (input.type === 'select' && input.options && !input.options.includes(String(value))) {
+        errors.push(`${input.label} must be one of: ${input.options.join(', ')}`)
+      }
+    }
+  }
+  if (errors.length > 0) {
+    res.status(400).json({ ok: false, errors })
+    return
+  }
+
   let db: DatabaseSync | undefined
   try {
     db = getRuntimeDb()
@@ -47,7 +65,7 @@ workflowsRouter.post('/:workflowId/start', (req, res) => {
         db.prepare(`
           INSERT INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
           VALUES (?, 'run_agent', ?, ?, 'queued', 0, ?, 'workflow', ?)
-        `).run(commandId, agentId, JSON.stringify({ ...req.body, workflow_id: wf.workflow_id, preview: req.body?.preview ?? false }), new Date().toISOString(), `workflow-${wf.workflow_id}-${agentId}-${Date.now()}`)
+        `).run(commandId, agentId, JSON.stringify({ ...req.body, workflow_id: wf.workflow_id, preview: req.body?.preview ?? false }), new Date().toISOString(), commandId)
         commands.push({ command_id: commandId, agent_id: agentId })
       }
       db.exec("COMMIT")
