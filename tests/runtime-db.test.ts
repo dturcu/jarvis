@@ -3,7 +3,7 @@ import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import os from "node:os";
 import { join } from "node:path";
-import { runMigrations } from "@jarvis/runtime";
+import { runMigrations, CRM_MIGRATIONS, KNOWLEDGE_MIGRATIONS } from "@jarvis/runtime";
 
 describe("Runtime DB and Migration Framework", () => {
   let dbPath: string;
@@ -194,6 +194,167 @@ describe("Runtime DB and Migration Framework", () => {
       const row = db.prepare("SELECT * FROM schedules WHERE schedule_id = ?").get("s1") as Record<string, unknown>;
       expect(row.cron_expression).toBe("0 7 * * 1");
       expect(row.enabled).toBe(1);
+    });
+  });
+
+  // ─── CRM Migration Tests ──────────────────────────────────────────────────
+
+  describe("CRM migrations (crm_0001_core)", () => {
+    let crmDb: DatabaseSync;
+    let crmDbPath: string;
+
+    beforeEach(() => {
+      crmDbPath = join(os.tmpdir(), `jarvis-test-crm-${Date.now()}.db`);
+      crmDb = new DatabaseSync(crmDbPath);
+      crmDb.exec("PRAGMA journal_mode = WAL;");
+      crmDb.exec("PRAGMA foreign_keys = ON;");
+      runMigrations(crmDb, CRM_MIGRATIONS);
+    });
+
+    afterEach(() => {
+      try { crmDb.close(); } catch { /* ok */ }
+      try { fs.unlinkSync(crmDbPath); } catch { /* ok */ }
+    });
+
+    it("creates all CRM tables", () => {
+      const tables = crmDb.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name != 'schema_migrations' ORDER BY name",
+      ).all() as Array<{ name: string }>;
+      const names = tables.map(t => t.name);
+      expect(names).toContain("contacts");
+      expect(names).toContain("notes");
+      expect(names).toContain("stage_history");
+      expect(names).toContain("campaigns");
+      expect(names).toContain("campaign_recipients");
+    });
+
+    it("records CRM migration", () => {
+      const rows = crmDb.prepare("SELECT id, name FROM schema_migrations").all() as Array<{ id: string; name: string }>;
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.id).toBe("0001");
+      expect(rows[0]!.name).toBe("crm_core");
+    });
+
+    it("contacts table accepts and queries rows", () => {
+      crmDb.prepare(`
+        INSERT INTO contacts (id, name, company, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).run("c1", "Test User", "Test Corp", "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z");
+
+      const row = crmDb.prepare("SELECT * FROM contacts WHERE id = ?").get("c1") as Record<string, unknown>;
+      expect(row.stage).toBe("prospect");
+      expect(row.score).toBe(0);
+    });
+
+    it("campaign_recipients has composite primary key", () => {
+      crmDb.prepare(`INSERT INTO campaigns (id, name, created_at, updated_at) VALUES (?, ?, ?, ?)`).run("camp1", "Cold", "2026-01-01", "2026-01-01");
+      crmDb.prepare(`INSERT INTO campaign_recipients (campaign_id, contact_id, email, enrolled_at, last_status_at) VALUES (?, ?, ?, ?, ?)`).run("camp1", "c1", "test@test.com", "2026-01-01", "2026-01-01");
+
+      expect(() => {
+        crmDb.prepare(`INSERT INTO campaign_recipients (campaign_id, contact_id, email, enrolled_at, last_status_at) VALUES (?, ?, ?, ?, ?)`).run("camp1", "c1", "test@test.com", "2026-01-01", "2026-01-01");
+      }).toThrow();
+    });
+
+    it("is idempotent", () => {
+      runMigrations(crmDb, CRM_MIGRATIONS);
+      const rows = crmDb.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number };
+      expect(rows.n).toBe(1);
+    });
+  });
+
+  // ─── Knowledge Migration Tests ────────────────────────────────────────────
+
+  describe("Knowledge migrations (knowledge_0001_core)", () => {
+    let kbDb: DatabaseSync;
+    let kbDbPath: string;
+
+    beforeEach(() => {
+      kbDbPath = join(os.tmpdir(), `jarvis-test-kb-${Date.now()}.db`);
+      kbDb = new DatabaseSync(kbDbPath);
+      kbDb.exec("PRAGMA journal_mode = WAL;");
+      kbDb.exec("PRAGMA foreign_keys = ON;");
+      runMigrations(kbDb, KNOWLEDGE_MIGRATIONS);
+    });
+
+    afterEach(() => {
+      try { kbDb.close(); } catch { /* ok */ }
+      try { fs.unlinkSync(kbDbPath); } catch { /* ok */ }
+    });
+
+    const EXPECTED_TABLES = [
+      "documents", "playbooks", "entities", "relations", "decisions",
+      "entity_provenance", "memory", "agent_runs", "embedding_chunks",
+    ];
+
+    it("creates all knowledge tables", () => {
+      const tables = kbDb.prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name != 'schema_migrations' ORDER BY name",
+      ).all() as Array<{ name: string }>;
+      const names = tables.map(t => t.name);
+      for (const expected of EXPECTED_TABLES) {
+        expect(names, `Missing table: ${expected}`).toContain(expected);
+      }
+    });
+
+    it("records knowledge migration", () => {
+      const rows = kbDb.prepare("SELECT id, name FROM schema_migrations").all() as Array<{ id: string; name: string }>;
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.id).toBe("0001");
+      expect(rows[0]!.name).toBe("knowledge_core");
+    });
+
+    it("creates indexes for knowledge tables", () => {
+      const indexes = kbDb.prepare(
+        "SELECT name FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%' ORDER BY name",
+      ).all() as Array<{ name: string }>;
+      const indexNames = indexes.map(i => i.name);
+      expect(indexNames).toContain("idx_decisions_agent");
+      expect(indexNames).toContain("idx_decisions_run");
+      expect(indexNames).toContain("idx_prov_entity");
+      expect(indexNames).toContain("idx_prov_agent");
+      expect(indexNames).toContain("idx_memory_agent");
+      expect(indexNames).toContain("idx_runs_agent");
+      expect(indexNames).toContain("idx_chunks_doc");
+    });
+
+    it("entities enforces canonical_key uniqueness", () => {
+      kbDb.prepare(`
+        INSERT INTO entities (entity_id, entity_type, name, canonical_key, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run("e1", "company", "Volvo", "company:volvo", "2026-01-01", "2026-01-01");
+
+      expect(() => {
+        kbDb.prepare(`
+          INSERT INTO entities (entity_id, entity_type, name, canonical_key, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).run("e2", "company", "Volvo Duplicate", "company:volvo", "2026-01-01", "2026-01-01");
+      }).toThrow();
+    });
+
+    it("memory enforces kind CHECK constraint", () => {
+      expect(() => {
+        kbDb.prepare(`
+          INSERT INTO memory (entry_id, agent_id, run_id, kind, content, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).run("m1", "bd-pipeline", "r1", "invalid_kind", "test", "2026-01-01");
+      }).toThrow();
+    });
+
+    it("documents table stores and retrieves knowledge base entries", () => {
+      kbDb.prepare(`
+        INSERT INTO documents (doc_id, collection, title, content, tags, source_agent_id, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run("d1", "lessons", "Test lesson", "Content here", '["test"]', "bd-pipeline", "2026-01-01", "2026-01-01");
+
+      const row = kbDb.prepare("SELECT * FROM documents WHERE doc_id = ?").get("d1") as Record<string, unknown>;
+      expect(row.collection).toBe("lessons");
+      expect(row.source_agent_id).toBe("bd-pipeline");
+    });
+
+    it("is idempotent", () => {
+      runMigrations(kbDb, KNOWLEDGE_MIGRATIONS);
+      const rows = kbDb.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number };
+      expect(rows.n).toBe(1);
     });
   });
 });
