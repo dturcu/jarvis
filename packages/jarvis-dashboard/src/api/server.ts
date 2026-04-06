@@ -87,18 +87,55 @@ app.get('/api/ready', (_req, res) => {
 })
 
 // SPA: serve index.html for all non-API routes
-const serveIndex = (_req: express.Request, res: express.Response) => {
-  res.setHeader('Content-Type', 'text/html; charset=utf-8')
-  res.send(fs.readFileSync(indexHtml, 'utf8'))
+const hasUI = fs.existsSync(indexHtml)
+
+if (hasUI) {
+  const serveIndex = (_req: express.Request, res: express.Response) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.send(fs.readFileSync(indexHtml, 'utf8'))
+  }
+  app.get('/', serveIndex)
+  app.use(express.static(distPath))
+  app.get('/{*splat}', serveIndex)
+} else {
+  // Friendly error page when dashboard hasn't been built
+  const notBuiltHtml = `<!DOCTYPE html>
+<html><head><title>Jarvis - Dashboard Not Built</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 600px; margin: 80px auto; padding: 0 20px; color: #333; }
+  h1 { color: #1a56db; } code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
+  .cmd { background: #1e293b; color: #e2e8f0; padding: 12px 16px; border-radius: 8px; font-family: monospace; margin: 12px 0; }
+  .status { margin-top: 24px; padding: 12px; background: #ecfdf5; border-radius: 8px; border: 1px solid #a7f3d0; }
+  a { color: #1a56db; }
+</style></head>
+<body>
+  <h1>Jarvis Dashboard</h1>
+  <p>The dashboard UI hasn't been built yet. The API is running and healthy.</p>
+  <p><strong>To build the dashboard:</strong></p>
+  <div class="cmd">npm run dashboard:build</div>
+  <p>Then refresh this page.</p>
+  <div class="status">
+    <strong>API Status:</strong> <a href="/api/health">/api/health</a> |
+    <a href="/api/ready">/api/ready</a>
+  </div>
+</body></html>`
+
+  app.get('/', (_req, res) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.send(notBuiltHtml)
+  })
+  app.get('/{*splat}', (_req, res) => {
+    if (_req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' })
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.send(notBuiltHtml)
+  })
 }
-app.get('/', serveIndex)
-// Static assets (JS, CSS) must come after explicit routes
-app.use(express.static(distPath))
-// Catch-all SPA fallback
-app.get('/{*splat}', serveIndex)
 
 app.listen(PORT, () => {
-  const hasUI = fs.existsSync(indexHtml)
-  console.log(`Jarvis Dashboard API: http://localhost:${PORT}/api/health`)
-  console.log(`Jarvis Dashboard UI:  http://localhost:${PORT}  (dist ${hasUI ? '✓' : '✗ — run npm run dashboard:build first'})`)
+  console.log('')
+  console.log(`  Jarvis Dashboard`)
+  console.log(`  ─────────────────────────────────────`)
+  console.log(`  API:        http://localhost:${PORT}/api/health`)
+  console.log(`  Dashboard:  http://localhost:${PORT}  ${hasUI ? '✓' : '(not built — run: npm run dashboard:build)'}`)
+  console.log('')
 })
