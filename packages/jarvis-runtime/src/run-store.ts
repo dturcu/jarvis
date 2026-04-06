@@ -170,6 +170,14 @@ export class RunStore {
     return (row?.status as RunStatus) ?? null;
   }
 
+  /** Find a run by its linked command_id. Used to link retry runs to originals. */
+  getRunByCommandId(commandId: string): { run_id: string; agent_id: string; status: string } | null {
+    const row = this.db.prepare(
+      "SELECT run_id, agent_id, status FROM runs WHERE command_id = ?",
+    ).get(commandId) as { run_id: string; agent_id: string; status: string } | undefined;
+    return row ?? null;
+  }
+
   /** Get a run record. */
   getRun(runId: string): {
     run_id: string; agent_id: string; status: RunStatus;

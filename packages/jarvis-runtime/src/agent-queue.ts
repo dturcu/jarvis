@@ -7,6 +7,7 @@ type QueueEntry = {
   agentId: string;
   trigger: AgentTrigger;
   commandId?: string; // links this queue entry to an agent_commands row
+  commandPayload?: Record<string, unknown>; // parsed payload_json from agent_commands (carries retry_of, etc.)
   priority: number; // higher = run first
   enqueuedAt: string;
 };
@@ -64,7 +65,7 @@ export class AgentQueue {
    * Add an agent run to the queue, sorted by priority (descending).
    * If the agent is already running or already queued, this is a no-op.
    */
-  enqueue(agentId: string, trigger: AgentTrigger, priority = 0, commandId?: string): void {
+  enqueue(agentId: string, trigger: AgentTrigger, priority = 0, commandId?: string, commandPayload?: Record<string, unknown>): void {
     // Reject in drain mode
     if (this._draining) {
       this.logger.debug(`Agent ${agentId} rejected — queue is draining`);
@@ -87,6 +88,7 @@ export class AgentQueue {
       agentId,
       trigger,
       commandId,
+      commandPayload,
       priority,
       enqueuedAt: new Date().toISOString(),
     });
@@ -122,9 +124,10 @@ export class AgentQueue {
         `Starting agent ${entry.agentId} (running=${this.running.size + 1}/${this.maxConcurrent}, queued=${this.queue.length})`,
       );
 
-      // Attach command_id to trigger so orchestrator can link the run atomically
+      // Attach command_id and command_payload to trigger so orchestrator can link the run
+      // and log retry relationships atomically
       const triggerWithCommand = entry.commandId
-        ? { ...entry.trigger, command_id: entry.commandId }
+        ? { ...entry.trigger, command_id: entry.commandId, ...(entry.commandPayload ? { command_payload: entry.commandPayload } : {}) }
         : entry.trigger;
       const runPromise = runAgent(entry.agentId, triggerWithCommand, this.deps)
         .catch((e) => {
