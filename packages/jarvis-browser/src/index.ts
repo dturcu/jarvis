@@ -165,9 +165,9 @@ export function createBrowserTools(ctx: OpenClawPluginToolContext): AnyAgentTool
         format: browserExtractFormatSchema,
         outputName: Type.String({ minLength: 1 })
       }),
-      (_toolCtx, params: BrowserExtractParams) =>
+      (toolCtx, params: BrowserExtractParams) =>
         submitBrowserJob(
-          ctx,
+          toolCtx,
           "browser.extract",
           {
             url: params.url,
@@ -188,9 +188,9 @@ export function createBrowserTools(ctx: OpenClawPluginToolContext): AnyAgentTool
         fullPage: Type.Optional(Type.Boolean()),
         format: Type.Optional(browserCaptureFormatSchema)
       }),
-      (_toolCtx, params: BrowserCaptureParams) =>
+      (toolCtx, params: BrowserCaptureParams) =>
         submitBrowserJob(
-          ctx,
+          toolCtx,
           "browser.capture",
           {
             url: params.url,
@@ -210,9 +210,9 @@ export function createBrowserTools(ctx: OpenClawPluginToolContext): AnyAgentTool
         outputName: Type.String({ minLength: 1 }),
         fileName: Type.Optional(Type.String({ minLength: 1 }))
       }),
-      (_toolCtx, params: BrowserDownloadParams) =>
+      (toolCtx, params: BrowserDownloadParams) =>
         submitBrowserJob(
-          ctx,
+          toolCtx,
           "browser.download",
           {
             url: params.url,

@@ -57,3 +57,18 @@ export function safeJsonParse<T>(value: string | undefined): T | null {
     return null;
   }
 }
+
+export function formatJobReply(response: ToolResponse): string {
+  const parts = [response.summary];
+  if (response.job_id) {
+    parts.push(`job=${response.job_id}`);
+  }
+  if (response.approval_id) {
+    parts.push(`approval=${response.approval_id}`);
+  }
+  return parts.join(" | ");
+}
+
+export function invalidJsonReply(commandName: string): JarvisCommandReply {
+  return toCommandReply(`Invalid JSON arguments for /${commandName}.`, true);
+}

@@ -76,12 +76,12 @@ node -e "
 const fs=require('fs'),path=require('path'),home=require('os').homedir();
 const qFile=path.join(home,'.jarvis','telegram-queue.json');
 const q=fs.existsSync(qFile)?JSON.parse(fs.readFileSync(qFile,'utf8')):[];
-q.push({agent:'evidence-auditor',message:'[replace with actual summary variable]',ts:new Date().toISOString(),sent:false});
+q.push({agent:'evidence-auditor',message:`Evidence Audit: ${summary}`,ts:new Date().toISOString(),sent:false});
 fs.writeFileSync(qFile,JSON.stringify(q,null,2));
 "
 ```
 
-Note: In practice, construct the summary string from the actual output of prior steps and embed it in the node -e command as a template literal.
+Note: In practice, construct the `summary` variable from the actual output of prior steps (e.g. gate readiness, critical gaps count, top actions) and embed it in the node -e command above.
 
 ## No Approval Gates
 This agent is read-only analysis. No emails, no modifications.

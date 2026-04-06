@@ -524,6 +524,25 @@ export class NodeSystemAdapter implements SystemAdapter {
     };
   }
 
+  private validatePid(pid: number): void {
+    if (!Number.isInteger(pid) || pid <= 0) {
+      throw new SystemWorkerError(
+        "INVALID_INPUT",
+        `Invalid PID: ${pid}. PID must be a positive integer.`
+      );
+    }
+  }
+
+  private sanitizeProcessName(name: string): string {
+    if (!/^[\w.\-]+$/.test(name)) {
+      throw new SystemWorkerError(
+        "INVALID_INPUT",
+        `Invalid process name: "${name}". Only alphanumeric, dots, dashes, and underscores are allowed.`
+      );
+    }
+    return name;
+  }
+
   async killProcess(
     input: SystemKillProcessInput,
   ): Promise<ExecutionOutcome<SystemKillProcessOutput>> {
@@ -546,7 +565,15 @@ export class NodeSystemAdapter implements SystemAdapter {
     const forceFlag = input.force ? " /F" : "";
 
     if (input.pid) {
-      execSync(`taskkill /PID ${input.pid}${forceFlag}`, { stdio: "ignore" });
+      this.validatePid(input.pid);
+      try {
+        execSync(`taskkill /PID ${input.pid}${forceFlag}`, { stdio: "ignore" });
+      } catch (error) {
+        throw new SystemWorkerError(
+          "KILL_FAILED",
+          `Failed to kill process with PID ${input.pid}: ${(error as Error).message}`
+        );
+      }
       return {
         summary: `Killed process with PID ${input.pid}.`,
         structured_output: {
@@ -557,7 +584,15 @@ export class NodeSystemAdapter implements SystemAdapter {
       };
     }
 
-    execSync(`taskkill /IM "${input.name}"${forceFlag}`, { stdio: "ignore" });
+    const safeName = this.sanitizeProcessName(input.name!);
+    try {
+      execSync(`taskkill /IM "${safeName}"${forceFlag}`, { stdio: "ignore" });
+    } catch (error) {
+      throw new SystemWorkerError(
+        "KILL_FAILED",
+        `Failed to kill process(es) named '${input.name}': ${(error as Error).message}`
+      );
+    }
     return {
       summary: `Killed process(es) named '${input.name}'.`,
       structured_output: {
@@ -585,7 +620,15 @@ export class NodeSystemAdapter implements SystemAdapter {
     }
 
     const signal = input.force ? "-9" : "-15";
-    execSync(`pkill ${signal} -f "${input.name}"`, { stdio: "ignore" });
+    const safeName = this.sanitizeProcessName(input.name!);
+    try {
+      execSync(`pkill ${signal} -f "${safeName}"`, { stdio: "ignore" });
+    } catch (error) {
+      throw new SystemWorkerError(
+        "KILL_FAILED",
+        `Failed to kill process(es) named '${input.name}': ${(error as Error).message}`
+      );
+    }
     return {
       summary: `Sent signal to process(es) named '${input.name}'.`,
       structured_output: {

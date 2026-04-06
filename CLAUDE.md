@@ -1,6 +1,6 @@
 # Jarvis — Autonomous Agent System
 
-Jarvis is an autonomous agent system for **Thinking in Code**, Daniel's automotive safety consulting firm (ISO 26262, ASPICE, AUTOSAR, cybersecurity). It runs 8 domain agents that handle BD pipeline intelligence, proposal generation, compliance auditing, contract review, staffing monitoring, LinkedIn content, crypto portfolio, and garden management.
+Jarvis is an autonomous agent system for **Thinking in Code**, Daniel's automotive safety consulting firm (ISO 26262, ASPICE, AUTOSAR, cybersecurity). It runs 14 domain agents that handle BD pipeline intelligence, proposal generation, compliance auditing, contract review, staffing monitoring, LinkedIn content, crypto portfolio, garden management, email campaigns, social engagement, security monitoring, drive watching, invoice generation, and meeting transcription.
 
 ## Quick Start
 
@@ -24,6 +24,12 @@ Each agent is a Claude Code skill invocable via slash command:
 | `/content-engine` | Draft LinkedIn post for today's content pillar |
 | `/portfolio-monitor` | Check crypto prices, calculate drift, recommend rebalance |
 | `/garden-calendar` | Generate weekly garden brief based on date + weather |
+| `/email-campaign` | Manage drip campaigns, follow-up sequences, outreach automation |
+| `/social-engagement` | Monitor and respond to social media interactions |
+| `/security-monitor` | Track security advisories, vulnerability alerts, compliance updates |
+| `/drive-watcher` | Watch shared drives for new/changed documents, trigger workflows |
+| `/invoice-generator` | Generate and track invoices for client engagements |
+| `/meeting-transcriber` | Transcribe and summarize meeting recordings |
 
 Agents with schedules run automatically via scheduled tasks. Manual agents run on demand.
 
@@ -50,12 +56,12 @@ Jarvis Packages (29 packages, typed infrastructure)
 
 ## Key Directories
 
-- `packages/jarvis-agents/src/definitions/` — 8 agent definition files (TypeScript)
+- `packages/jarvis-agents/src/definitions/` — 14 agent definition files (TypeScript)
 - `packages/jarvis-agents/src/prompts/` — 14 system prompt files (Markdown)
 - `packages/jarvis-agents/src/data/` — Garden beds + planting calendar (JSON)
 - `packages/jarvis-agent-framework/src/` — Runtime, memory, knowledge, entity graph, lesson capture
 - `contracts/jarvis/v1/` — JSON schemas, examples, catalog, plugin surface
-- `tests/` — 29 test files, 769 tests
+- `tests/` — ~33 test files, 769+ tests
 - `scripts/` — Contract validation, DB initialization
 - `.claude/skills/` — Claude Code skill files for each agent
 
@@ -63,7 +69,7 @@ Jarvis Packages (29 packages, typed infrastructure)
 
 ```bash
 npm run check                    # Full pipeline: contracts + tests + build
-npm test                         # Tests only (769 tests, 29 files)
+npm test                         # Tests only (~33 files)
 npm run build                    # TypeScript compilation
 npm run validate:contracts       # Schema + example validation
 ```

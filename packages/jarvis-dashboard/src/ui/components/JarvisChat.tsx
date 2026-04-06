@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect } from 'react'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -74,9 +74,6 @@ function MessageBubble({ msg, isLast, streaming }: { msg: Message; isLast: boole
     </div>
   )
 }
-
-// suppress unused warning
-const _noop = useCallback
 
 const QUICK_PROMPTS = [
   'What is the current CRM pipeline status?',

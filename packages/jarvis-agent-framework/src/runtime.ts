@@ -30,6 +30,8 @@ export type AgentStepResult = {
 };
 
 export class AgentRuntime {
+  private static readonly MAX_COMPLETED_RUNS = 1000;
+
   private runs = new Map<string, AgentRun>();
   private definitions = new Map<string, AgentDefinition>();
   private readonly memory: AgentMemoryStore;
@@ -94,7 +96,21 @@ export class AgentRuntime {
     };
     this.runs.set(runId, updated);
     if (!error) this.memory.clearShortTerm(runId);
+    this.pruneCompletedRuns();
     return updated;
+  }
+
+  private pruneCompletedRuns(): void {
+    const completed = [...this.runs.entries()]
+      .filter(([, r]) => r.status === "completed" || r.status === "failed")
+      .sort((a, b) => (a[1].completed_at ?? "").localeCompare(b[1].completed_at ?? ""));
+
+    const excess = completed.length - AgentRuntime.MAX_COMPLETED_RUNS;
+    if (excess > 0) {
+      for (let i = 0; i < excess; i++) {
+        this.runs.delete(completed[i]![0]);
+      }
+    }
   }
 
   getRun(runId: string): AgentRun | undefined {

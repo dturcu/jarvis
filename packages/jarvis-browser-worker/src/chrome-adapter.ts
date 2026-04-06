@@ -118,6 +118,11 @@ export class ChromeAdapter implements BrowserAdapter {
       if (input.clear_first) {
         await page.click(input.selector, { count: 3 });
         await page.keyboard.press("Backspace");
+        // Fallback: select all and delete in case triple-click didn't select all
+        await page.keyboard.down("Control");
+        await page.keyboard.press("a");
+        await page.keyboard.up("Control");
+        await page.keyboard.press("Backspace");
       }
 
       const delay = input.delay_ms ?? 0;
@@ -144,6 +149,13 @@ export class ChromeAdapter implements BrowserAdapter {
   // ── evaluate ───────────────────────────────────────────────────────────────
 
   async evaluate(input: BrowserEvaluateInput): Promise<ExecutionOutcome<BrowserEvaluateOutput>> {
+    if (!input.script || typeof input.script !== "string") {
+      throw new BrowserWorkerError("EVALUATE_FAILED", "Script must be a non-empty string.", false);
+    }
+    if (input.script.length > 50_000) {
+      throw new BrowserWorkerError("EVALUATE_FAILED", `Script too large (${input.script.length} chars). Maximum is 50000.`, false);
+    }
+
     const page = await this.getPage();
 
     try {
@@ -187,15 +199,12 @@ export class ChromeAdapter implements BrowserAdapter {
         }
       };
     } catch {
-      const elapsed = Date.now() - start;
-      return {
-        summary: `Element "${input.selector}" not found within ${timeout}ms.`,
-        structured_output: {
-          selector: input.selector,
-          found: false,
-          elapsed_ms: elapsed
-        }
-      };
+      throw new BrowserWorkerError(
+        "ELEMENT_NOT_FOUND",
+        `Element "${input.selector}" not found within ${timeout}ms.`,
+        false,
+        { selector: input.selector, timeout_ms: timeout }
+      );
     }
   }
 
@@ -346,6 +355,12 @@ export class ChromeAdapter implements BrowserAdapter {
             break;
           case "evaluate":
             if (step.script) {
+              if (typeof step.script !== "string" || step.script.length === 0) {
+                throw new BrowserWorkerError("TASK_FAILED", "Step script must be a non-empty string.", false);
+              }
+              if (step.script.length > 50_000) {
+                throw new BrowserWorkerError("TASK_FAILED", `Step script too large (${step.script.length} chars). Maximum is 50000.`, false);
+              }
               // eslint-disable-next-line @typescript-eslint/no-implied-eval
               lastResult = await page.evaluate(new Function(step.script) as () => unknown);
             }

@@ -100,19 +100,24 @@ settingsRouter.patch('/', (req, res) => {
   const updates = req.body as Record<string, unknown>
   const config = readConfig()
   // Deep merge
-  function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
+  const maskedConfig = maskSensitive(config)
+  function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>, masked: Record<string, unknown>): Record<string, unknown> {
     for (const [key, value] of Object.entries(source)) {
       if (value && typeof value === 'object' && !Array.isArray(value) && target[key] && typeof target[key] === 'object') {
-        target[key] = deepMerge(target[key] as Record<string, unknown>, value as Record<string, unknown>)
+        target[key] = deepMerge(
+          target[key] as Record<string, unknown>,
+          value as Record<string, unknown>,
+          (masked[key] ?? {}) as Record<string, unknown>
+        )
       } else {
-        // Don't overwrite with masked values
-        if (typeof value === 'string' && value.startsWith('****')) continue
+        // Don't overwrite with masked values — compare against exact masked value sent to client
+        if (typeof value === 'string' && typeof masked[key] === 'string' && value === masked[key] && /^\*{4}/.test(value)) continue
         target[key] = value
       }
     }
     return target
   }
-  const merged = deepMerge(config, updates)
+  const merged = deepMerge(config, updates, maskedConfig)
   writeConfig(merged)
   res.json(maskSensitive(merged))
 })

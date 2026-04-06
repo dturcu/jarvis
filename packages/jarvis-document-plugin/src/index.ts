@@ -8,13 +8,13 @@ import {
 import {
   DOCUMENT_TOOL_NAMES,
   DOCUMENT_COMMAND_NAMES,
-  getJarvisState,
   safeJsonParse,
   submitDocumentIngest,
   submitDocumentExtractClauses,
   submitDocumentAnalyzeCompliance,
   submitDocumentCompare,
   submitDocumentGenerateReport,
+  createToolResponse,
   toCommandReply,
   toToolResult,
   type ToolResponse
@@ -89,12 +89,16 @@ export function createDocumentTools(
         text: Type.Optional(Type.String({ minLength: 1, description: "Raw document text to analyze." })),
         document_type: Type.Optional(documentTypeSchema)
       }),
-      (toolCtx, params: { file_path?: string; text?: string; document_type?: string }) =>
-        submitDocumentExtractClauses(toolCtx, {
+      (toolCtx, params: { file_path?: string; text?: string; document_type?: string }) => {
+        if (!params.file_path && !params.text) {
+          return createToolResponse({ status: "failed", summary: "extract_clauses requires either file_path or text." });
+        }
+        return submitDocumentExtractClauses(toolCtx, {
           filePath: params.file_path,
           text: params.text,
           documentType: params.document_type as any
-        })
+        });
+      }
     ),
     createDocumentTool(
       ctx,
@@ -108,14 +112,18 @@ export function createDocumentTools(
         project_asil: Type.Optional(asilSchema),
         work_product_type: Type.Optional(Type.String({ minLength: 1, description: "Work product type, e.g. software_plan, dv_report, tsr, dia." }))
       }),
-      (toolCtx, params: { file_path?: string; text?: string; framework: string; project_asil?: string; work_product_type?: string }) =>
-        submitDocumentAnalyzeCompliance(toolCtx, {
+      (toolCtx, params: { file_path?: string; text?: string; framework: string; project_asil?: string; work_product_type?: string }) => {
+        if (!params.file_path && !params.text) {
+          return createToolResponse({ status: "failed", summary: "analyze_compliance requires either file_path or text." });
+        }
+        return submitDocumentAnalyzeCompliance(toolCtx, {
           filePath: params.file_path,
           text: params.text,
           framework: params.framework as any,
           projectAsil: params.project_asil as any,
           workProductType: params.work_product_type
-        })
+        });
+      }
     ),
     createDocumentTool(
       ctx,
@@ -161,6 +169,7 @@ export function createDocumentTools(
 type DocumentCommandArgs = {
   operation: "ingest" | "extract_clauses" | "analyze_compliance" | "compare" | "generate_report";
   filePath?: string;
+  text?: string;
   filePathA?: string;
   filePathB?: string;
   framework?: string;
@@ -228,8 +237,12 @@ export function createDocumentCommand() {
           return toCommandReply(formatJobReply(response));
         }
         case "extract_clauses": {
+          if (!args.filePath && !args.text) {
+            return toCommandReply("extract_clauses requires either filePath or text.", true);
+          }
           const response = submitDocumentExtractClauses(toolCtx, {
             filePath: args.filePath,
+            text: args.text,
             documentType: args.documentType as any
           });
           return toCommandReply(formatJobReply(response));
@@ -238,8 +251,12 @@ export function createDocumentCommand() {
           if (!args.framework) {
             return toCommandReply("Usage: /document {\"operation\":\"analyze_compliance\",\"framework\":\"iso_26262\"}.", true);
           }
+          if (!args.filePath && !args.text) {
+            return toCommandReply("analyze_compliance requires either filePath or text.", true);
+          }
           const response = submitDocumentAnalyzeCompliance(toolCtx, {
             filePath: args.filePath,
+            text: args.text,
             framework: args.framework as any
           });
           return toCommandReply(formatJobReply(response));

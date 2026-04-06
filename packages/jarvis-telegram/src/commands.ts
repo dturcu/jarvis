@@ -32,8 +32,9 @@ function getStatus(): string {
   const lines = ['JARVIS STATUS\n']
 
   // Last decision per agent
+  let kb: DatabaseSync | undefined
   try {
-    const kb = new DatabaseSync(join(process.env.HOME ?? process.env.USERPROFILE ?? '', '.jarvis', 'knowledge.db'))
+    kb = new DatabaseSync(KNOWLEDGE_DB)
     for (const agentId of AGENTS) {
       const row = kb.prepare(
         'SELECT created_at, outcome FROM decisions WHERE agent_id = ? ORDER BY created_at DESC LIMIT 1'
@@ -41,9 +42,10 @@ function getStatus(): string {
       const ts = row ? new Date(row.created_at).toLocaleDateString() : 'never'
       lines.push(`${agentId}: ${ts}`)
     }
-    kb.close()
   } catch {
     lines.push('(could not read knowledge.db)')
+  } finally {
+    kb?.close()
   }
 
   // Pending approvals
@@ -54,12 +56,12 @@ function getStatus(): string {
 }
 
 function getCrmTop5(): string {
+  let db: DatabaseSync | undefined
   try {
-    const db = new DatabaseSync(join(process.env.HOME ?? process.env.USERPROFILE ?? '', '.jarvis', 'crm.db'))
+    db = new DatabaseSync(CRM_DB)
     const contacts = db.prepare(
       "SELECT name, company, stage, score FROM contacts WHERE stage NOT IN ('won','lost','parked') ORDER BY score DESC LIMIT 5"
     ).all() as Array<{ name: string; company: string; stage: string; score: number }>
-    db.close()
 
     if (contacts.length === 0) return 'CRM: No active contacts.'
     const lines = ['TOP CRM CONTACTS\n']
@@ -69,6 +71,8 @@ function getCrmTop5(): string {
     return lines.join('\n')
   } catch {
     return 'CRM: Could not read database.'
+  } finally {
+    db?.close()
   }
 }
 
@@ -88,6 +92,7 @@ function triggerAgent(agentId: string): string {
 
 function handleApproval(shortId: string, status: 'approved' | 'rejected'): string {
   if (!shortId) return `Usage: /approve <id> or /reject <id>`
+  if (shortId.length < 6) return 'Approval ID must be at least 6 characters for safety.'
   const approvals = loadApprovals()
   const target = approvals.find(a => a.id.startsWith(shortId) && a.status === 'pending')
   if (!target) return `No pending approval found with ID starting: ${shortId}`

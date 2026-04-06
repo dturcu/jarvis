@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { randomUUID } from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'
 import type { SQLInputValue } from 'node:sqlite'
 import os from 'os'
@@ -131,11 +132,12 @@ crmRouter.post('/:id/note', (req, res) => {
   try {
     const db = getDb()
     const now = new Date().toISOString()
-    const result = db.prepare(
-      'INSERT INTO notes (contact_id, note, note_type, created_at) VALUES (?, ?, ?, ?)'
-    ).run(req.params.id, note, note_type, now)
+    const noteId = randomUUID()
+    db.prepare(
+      'INSERT INTO notes (id, contact_id, note, note_type, created_at) VALUES (?, ?, ?, ?, ?)'
+    ).run(noteId, req.params.id, note, note_type, now)
     db.prepare('UPDATE contacts SET updated_at = ? WHERE id = ?').run(now, req.params.id)
-    const inserted = db.prepare('SELECT * FROM notes WHERE id = ?').get(result.lastInsertRowid)
+    const inserted = db.prepare('SELECT * FROM notes WHERE id = ?').get(noteId)
     db.close()
     res.status(201).json(inserted)
   } catch {
@@ -165,8 +167,8 @@ crmRouter.post('/:id/stage', (req, res) => {
     }
     const now = new Date().toISOString()
     db.prepare(
-      'INSERT INTO stage_history (contact_id, from_stage, to_stage, note, moved_at) VALUES (?, ?, ?, ?, ?)'
-    ).run(req.params.id, contact.stage, stage, note ?? null, now)
+      'INSERT INTO stage_history (id, contact_id, from_stage, to_stage, note, moved_at) VALUES (?, ?, ?, ?, ?, ?)'
+    ).run(randomUUID(), req.params.id, contact.stage, stage, note ?? null, now)
     db.prepare('UPDATE contacts SET stage = ?, updated_at = ? WHERE id = ?').run(stage, now, req.params.id)
     const updated = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id)
     db.close()

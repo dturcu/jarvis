@@ -64,7 +64,9 @@ export const socialEngagementAgent: AgentDefinition = {
     { kind: "manual" },
   ],
   capabilities: ["social", "browser", "inference", "web"],
-  approval_gates: [],  // Full auto — no approval required
+  approval_gates: [
+    { action: "post_comment", severity: "critical" },
+  ],
   knowledge_collections: ["playbooks", "lessons"],
   inference_tier: "haiku",
   max_steps_per_run: 15,

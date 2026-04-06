@@ -215,6 +215,10 @@
     },
     "document_extract_clauses_input": {
       "type": "object",
+      "anyOf": [
+        {"required": ["file_path"]},
+        {"required": ["text"]}
+      ],
       "properties": {
         "file_path": {
           "type": "string",
@@ -265,6 +269,10 @@
     "document_analyze_compliance_input": {
       "type": "object",
       "required": ["framework"],
+      "anyOf": [
+        {"required": ["file_path"]},
+        {"required": ["text"]}
+      ],
       "properties": {
         "file_path": {
           "type": "string",

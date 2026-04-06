@@ -81,12 +81,12 @@ node -e "
 const fs=require('fs'),path=require('path'),home=require('os').homedir();
 const qFile=path.join(home,'.jarvis','telegram-queue.json');
 const q=fs.existsSync(qFile)?JSON.parse(fs.readFileSync(qFile,'utf8')):[];
-q.push({agent:'contract-reviewer',message:'[replace with actual summary variable]',ts:new Date().toISOString(),sent:false});
+q.push({agent:'contract-reviewer',message:`Contract Review: ${summary}`,ts:new Date().toISOString(),sent:false});
 fs.writeFileSync(qFile,JSON.stringify(q,null,2));
 "
 ```
 
-Note: In practice, construct the summary string from the actual output of prior steps and embed it in the node -e command as a template literal.
+Note: In practice, construct the `summary` variable from the actual output of prior steps (e.g. recommendation, red flags count, risk score) and embed it in the node -e command above.
 
 ## Critical Rules
 - **NEVER auto-approve.** Always present analysis for human review.

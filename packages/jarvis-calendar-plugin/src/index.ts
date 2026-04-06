@@ -8,7 +8,6 @@ import {
 import {
   CALENDAR_TOOL_NAMES,
   CALENDAR_COMMAND_NAMES,
-  getJarvisState,
   safeJsonParse,
   submitCalendarListEvents,
   submitCalendarCreateEvent,
