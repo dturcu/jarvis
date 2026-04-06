@@ -209,7 +209,7 @@ runsRouter.get('/:runId/explain', (req, res) => {
     // Build summary sentence
     const summary = `This ${agentLabel} run was triggered by ${trigger.description} at ${timeStr} on ${dateStr}.`
 
-    res.json({
+    const explanation: Record<string, unknown> = {
       summary,
       trigger: { kind: trigger.kind, source: trigger.source },
       data_sources: dataSources.length > 0 ? dataSources : [],
@@ -218,7 +218,42 @@ runsRouter.get('/:runId/explain', (req, res) => {
       steps_completed: stepsCompleted,
       steps_total: stepsTotal,
       outcome: describeOutcome(run.status),
-    })
+    }
+
+    // C2.1: Check for preview-skipped actions
+    const previewSteps = events.filter(e => {
+      if (!e.payload_json) return false;
+      try {
+        const p = JSON.parse(e.payload_json);
+        return p.preview === true || p.skipped === true;
+      } catch { return false; }
+    });
+
+    if (previewSteps.length > 0) {
+      explanation.preview_mode = true;
+      explanation.skipped_actions = previewSteps.map(e => {
+        try { return JSON.parse(e.payload_json!); } catch { return null; }
+      }).filter(Boolean).map((p: any) => p.action ?? 'unknown');
+      explanation.preview_warning = `This was a preview run. ${previewSteps.length} outbound action(s) were simulated and not executed. Results may be incomplete.`;
+    }
+
+    // C3.1: Failure explanations
+    if (run.status === 'failed') {
+      explanation.failure = {
+        probable_cause: run.error || 'Unknown error',
+        outbound_effects_may_have_occurred: events.some(e =>
+          e.event_type === 'step_completed' && e.action &&
+          ['email.send', 'social.post', 'crm.move_stage'].includes(e.action)
+        ),
+        retry_recommendation: events.some(e =>
+          e.event_type === 'step_completed' && e.action &&
+          ['email.send', 'social.post', 'crm.move_stage'].includes(e.action)
+        ) ? 'Review completed outbound actions before retrying — some side effects may have occurred.'
+          : 'Safe to retry — no outbound actions were completed.',
+      };
+    }
+
+    res.json(explanation)
   } catch {
     res.status(500).json({ error: 'Failed to build run explanation' })
   } finally {

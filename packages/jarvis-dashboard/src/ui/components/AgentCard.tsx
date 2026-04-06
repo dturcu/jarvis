@@ -57,6 +57,18 @@ export default function AgentCard({
 
   const isRunning = status === 'running' || status === 'awaiting_approval'
 
+  /* ── Status tooltips ────────────────────────────────────── */
+  const STATUS_LABELS: Record<string, string> = {
+    ready: 'Waiting to start',
+    running: 'Working on it',
+    approval: 'Needs your approval before continuing',
+    awaiting_approval: 'Needs your approval before continuing',
+    error: 'Something went wrong — check details',
+    completed: 'Done — review the results',
+    failed: 'Something went wrong — you can retry',
+    cancelled: 'Stopped by you or the system',
+  }
+
   /* ── Status dot + badge ────────────────────────────────── */
   const statusConfig = {
     ready: {
@@ -112,7 +124,7 @@ export default function AgentCard({
           <h3 className="font-semibold text-slate-100 text-sm truncate">{label}</h3>
           <p className="text-xs text-slate-500 mt-1 leading-relaxed line-clamp-2">{description}</p>
         </div>
-        <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1.5 shrink-0 ${statusConfig.badge}`}>
+        <span title={STATUS_LABELS[status] ?? status} className={`text-xs px-2.5 py-0.5 rounded-full font-medium flex items-center gap-1.5 shrink-0 ${statusConfig.badge}`}>
           <span className="relative flex h-2 w-2">
             {statusConfig.dotPing && (
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${statusConfig.dot} opacity-75`} />
