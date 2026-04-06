@@ -212,6 +212,16 @@ backupRouter.post('/restore', (req, res) => {
     // Ensure target directory exists (fresh install or deleted dir)
     fs.mkdirSync(JARVIS_DIR, { recursive: true })
 
+    // Pre-restore snapshot: save current files for rollback
+    const rollbackDir = join(BACKUPS_DIR, `rollback-${Date.now()}`)
+    fs.mkdirSync(rollbackDir, { recursive: true })
+    for (const file of safeFiles) {
+      const currentPath = join(JARVIS_DIR, file.name)
+      if (fs.existsSync(currentPath)) {
+        fs.copyFileSync(currentPath, join(rollbackDir, file.name))
+      }
+    }
+
     // Copy each safe file back to ~/.jarvis/
     const restored: string[] = []
     for (const file of safeFiles) {
@@ -246,6 +256,43 @@ backupRouter.post('/restore', (req, res) => {
     }
 
     const allHealthy = healthChecks.every(c => c.ok)
+
+    if (!allHealthy) {
+      // Attempt rollback from pre-restore snapshot
+      let rollbackOk = true
+      for (const file of safeFiles) {
+        const rollbackSrc = join(rollbackDir, file.name)
+        if (fs.existsSync(rollbackSrc)) {
+          try {
+            fs.copyFileSync(rollbackSrc, join(JARVIS_DIR, file.name))
+          } catch {
+            rollbackOk = false
+          }
+        }
+      }
+
+      const actor = getActor(req as AuthenticatedRequest)
+      writeAuditLog(actor.type, actor.id, 'backup.restore_rollback', 'backup', resolvedPath, {
+        reason: 'post_restore_health_failed',
+        rollback_ok: rollbackOk,
+      })
+
+      const rollbackStatus = rollbackOk
+        ? 'successful'
+        : 'partial — manual intervention may be needed. Check /api/safemode or /api/repair.'
+
+      res.status(500).json({
+        ok: false,
+        error: 'Restore failed health validation — rolled back to previous state',
+        health_checks: healthChecks,
+        rollback: rollbackStatus,
+        rollback_dir: rollbackDir,
+      })
+      return
+    }
+
+    // Cleanup rollback snapshot on success
+    try { fs.rmSync(rollbackDir, { recursive: true, force: true }) } catch { /* best effort */ }
 
     const actor = getActor(req as AuthenticatedRequest)
     writeAuditLog(actor.type, actor.id, 'backup.restored', 'backup', resolvedPath, { restored, healthy: allHealthy })

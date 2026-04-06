@@ -74,10 +74,72 @@ workflowsRouter.post('/:workflowId/start', (req, res) => {
       throw e
     }
 
-    res.json({ ok: true, workflow_id: wf.workflow_id, commands })
+    res.json({
+      ok: true,
+      workflow_id: wf.workflow_id,
+      workflow_name: wf.name,
+      commands,
+      preview: req.body?.preview ?? false,
+      safety: wf.safety_rules ?? null,
+      expected_output: wf.expected_output,
+      message: req.body?.preview
+        ? `Preview of "${wf.name}" started. Outbound actions will be simulated.`
+        : `"${wf.name}" started. ${commands.length} agent(s) queued.`,
+    })
   } catch {
     res.status(500).json({ error: 'Failed to start workflow' })
   } finally {
     try { db?.close() } catch { /* best-effort */ }
   }
+})
+
+// GET /:workflowId/results — recent runs for a workflow's agents
+workflowsRouter.get('/:workflowId/results', (req, res) => {
+  const wf = V1_WORKFLOWS.find(w => w.workflow_id === req.params.workflowId)
+  if (!wf) { res.status(404).json({ error: 'Workflow not found' }); return }
+
+  let db: DatabaseSync | undefined
+  try {
+    db = getRuntimeDb()
+    // Find recent runs for this workflow's agents
+    const placeholders = wf.agent_ids.map(() => '?').join(',')
+    const runs = db.prepare(`
+      SELECT run_id, agent_id, status, goal, current_step, total_steps, error, started_at, completed_at
+      FROM runs WHERE agent_id IN (${placeholders})
+      ORDER BY started_at DESC LIMIT 20
+    `).all(...wf.agent_ids) as Record<string, unknown>[]
+
+    res.json({
+      workflow_id: wf.workflow_id,
+      workflow_name: wf.name,
+      expected_output: wf.expected_output,
+      output_fields: wf.output_fields ?? [],
+      safety_rules: wf.safety_rules ?? null,
+      runs,
+    })
+  } catch {
+    res.json({ workflow_id: wf.workflow_id, runs: [] })
+  } finally {
+    try { db?.close() } catch { /* best-effort */ }
+  }
+})
+
+// GET /:workflowId/retry-guidance — retry rules for a workflow
+workflowsRouter.get('/:workflowId/retry-guidance', (req, res) => {
+  const wf = V1_WORKFLOWS.find(w => w.workflow_id === req.params.workflowId)
+  if (!wf) { res.status(404).json({ error: 'Workflow not found' }); return }
+
+  const rules = wf.safety_rules
+  res.json({
+    workflow_id: wf.workflow_id,
+    retry_safe: rules?.retry_safe ?? true,
+    retry_requires_approval: rules?.retry_requires_approval ?? false,
+    preview_recommended: rules?.preview_recommended ?? false,
+    outbound_default: rules?.outbound_default ?? 'draft',
+    guidance: rules?.retry_safe === false
+      ? `This workflow may have produced outbound effects. Review the previous run before retrying.`
+      : rules?.preview_recommended
+        ? `Consider using preview mode for the retry to review before committing.`
+        : `Safe to retry — no special precautions needed.`,
+  })
 })

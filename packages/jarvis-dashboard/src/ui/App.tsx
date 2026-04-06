@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Home from './pages/Home.tsx'
 import CrmPipeline from './pages/CrmPipeline.tsx'
 import KnowledgeBase from './pages/KnowledgeBase.tsx'
@@ -18,6 +18,13 @@ import { ModeProvider, useMode } from './context/ModeContext.tsx'
 interface HealthData {
   pendingApprovals?: number
 }
+
+interface AttentionSummary {
+  needs_attention: { pending_approvals: number; failed_runs: number; overdue_schedules: number }
+  system_status: string // "healthy" | "needs_attention" | "unknown"
+}
+
+type SystemHealth = 'healthy' | 'needs_attention' | 'offline'
 
 /* ── SVG Icon Components ─────────────────────────────────── */
 
@@ -144,14 +151,52 @@ const NAV_ITEMS = [
 
 function AppShell() {
   const [pendingApprovals, setPendingApprovals] = useState(0)
+  const [systemHealth, setSystemHealth] = useState<SystemHealth>('offline')
+  const [systemLabel, setSystemLabel] = useState('Connecting...')
   const { mode, setMode } = useMode()
+  const healthIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const fetchSystemState = useCallback(() => {
+    Promise.all([
+      fetch('/api/health').then(r => r.json()).catch(() => null),
+      fetch('/api/attention').then(r => r.json()).catch(() => null),
+    ]).then(([healthData, attentionData]: [HealthData | null, AttentionSummary | null]) => {
+      if (healthData) {
+        setPendingApprovals(healthData.pendingApprovals ?? 0)
+      }
+
+      if (!attentionData) {
+        setSystemHealth('offline')
+        setSystemLabel('Offline')
+        return
+      }
+
+      const status = attentionData.system_status
+      if (status === 'needs_attention') {
+        setSystemHealth('needs_attention')
+        const attn = attentionData.needs_attention
+        const parts: string[] = []
+        if (attn.pending_approvals > 0) parts.push(`${attn.pending_approvals} approval${attn.pending_approvals !== 1 ? 's' : ''}`)
+        if (attn.failed_runs > 0) parts.push(`${attn.failed_runs} failure${attn.failed_runs !== 1 ? 's' : ''}`)
+        if (attn.overdue_schedules > 0) parts.push(`${attn.overdue_schedules} overdue`)
+        setSystemLabel(parts.length > 0 ? parts.join(', ') : 'Needs attention')
+      } else if (status === 'healthy') {
+        setSystemHealth('healthy')
+        setSystemLabel('Healthy')
+      } else {
+        setSystemHealth('offline')
+        setSystemLabel('Offline')
+      }
+    })
+  }, [])
 
   useEffect(() => {
-    fetch('/api/health')
-      .then(r => r.json())
-      .then((data: HealthData) => setPendingApprovals(data.pendingApprovals ?? 0))
-      .catch(() => {})
-  }, [])
+    fetchSystemState()
+    healthIntervalRef.current = setInterval(fetchSystemState, 15_000)
+    return () => {
+      if (healthIntervalRef.current) clearInterval(healthIntervalRef.current)
+    }
+  }, [fetchSystemState])
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer ${
@@ -210,7 +255,33 @@ function AppShell() {
           >
             {mode === 'simple' ? 'Expert mode' : 'Simple mode'}
           </button>
-          <div className="mt-3 px-1">
+          {/* System status indicator */}
+          <div className="flex items-center gap-2 px-3 py-2 mt-2">
+            <span className="relative flex h-2 w-2 shrink-0">
+              {systemHealth === 'healthy' && (
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+              )}
+              {systemHealth === 'needs_attention' && (
+                <>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+                </>
+              )}
+              {systemHealth === 'offline' && (
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-600" />
+              )}
+            </span>
+            <span className={`text-xs font-medium truncate ${
+              systemHealth === 'healthy'
+                ? 'text-emerald-400/80'
+                : systemHealth === 'needs_attention'
+                  ? 'text-amber-400/80'
+                  : 'text-slate-600'
+            }`}>
+              {systemLabel}
+            </span>
+          </div>
+          <div className="mt-2 px-1">
             <p className="text-xs text-slate-600 font-medium">Thinking in Code</p>
             <p className="text-[10px] text-slate-700 mt-0.5">Automotive Safety Consulting</p>
           </div>
