@@ -5,6 +5,7 @@ export { Logger } from "./logger.js";
 export { createWorkerRegistry, buildEnvelope, type WorkerRegistry } from "./worker-registry.js";
 export { buildPlanWithInference } from "./planner-real.js";
 export { runAgent, type OrchestratorDeps } from "./orchestrator.js";
+export { RunStore, type RunStatus, type RunEventType } from "./run-store.js";
 export { requestApproval, waitForApproval, resolveApproval, listApprovals, type ApprovalEntry } from "./approval-bridge.js";
 export { writeTelegramQueue } from "./notify.js";
 export { createFilesWorkerBridge } from "./files-bridge.js";

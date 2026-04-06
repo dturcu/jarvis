@@ -22,6 +22,8 @@ export class AgentQueue {
   private queue: QueueEntry[] = [];
   private maxConcurrent: number;
   private resourceLocks = new Map<string, string>(); // resource -> agentId
+  private _draining = false;
+  private _drainResolvers: Array<() => void> = [];
 
   // Browser-using agents: social-engagement, content-engine
   private readonly browserAgents = new Set(["social-engagement", "content-engine"]);
@@ -34,11 +36,40 @@ export class AgentQueue {
     this.maxConcurrent = Math.max(1, maxConcurrent);
   }
 
+  /** Whether the queue is draining (no new work accepted). */
+  get isDraining(): boolean { return this._draining; }
+
+  /**
+   * Enter drain mode: reject new enqueues, return a promise that resolves
+   * when all running agents complete (or after timeoutMs).
+   */
+  drain(timeoutMs = 30_000): Promise<void> {
+    this._draining = true;
+    this.queue.length = 0; // Clear pending queue
+    this.logger.info(`Drain mode: waiting for ${this.running.size} running agent(s) to complete`);
+
+    if (this.running.size === 0) return Promise.resolve();
+
+    return new Promise<void>((resolve) => {
+      this._drainResolvers.push(resolve);
+      setTimeout(() => {
+        this.logger.warn(`Drain timeout after ${timeoutMs}ms with ${this.running.size} still running`);
+        resolve();
+      }, timeoutMs);
+    });
+  }
+
   /**
    * Add an agent run to the queue, sorted by priority (descending).
    * If the agent is already running or already queued, this is a no-op.
    */
   enqueue(agentId: string, trigger: AgentTrigger, priority = 0): void {
+    // Reject in drain mode
+    if (this._draining) {
+      this.logger.debug(`Agent ${agentId} rejected — queue is draining`);
+      return;
+    }
+
     // Don't enqueue if already running
     if (this.running.has(agentId)) {
       this.logger.debug(`Agent ${agentId} already running — skipping enqueue`);
@@ -121,8 +152,16 @@ export class AgentQueue {
             `Agent ${entry.agentId} finished (running=${this.running.size}, queued=${this.queue.length})`,
           );
 
+          // Check drain completion
+          if (this._draining && this.running.size === 0) {
+            for (const resolver of this._drainResolvers) resolver();
+            this._drainResolvers.length = 0;
+          }
+
           // Process queue again — may unblock waiting entries
-          this.processQueue();
+          if (!this._draining) {
+            this.processQueue();
+          }
 
           return result;
         });

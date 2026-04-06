@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { join } from "node:path";
+import type { DatabaseSync } from "node:sqlite";
 import {
   AgentRuntime,
   AgentMemoryStore,
@@ -12,13 +12,16 @@ import { ALL_AGENTS } from "@jarvis/agents";
 import { loadPlugins } from "./plugin-loader.js";
 import { SchedulerStore, computeNextFireAt } from "@jarvis/scheduler";
 import { loadConfig, JARVIS_DIR, KNOWLEDGE_DB_PATH } from "./config.js";
+import { openRuntimeDb } from "./runtime-db.js";
 import { createWorkerRegistry } from "./worker-registry.js";
 import { AgentQueue } from "./agent-queue.js";
 import { Logger } from "./logger.js";
 import { StatusWriter } from "./status-writer.js";
 import type { AgentTrigger } from "@jarvis/agent-framework";
+import { randomUUID } from "node:crypto";
 
 async function main() {
+  // ─── Phase 1: Init ──────────────────────────────────────────────────────────
   const config = loadConfig();
   const logger = new Logger(config.log_level);
 
@@ -27,6 +30,16 @@ async function main() {
   // Ensure ~/.jarvis exists
   if (!fs.existsSync(JARVIS_DIR)) {
     logger.error(`${JARVIS_DIR} does not exist. Run: npx tsx scripts/init-jarvis.ts`);
+    process.exit(1);
+  }
+
+  // Open runtime database (creates + migrates if needed)
+  let runtimeDb: DatabaseSync;
+  try {
+    runtimeDb = openRuntimeDb();
+    logger.info("Runtime database opened");
+  } catch (e) {
+    logger.error(`Failed to open runtime database: ${e instanceof Error ? e.message : String(e)}`);
     process.exit(1);
   }
 
@@ -57,7 +70,7 @@ async function main() {
     }
   }
 
-  // Collect all agent definitions (built-in + plugins) for scheduling and trigger polling
+  // Collect all agent definitions (built-in + plugins)
   const allAgentDefs = [...ALL_AGENTS, ...pluginManifests.map(m => m.agent)];
 
   // Seed schedules from agent triggers
@@ -86,83 +99,114 @@ async function main() {
 
   logger.info(`Jarvis daemon started: ${allAgentDefs.length} agents (${pluginManifests.length} plugins), ${scheduleCount} schedules`);
 
-  // Status writer — writes daemon state to ~/.jarvis/daemon-status.json every 10s
-  const statusWriter = new StatusWriter(allAgentDefs.length, scheduleCount, logger);
+  // Status writer — writes daemon heartbeat to runtime.db
+  const statusWriter = new StatusWriter(allAgentDefs.length, scheduleCount, logger, runtimeDb);
   statusWriter.start();
 
+  // Recover stale command claims from previous crash
+  try {
+    const staleThreshold = new Date(Date.now() - 10 * 60 * 1000).toISOString(); // 10 min
+    const result = runtimeDb.prepare(
+      "UPDATE agent_commands SET status = 'queued', claimed_at = NULL WHERE status = 'claimed' AND claimed_at < ?",
+    ).run(staleThreshold);
+    const changes = (result as { changes: number }).changes;
+    if (changes > 0) {
+      logger.info(`Recovered ${changes} stale command claim(s)`);
+    }
+  } catch (e) {
+    logger.warn(`Failed to recover stale claims: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
   // Orchestrator deps
-  const deps = { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter };
+  const deps = { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, runtimeDb };
 
-  // ─── Agent Queue (replaces sequential `running` guard) ────────────────────
+  // Agent Queue
   const agentQueue = new AgentQueue(config.max_concurrent, deps, logger);
-
   logger.info(`Concurrency: max_concurrent=${config.max_concurrent}`);
 
-  // ─── Schedule check (every poll_interval_ms, default 60s) ─────────────────
+  // ─── Phase 2: Run ──────────────────────────────────────────────────────────
 
-  setInterval(async () => {
+  // Single unified polling loop — checks both scheduled agents and queued commands
+  const pollInterval = setInterval(async () => {
+    if (agentQueue.isDraining) return;
+
+    // Check scheduled agents
     const now = new Date();
     const due = scheduler.getDueSchedules(now);
-
     for (const schedule of due) {
       const agentId = (schedule.input as { agent_id: string }).agent_id;
       const cronTrigger: AgentTrigger = { kind: "schedule", cron: schedule.cron_expression! };
-
       agentQueue.enqueue(agentId, cronTrigger);
-
-      // Update next fire time
       scheduler.markFired(schedule.schedule_id);
       const nextFire = computeNextFireAt(schedule, now);
       scheduler.updateNextFireAt(schedule.schedule_id, nextFire);
     }
 
-    if (due.length > 0) {
+    // Check queued commands in runtime.db
+    try {
+      const commands = runtimeDb.prepare(
+        "SELECT command_id, command_type, target_agent_id, payload_json FROM agent_commands WHERE status = 'queued' ORDER BY priority DESC, created_at ASC LIMIT 10",
+      ).all() as Array<{ command_id: string; command_type: string; target_agent_id: string; payload_json: string | null }>;
+
+      for (const cmd of commands) {
+        // Claim the command
+        const claimResult = runtimeDb.prepare(
+          "UPDATE agent_commands SET status = 'claimed', claimed_at = ? WHERE command_id = ? AND status = 'queued'",
+        ).run(new Date().toISOString(), cmd.command_id);
+
+        if ((claimResult as { changes: number }).changes === 0) continue; // Already claimed by another
+
+        if (cmd.command_type === "run_agent" && cmd.target_agent_id) {
+          logger.info(`Command ${cmd.command_id}: run_agent ${cmd.target_agent_id}`);
+          agentQueue.enqueue(cmd.target_agent_id, { kind: "manual" });
+
+          // Mark command completed (agent execution is async via queue)
+          runtimeDb.prepare(
+            "UPDATE agent_commands SET status = 'completed', completed_at = ? WHERE command_id = ?",
+          ).run(new Date().toISOString(), cmd.command_id);
+        } else {
+          logger.warn(`Unknown command type: ${cmd.command_type}`);
+          runtimeDb.prepare(
+            "UPDATE agent_commands SET status = 'failed', completed_at = ? WHERE command_id = ?",
+          ).run(new Date().toISOString(), cmd.command_id);
+        }
+      }
+    } catch (e) {
+      logger.error(`Command poll error: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+    // Process any enqueued agents
+    if (due.length > 0 || !agentQueue.isDraining) {
       await agentQueue.processQueue();
     }
-  }, config.poll_interval_ms);
+  }, Math.min(config.poll_interval_ms, config.trigger_poll_ms));
 
-  // ─── Manual trigger check (every trigger_poll_ms, default 10s) ────────────
+  // ─── Phase 3: Drain ────────────────────────────────────────────────────────
 
-  setInterval(async () => {
-    let enqueued = false;
+  async function shutdown(signal: string) {
+    logger.info(`Shutting down (${signal})...`);
 
-    for (const def of allAgentDefs) {
-      const triggerPath = join(JARVIS_DIR, `trigger-${def.agent_id}.json`);
-      if (!fs.existsSync(triggerPath)) continue;
+    // Stop polling
+    clearInterval(pollInterval);
 
-      logger.info(`Manual trigger detected: ${def.agent_id}`);
+    // Drain: wait for running agents to complete (30s timeout)
+    await agentQueue.drain(30_000);
 
-      // Consume the trigger file
-      try { fs.unlinkSync(triggerPath); } catch { /* race condition is fine */ }
-
-      agentQueue.enqueue(def.agent_id, { kind: "manual" });
-      enqueued = true;
-    }
-
-    if (enqueued) {
-      await agentQueue.processQueue();
-    }
-  }, config.trigger_poll_ms);
-
-  // ─── Keep alive ───────────────────────────────────────────────────────────
-
-  process.on("SIGINT", () => {
-    logger.info("Shutting down...");
+    // Stop heartbeat writer
     statusWriter.stop();
+
+    // Close databases
+    try { runtimeDb.close(); } catch { /* best-effort */ }
     knowledgeStore.close();
     entityGraph.close();
     decisionLog.close();
-    process.exit(0);
-  });
 
-  process.on("SIGTERM", () => {
-    logger.info("Shutting down (SIGTERM)...");
-    statusWriter.stop();
-    knowledgeStore.close();
-    entityGraph.close();
-    decisionLog.close();
+    logger.info("Daemon stopped cleanly");
     process.exit(0);
-  });
+  }
+
+  process.on("SIGINT", () => { shutdown("SIGINT"); });
+  process.on("SIGTERM", () => { shutdown("SIGTERM"); });
 }
 
 main().catch(e => {
