@@ -72,6 +72,10 @@ function fieldMatches(field: string, value: number): boolean {
 /**
  * Computes the next time the cron schedule fires after the given `after` date.
  * Iterates minute by minute up to ~1 year into the future.
+ *
+ * **Important:** Cron field matching is performed against UTC date components
+ * (`getUTCMinutes`, `getUTCHours`, etc.). All cron expressions passed to this
+ * function are therefore evaluated in UTC, not local time.
  */
 export function getNextFireTime(cron: CronFields, after: Date): Date {
   // Start from next minute after `after`
@@ -135,7 +139,7 @@ export function evaluateThreshold(
     case "lt":
       return value < threshold;
     case "eq":
-      return value === threshold;
+      return Math.abs(value - threshold) < 1e-9;
     case "gte":
       return value >= threshold;
     case "lte":

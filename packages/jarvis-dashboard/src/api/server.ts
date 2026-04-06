@@ -57,21 +57,27 @@ app.get('/api/health', (_req, res) => {
     const crm = new DatabaseSync(join(jarvisDir, 'crm.db'))
     crmCount = (crm.prepare('SELECT COUNT(*) as n FROM contacts').get() as { n: number }).n
     crm.close()
-  } catch {}
+  } catch (err) {
+    console.error('Failed to query CRM database:', err)
+  }
   try {
     const kb = new DatabaseSync(join(jarvisDir, 'knowledge.db'))
     docsCount = (kb.prepare('SELECT COUNT(*) as n FROM documents').get() as { n: number }).n
     playbooksCount = (kb.prepare('SELECT COUNT(*) as n FROM playbooks').get() as { n: number }).n
     decisionsCount = (kb.prepare('SELECT COUNT(*) as n FROM decisions').get() as { n: number }).n
     kb.close()
-  } catch {}
+  } catch (err) {
+    console.error('Failed to query Knowledge database:', err)
+  }
   const approvalsPath = join(jarvisDir, 'approvals.json')
   let pendingApprovals = 0
   if (fs.existsSync(approvalsPath)) {
     try {
       const a = JSON.parse(fs.readFileSync(approvalsPath, 'utf8')) as Array<{ status: string }>
       pendingApprovals = a.filter(x => x.status === 'pending').length
-    } catch {}
+    } catch (err) {
+      console.error('Failed to read approvals file:', err)
+    }
   }
   const telegramConfigured = fs.existsSync(join(jarvisDir, 'config.json'))
 

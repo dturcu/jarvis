@@ -14,7 +14,7 @@ export function classifyModelTier(modelId: string): ModelTier {
   const lower = modelId.toLowerCase();
 
   // Explicit large patterns: 70B+ models (check before small to avoid 70b prefix matching 7b)
-  if (/(?:^|[^0-9])(?:70b|72b|110b)(?:[^0-9]|$)|(?:^|[:-])(?:large|xl)(?:[:-]|$)/.test(lower)) {
+  if (/(?:^|[^0-9])(?:34b|40b|70b|72b|110b)(?:[^0-9]|$)|(?:^|[:-])(?:large|xl)(?:[:-]|$)/.test(lower)) {
     return "opus";
   }
 

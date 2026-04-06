@@ -38,6 +38,12 @@ export const FILES_TOOL_NAMES = [
 
 export const FILES_COMMAND_NAMES = ["/files"] as const;
 
+/** Maximum file size (in bytes) for content search — skip files larger than 10 MB. */
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+/** Maximum number of entries returned during a recursive directory listing. */
+const MAX_RECURSIVE_ENTRIES = 10_000;
+
 type FileEncoding = "utf8" | "base64";
 
 type FilesInspectParams = {
@@ -219,11 +225,17 @@ function listDirectoryEntries(
   recursive: boolean,
   includeStats: boolean,
   previewLines: number,
+  counter: { count: number } = { count: 0 },
 ): Array<Record<string, unknown>> {
   const entries = readdirSync(currentPath, { withFileTypes: true });
   const results: Array<Record<string, unknown>> = [];
 
   for (const entry of entries) {
+    if (counter.count >= MAX_RECURSIVE_ENTRIES) {
+      results.push({ note: `Listing truncated at ${MAX_RECURSIVE_ENTRIES} entries.` });
+      break;
+    }
+
     const absolute = join(currentPath, entry.name);
     const entryRecord: Record<string, unknown> = {
       path: relative(rootPath, absolute) || ".",
@@ -245,10 +257,11 @@ function listDirectoryEntries(
     }
 
     results.push(entryRecord);
+    counter.count++;
 
     if (recursive && entry.isDirectory()) {
       results.push(
-        ...listDirectoryEntries(rootPath, absolute, recursive, includeStats, previewLines),
+        ...listDirectoryEntries(rootPath, absolute, recursive, includeStats, previewLines, counter),
       );
     }
   }
@@ -360,6 +373,8 @@ function searchFiles(params: FilesSearchParams): ToolResultPayload {
 
       if (params.includeContents !== false) {
         try {
+          const fileSize = statSync(absolute).size;
+          if (fileSize > MAX_FILE_SIZE) continue;
           const content = readText(absolute, "utf8");
           const haystack = params.caseSensitive ? content : content.toLowerCase();
           const index = haystack.indexOf(needle);

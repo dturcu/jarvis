@@ -49,8 +49,17 @@ webhookRouter.post('/github', (req, res) => {
     hmac.update(JSON.stringify(req.body))
     const expected = 'sha256=' + hmac.digest('hex')
 
-    if (signature.length !== expected.length ||
-        !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+    const sigBuf = Buffer.from(signature)
+    const expBuf = Buffer.from(expected)
+    // Pad both buffers to the same length to avoid leaking length information
+    const maxLen = Math.max(sigBuf.length, expBuf.length)
+    const paddedSig = Buffer.alloc(maxLen)
+    const paddedExp = Buffer.alloc(maxLen)
+    sigBuf.copy(paddedSig)
+    expBuf.copy(paddedExp)
+
+    if (sigBuf.length !== expBuf.length ||
+        !crypto.timingSafeEqual(paddedSig, paddedExp)) {
       res.status(401).json({ error: 'Invalid signature' })
       return
     }

@@ -60,6 +60,13 @@ export type AlertRule = {
   created_at: string;
 };
 
+function isValidCron(expr: string): boolean {
+  const fields = expr.trim().split(/\s+/);
+  if (fields.length !== 5) return false;
+  const pattern = /^(\*|\d+(-\d+)?(,\d+(-\d+)?)*)(\/\d+)?$/;
+  return fields.every(f => pattern.test(f));
+}
+
 export class SchedulerStore {
   private schedules = new Map<string, ScheduleRecord>();
   private alerts = new Map<string, AlertRule>();
@@ -70,6 +77,9 @@ export class SchedulerStore {
   createSchedule(
     params: Omit<ScheduleRecord, "schedule_id" | "created_at" | "updated_at">,
   ): ScheduleRecord {
+    if (params.cron_expression && !isValidCron(params.cron_expression)) {
+      throw new Error(`Invalid cron expression: "${params.cron_expression}". Expected 5 space-separated fields with valid cron patterns.`);
+    }
     const now = new Date().toISOString();
     const record: ScheduleRecord = {
       ...params,
@@ -151,9 +161,9 @@ export class SchedulerStore {
   }
 
   getDueSchedules(now: Date): ScheduleRecord[] {
-    const nowIso = now.toISOString();
+    const nowMs = now.getTime();
     return Array.from(this.schedules.values()).filter(
-      (r) => r.enabled && r.next_fire_at <= nowIso,
+      (r) => r.enabled && r.next_fire_at && new Date(r.next_fire_at).getTime() <= nowMs,
     );
   }
 
@@ -251,6 +261,11 @@ export class SchedulerStore {
     };
     this.habitEntries.push(entry);
     habit.last_logged_at = now;
+
+    // Prune entries older than 90 days to prevent unbounded growth
+    const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    this.habitEntries = this.habitEntries.filter(e => e.logged_at > cutoff);
+
     return entry;
   }
 

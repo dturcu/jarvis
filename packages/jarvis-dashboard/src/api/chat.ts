@@ -263,6 +263,7 @@ function llmChat(messages: Array<{ role: string; content: string }>, model: stri
       res.on('error', reject)
     })
     req.on('error', reject)
+    req.setTimeout(30000, () => { req.destroy(); reject(new Error('LLM request timeout')) })
     req.write(body)
     req.end()
   })
@@ -394,6 +395,7 @@ function streamToClient(res: import('express').Response, messages: Array<{ role:
     })
 
     lmsReq.on('error', (e: Error) => reject(e))
+    lmsReq.setTimeout(30000, () => { lmsReq.destroy(); reject(new Error('LLM stream request timeout')) })
     lmsReq.write(body)
     lmsReq.end()
   })
@@ -416,5 +418,6 @@ chatRouter.get('/models', (_req, res) => {
     })
   })
   lmsReq.on('error', () => res.json({ models: [], default: DEFAULT_MODEL, error: 'LM Studio unreachable' }))
+  lmsReq.setTimeout(30000, () => { lmsReq.destroy() })
   lmsReq.end()
 })

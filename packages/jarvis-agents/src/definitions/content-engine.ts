@@ -78,7 +78,9 @@ export const contentEngineAgent: AgentDefinition = {
     { kind: "schedule", cron: "0 7 * * 4" },
   ],
   capabilities: ["inference", "web", "browser", "email", "device", "social"],
-  approval_gates: [],
+  approval_gates: [
+    { action: "publish_post", severity: "critical" },
+  ],
   knowledge_collections: ["playbooks", "case-studies", "lessons"],
   inference_tier: "sonnet",
   max_steps_per_run: 5,

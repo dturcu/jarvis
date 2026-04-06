@@ -62,7 +62,7 @@ export const staffingMonitorAgent: AgentDefinition = {
   ],
   capabilities: ["crm", "inference", "files", "email", "calendar", "device"],
   approval_gates: [
-    { action: "email.send", severity: "warning" },
+    { action: "email.send", severity: "critical" },
   ],
   knowledge_collections: ["playbooks"],
   inference_tier: "sonnet",

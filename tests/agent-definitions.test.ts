@@ -147,8 +147,11 @@ describe("contractReviewerAgent", () => {
     expect(contractReviewerAgent.inference_tier).toBe("opus");
   });
 
-  it("has no approval gates (read-only agent)", () => {
-    expect(contractReviewerAgent.approval_gates).toHaveLength(0);
+  it("has document.generate_report approval gate", () => {
+    expect(contractReviewerAgent.approval_gates).toHaveLength(1);
+    const gate = contractReviewerAgent.approval_gates.find(g => g.action === "document.generate_report");
+    expect(gate).toBeDefined();
+    expect(gate?.severity).toBe("warning");
   });
 
   it("system_prompt includes JURISDICTION", () => {
@@ -171,10 +174,10 @@ describe("staffingMonitorAgent", () => {
     expect(t).toMatchObject({ kind: "schedule", cron: "0 9 * * 1" });
   });
 
-  it("has email.send warning gate", () => {
+  it("has email.send critical gate (per CLAUDE.md policy)", () => {
     const gate = staffingMonitorAgent.approval_gates.find(g => g.action === "email.send");
     expect(gate).toBeDefined();
-    expect(gate?.severity).toBe("warning");
+    expect(gate?.severity).toBe("critical");
   });
 
   it("capabilities includes files and calendar", () => {
@@ -198,8 +201,11 @@ describe("contentEngineAgent", () => {
     expect(contentEngineAgent.triggers).toHaveLength(3);
   });
 
-  it("runs in full auto mode (no approval gates)", () => {
-    expect(contentEngineAgent.approval_gates).toEqual([]);
+  it("has publish_post critical approval gate (per CLAUDE.md policy)", () => {
+    expect(contentEngineAgent.approval_gates).toHaveLength(1);
+    const gate = contentEngineAgent.approval_gates.find(g => g.action === "publish_post");
+    expect(gate).toBeDefined();
+    expect(gate?.severity).toBe("critical");
   });
 
   it("system_prompt includes STYLE RULES", () => {
@@ -294,7 +300,7 @@ describe("all agents structural invariants", () => {
   });
 
   it("every agent has at least one approval_gate except read-only and auto-mode agents", () => {
-    const exempt = ["contract-reviewer", "garden-calendar", "content-engine", "social-engagement", "security-monitor", "meeting-transcriber", "drive-watcher"];
+    const exempt = ["garden-calendar", "security-monitor", "meeting-transcriber", "drive-watcher"];
     const required = ALL_AGENTS.filter(a => !exempt.includes(a.agent_id));
     for (const agent of required) {
       expect(agent.approval_gates.length).toBeGreaterThanOrEqual(1);

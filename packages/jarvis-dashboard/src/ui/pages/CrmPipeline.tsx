@@ -58,7 +58,7 @@ export default function CrmPipeline() {
     fetch(`/api/crm/${contact.id}`)
       .then(r => r.json())
       .then((data: ContactDetail) => setSelected(data))
-      .catch(() => {})
+      .catch(err => console.error('Failed to fetch contact details:', err))
   }
 
   const handleMoveStage = (contactId: string | number, newStage: string) => {
@@ -66,7 +66,7 @@ export default function CrmPipeline() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stage: newStage })
-    }).then(() => fetchContacts()).catch(() => {})
+    }).then(() => fetchContacts()).catch(err => console.error('Stage move failed:', err))
   }
 
   const handleAddContact = () => {
@@ -79,7 +79,7 @@ export default function CrmPipeline() {
       setShowAddModal(false)
       setNewContact({ name: '', company: '', email: '', stage: 'prospect' })
       fetchContacts()
-    }).catch(() => {})
+    }).catch(err => console.error('Failed to add contact:', err))
   }
 
   const handleAddNote = () => {
@@ -91,7 +91,7 @@ export default function CrmPipeline() {
     }).then(() => {
       setNoteText('')
       handleSelectContact(selected)
-    }).catch(() => {})
+    }).catch(err => console.error('Failed to add note:', err))
   }
 
   if (loading) {

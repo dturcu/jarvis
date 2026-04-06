@@ -74,7 +74,9 @@ export const contractReviewerAgent: AgentDefinition = {
     { kind: "event", event_type: "email.received.nda" },
   ],
   capabilities: ["document", "inference", "email", "device"],
-  approval_gates: [],
+  approval_gates: [
+    { action: "document.generate_report", severity: "warning" },
+  ],
   knowledge_collections: ["contracts", "playbooks"],
   inference_tier: "opus",
   max_steps_per_run: 6,

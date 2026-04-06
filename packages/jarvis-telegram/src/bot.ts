@@ -90,10 +90,8 @@ export class JarvisBot {
 
     while (this.running) {
       try {
-        await Promise.all([
-          this.pollOnce(),
-          this.checkApprovals()
-        ])
+        await this.pollOnce();
+        await this.checkApprovals();
       } catch (e) {
         console.error('Bot poll error:', e)
       }

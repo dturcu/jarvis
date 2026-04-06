@@ -8,7 +8,6 @@ import {
 import {
   SYSTEM_TOOL_NAMES,
   SYSTEM_COMMAND_NAMES,
-  getJarvisState,
   safeJsonParse,
   submitSystemMonitorCpu,
   submitSystemMonitorMemory,

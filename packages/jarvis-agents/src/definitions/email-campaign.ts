@@ -64,7 +64,7 @@ export const emailCampaignAgent: AgentDefinition = {
   ],
   capabilities: ["email", "crm", "inference", "scheduler"],
   approval_gates: [
-    { action: "email.send", severity: "warning" },
+    { action: "email.send", severity: "critical" },
   ],
   knowledge_collections: ["playbooks", "case-studies", "campaigns"],
   inference_tier: "sonnet",

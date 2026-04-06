@@ -8,7 +8,6 @@ import {
 import {
   AGENT_TOOL_NAMES,
   AGENT_COMMAND_NAMES,
-  getJarvisState,
   safeJsonParse,
   submitAgentStart,
   submitAgentStep,
@@ -300,13 +299,25 @@ export function createAgentCommand() {
 export function createAgentsCommand() {
   return {
     name: "agents",
-    description: "List or query registered agents. Pass JSON with {agentId} to filter.",
+    description: "List or query registered agents. Pass JSON with {agentId} to filter, or omit to list all.",
     acceptsArgs: true,
     handler: (ctx: PluginCommandContext) => {
       const args = parseJsonArgs<{ agentId?: string }>(ctx) ?? {};
       const toolCtx = toToolContext(ctx);
       if (!args.agentId) {
-        return toCommandReply("Usage: /agents {\"agentId\":\"...\"}", true);
+        const agentIds = [
+          "bd-pipeline",
+          "proposal-engine",
+          "evidence-auditor",
+          "contract-reviewer",
+          "staffing-monitor",
+          "content-engine",
+          "portfolio-monitor",
+          "garden-calendar"
+        ];
+        return toCommandReply(
+          `Registered agents:\n${agentIds.map((id) => `  - ${id}`).join("\n")}\n\nUse /agents {"agentId":"..."} to query a specific agent.`
+        );
       }
       const response = submitAgentStatus(toolCtx, { agentId: args.agentId });
       return toCommandReply(formatJobReply(response));

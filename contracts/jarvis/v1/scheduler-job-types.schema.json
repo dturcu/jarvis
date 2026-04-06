@@ -71,6 +71,10 @@
     "scheduler_create_schedule_input": {
       "type": "object",
       "required": ["job_type", "input"],
+      "anyOf": [
+        {"required": ["cron_expression"]},
+        {"required": ["interval_seconds"]}
+      ],
       "properties": {
         "job_type": { "type": "string", "minLength": 1 },
         "input": { "type": "object" },

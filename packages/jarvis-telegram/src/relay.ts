@@ -28,7 +28,9 @@ export async function processTelegramQueue(sendFn: (msg: string) => Promise<void
   }
 
   if (sent > 0) {
-    fs.writeFileSync(QUEUE_FILE, JSON.stringify(queue, null, 2))
+    // Prune sent entries to prevent unbounded file growth
+    const pruned = queue.filter(e => !e.sent);
+    fs.writeFileSync(QUEUE_FILE, JSON.stringify(pruned, null, 2))
   }
   return sent
 }

@@ -229,31 +229,38 @@ export function createCrmCommand() {
 
       switch (args.operation) {
         case "add": {
-          const response = submitCrmAddContact(toolCtx, args as any);
+          const { operation: _, ...rest } = args;
+          const response = submitCrmAddContact(toolCtx, rest as Parameters<typeof submitCrmAddContact>[1]);
           return toCommandReply(formatJobReply(response));
         }
         case "update": {
-          const response = submitCrmUpdateContact(toolCtx, args as any);
+          const { operation: _, ...rest } = args;
+          const response = submitCrmUpdateContact(toolCtx, rest as Parameters<typeof submitCrmUpdateContact>[1]);
           return toCommandReply(formatJobReply(response));
         }
         case "list": {
-          const response = submitCrmListPipeline(toolCtx, args as any);
+          const { operation: _, ...rest } = args;
+          const response = submitCrmListPipeline(toolCtx, rest as Parameters<typeof submitCrmListPipeline>[1]);
           return toCommandReply(formatJobReply(response));
         }
         case "move": {
-          const response = submitCrmMoveStage(toolCtx, args as any);
+          const { operation: _, ...rest } = args;
+          const response = submitCrmMoveStage(toolCtx, rest as Parameters<typeof submitCrmMoveStage>[1]);
           return toCommandReply(formatJobReply(response));
         }
         case "note": {
-          const response = submitCrmAddNote(toolCtx, args as any);
+          const { operation: _, ...rest } = args;
+          const response = submitCrmAddNote(toolCtx, rest as Parameters<typeof submitCrmAddNote>[1]);
           return toCommandReply(formatJobReply(response));
         }
         case "search": {
-          const response = submitCrmSearch(toolCtx, args as any);
+          const { operation: _, ...rest } = args;
+          const response = submitCrmSearch(toolCtx, rest as Parameters<typeof submitCrmSearch>[1]);
           return toCommandReply(formatJobReply(response));
         }
         case "digest": {
-          const response = submitCrmDigest(toolCtx, args as any);
+          const { operation: _, ...rest } = args;
+          const response = submitCrmDigest(toolCtx, rest as Parameters<typeof submitCrmDigest>[1]);
           return toCommandReply(formatJobReply(response));
         }
         default:
@@ -274,7 +281,7 @@ export function createPipelineCommand() {
     handler: (ctx: PluginCommandContext) => {
       const args = parseJsonArgs<Record<string, unknown>>(ctx) ?? {};
       const toolCtx = toToolContext(ctx);
-      const response = submitCrmListPipeline(toolCtx, args as any);
+      const response = submitCrmListPipeline(toolCtx, args as Parameters<typeof submitCrmListPipeline>[1]);
       return toCommandReply(formatJobReply(response));
     }
   };
