@@ -1,7 +1,7 @@
 export { loadConfig, validateConfig, type JarvisRuntimeConfig, type ConfigCheckResult } from "./config.js";
 export { openRuntimeDb } from "./runtime-db.js";
 export { runMigrations } from "./migrations/runner.js";
-export { Logger } from "./logger.js";
+export { Logger, type LogContext } from "./logger.js";
 export { createWorkerRegistry, buildEnvelope, type WorkerRegistry } from "./worker-registry.js";
 export { buildPlanWithInference } from "./planner-real.js";
 export { runAgent, type OrchestratorDeps } from "./orchestrator.js";
@@ -13,3 +13,4 @@ export { StatusWriter, type DaemonStatusData } from "./status-writer.js";
 export { AgentQueue } from "./agent-queue.js";
 export { RagPipeline } from "./rag-pipeline.js";
 export { loadPlugins, installPlugin, uninstallPlugin, listPlugins, type PluginManifest } from "./plugin-loader.js";
+export { getHealthReport, getReadinessReport, type HealthReport, type HealthStatus, type ReadinessReport } from "./health.js";

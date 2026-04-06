@@ -20,6 +20,7 @@
     "dashboard:dev": "concurrently \"tsx packages/jarvis-dashboard/src/api/server.ts\" \"vite -c packages/jarvis-dashboard/vite.config.ts\"",
     "dashboard:build": "vite build -c packages/jarvis-dashboard/vite.config.ts",
     "telegram-bot": "tsx packages/jarvis-telegram/src/index.ts",
+    "jarvis": "node scripts/jarvis.mjs",
     "daemon": "tsx packages/jarvis-runtime/src/daemon.ts",
     "setup": "tsx scripts/setup-jarvis.ts",
     "setup:status": "tsx scripts/setup-jarvis.ts status",

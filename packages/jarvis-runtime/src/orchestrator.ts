@@ -39,14 +39,16 @@ export async function runAgent(
   const def = runtime.getDefinition(agentId);
   if (!def) throw new Error(`Agent not registered: ${agentId}`);
 
-  logger.info(`Starting agent: ${agentId} (trigger: ${trigger.kind})`);
-
   // Initialize durable run tracking if runtime DB is available
   const runStore = runtimeDb ? new RunStore(runtimeDb) : null;
 
   // 1. Start run
   const run = runtime.startRun(agentId, trigger);
   runStore?.startRun(agentId); // Emits run_started event
+
+  // Create a context-aware logger for this run
+  const log = logger.withContext({ run_id: run.run_id, agent_id: agentId });
+  log.info(`Starting agent (trigger: ${trigger.kind})`);
 
   // Notify status writer that an agent run started (steps TBD until plan completes)
   statusWriter?.setCurrentRun(agentId, 0);
@@ -78,7 +80,7 @@ export async function runAgent(
     });
 
     if (plan.steps.length === 0) {
-      logger.warn(`Agent ${agentId} produced empty plan`);
+      log.warn("Produced empty plan");
       runStore?.transition(run.run_id, agentId, "completed", "run_completed", {
         details: { reason: "empty_plan" },
       });
@@ -90,11 +92,12 @@ export async function runAgent(
     // Update status writer with actual step count after planning
     statusWriter?.updateTotalSteps(plan.steps.length);
 
-    logger.info(`Agent ${agentId} plan: ${plan.steps.length} steps`);
+    log.info(`Plan: ${plan.steps.length} steps`);
 
     // 4. Execute steps sequentially
     for (const step of plan.steps) {
-      logger.info(`  Step ${step.step}/${plan.steps.length}: ${step.action}`, { reasoning: step.reasoning.slice(0, 100) });
+      const stepLog = log.withContext({ step_no: step.step, action: step.action });
+      stepLog.info(`Step ${step.step}/${plan.steps.length}: ${step.action}`, { reasoning: step.reasoning.slice(0, 100) });
 
       // Emit step_started event
       runStore?.emitEvent(run.run_id, agentId, "step_started", {
@@ -107,7 +110,7 @@ export async function runAgent(
       // Check approval gate
       const gate = def.approval_gates.find(g => g.action === step.action);
       if (gate && runtimeDb) {
-        logger.info(`  Approval required for ${step.action} (${gate.severity})`);
+        stepLog.info(`Approval required (${gate.severity})`);
 
         // Emit approval_requested event
         runStore?.transition(run.run_id, agentId, "awaiting_approval", "approval_requested", {
@@ -136,7 +139,7 @@ export async function runAgent(
         });
 
         if (decision === "rejected") {
-          logger.info(`  Step ${step.step} rejected — skipping`);
+          stepLog.info("Rejected — skipping");
           decisionLog.logDecision({
             agent_id: agentId, run_id: run.run_id, step: step.step,
             action: step.action, reasoning: step.reasoning, outcome: "rejected",
@@ -145,7 +148,7 @@ export async function runAgent(
         }
 
         if (decision === "timeout") {
-          logger.warn(`  Approval timeout for step ${step.step} — aborting run`);
+          stepLog.warn("Approval timeout — aborting run");
           runStore?.transition(run.run_id, agentId, "failed", "run_failed", {
             step_no: step.step, action: step.action,
             details: { reason: "approval_timeout" },
@@ -164,7 +167,7 @@ export async function runAgent(
         runStore?.transition(run.run_id, agentId, "executing", "step_started", {
           step_no: step.step, action: step.action,
         });
-        logger.info(`  Step ${step.step} approved — executing`);
+        stepLog.info("Approved — executing");
       }
 
       // Execute the job
@@ -191,10 +194,10 @@ export async function runAgent(
 
           // Retry once if retryable
           if (result.error?.retryable) {
-            logger.info(`  Step ${step.step} failed (retryable) — retrying`);
+            stepLog.info("Failed (retryable) — retrying");
             const retry = await registry.executeJob({ ...envelope, attempt: 2 });
             if (retry.status === "failed") {
-              logger.warn(`  Step ${step.step} retry also failed`);
+              stepLog.warn("Retry also failed");
             } else {
               runStore?.emitEvent(run.run_id, agentId, "step_completed", {
                 step_no: step.step, action: step.action,
@@ -202,7 +205,7 @@ export async function runAgent(
               });
             }
           } else {
-            logger.warn(`  Step ${step.step} failed: ${result.error?.message}`);
+            stepLog.warn(`Failed: ${result.error?.message}`);
           }
         } else {
           runStore?.emitEvent(run.run_id, agentId, "step_completed", {
@@ -214,7 +217,7 @@ export async function runAgent(
         run.updated_at = new Date().toISOString();
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
-        logger.error(`  Step ${step.step} threw: ${errMsg}`);
+        stepLog.error(`Threw: ${errMsg}`);
         runStore?.emitEvent(run.run_id, agentId, "step_failed", {
           step_no: step.step, action: step.action,
           details: { error: errMsg },
@@ -232,7 +235,7 @@ export async function runAgent(
     });
     statusWriter?.completeRun("completed");
     runtime.completeRun(run.run_id);
-    logger.info(`Agent ${agentId} completed (${run.current_step} steps)`);
+    log.info(`Completed (${run.current_step} steps)`);
 
     // 6. Capture lessons
     const decisions = decisionLog.getDecisions(agentId, run.run_id);
@@ -245,7 +248,7 @@ export async function runAgent(
     return runtime.getRun(run.run_id)!;
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
-    logger.error(`Agent ${agentId} run failed: ${errMsg}`);
+    log.error(`Run failed: ${errMsg}`);
     runStore?.transition(run.run_id, agentId, "failed", "run_failed", {
       details: { error: errMsg },
     });
