@@ -23,6 +23,7 @@ import { policyRouter } from './policy.js'
 import { workflowsRouter } from './workflows.js'
 import { packsRouter } from './packs.js'
 import { serviceRouter } from './service.js'
+import { supportRouter } from './support.js'
 import { modeRouter } from './settings.js'
 import fs from 'fs'
 import { getHealthReport, getReadinessReport } from '@jarvis/runtime'
@@ -81,6 +82,7 @@ app.use('/api/policy', policyRouter)
 app.use('/api/workflows', workflowsRouter)
 app.use('/api/packs', packsRouter)
 app.use('/api/service', serviceRouter)
+app.use('/api/support', supportRouter)
 app.use('/api/mode', modeRouter)
 
 app.get('/api/health', (_req, res) => {

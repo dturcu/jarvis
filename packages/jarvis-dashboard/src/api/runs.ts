@@ -231,25 +231,25 @@ runsRouter.get('/:runId/explain', (req, res) => {
 
     if (previewSteps.length > 0) {
       explanation.preview_mode = true;
-      explanation.skipped_actions = previewSteps.map(e => {
-        try { return JSON.parse(e.payload_json!); } catch { return null; }
-      }).filter(Boolean).map((p: any) => p.action ?? 'unknown');
+      // Use event.action column (set by orchestrator), not payload.action
+      explanation.skipped_actions = previewSteps.map(e => e.action ?? 'unknown');
       explanation.preview_warning = `This was a preview run. ${previewSteps.length} outbound action(s) were simulated and not executed. Results may be incomplete.`;
     }
 
     // C3.1: Failure explanations
     if (run.status === 'failed') {
+      // Check both completed AND failed outbound steps — a failed step may have partially executed
+      const outboundSet = ['email.send', 'social.post', 'crm.move_stage'];
+      const hadOutbound = events.some(e =>
+        (e.event_type === 'step_completed' || e.event_type === 'step_failed') &&
+        e.action && outboundSet.includes(e.action)
+      );
       explanation.failure = {
         probable_cause: run.error || 'Unknown error',
-        outbound_effects_may_have_occurred: events.some(e =>
-          e.event_type === 'step_completed' && e.action &&
-          ['email.send', 'social.post', 'crm.move_stage'].includes(e.action)
-        ),
-        retry_recommendation: events.some(e =>
-          e.event_type === 'step_completed' && e.action &&
-          ['email.send', 'social.post', 'crm.move_stage'].includes(e.action)
-        ) ? 'Review completed outbound actions before retrying — some side effects may have occurred.'
-          : 'Safe to retry — no outbound actions were completed.',
+        outbound_effects_may_have_occurred: hadOutbound,
+        retry_recommendation: hadOutbound
+          ? 'Review completed/failed outbound actions before retrying — some side effects may have occurred.'
+          : 'Safe to retry — no outbound actions were attempted.',
       };
     }
 

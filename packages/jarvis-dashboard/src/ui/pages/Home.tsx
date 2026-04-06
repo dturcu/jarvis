@@ -67,18 +67,12 @@ interface AttentionRecentCompletion {
   completed_at: string
 }
 
-interface AttentionSystemStatus {
-  daemon_running: boolean
-  agents_registered: number
-  schedules_active: number
-}
-
 interface AttentionData {
   needs_attention: AttentionNeedsAttention
   active_work: AttentionActiveWork[]
   recent_completions: AttentionRecentCompletion[]
   recommended_actions: string[]
-  system_status: AttentionSystemStatus
+  system_status: string // "healthy" | "needs_attention" | "unknown"
 }
 
 function formatUptime(seconds: number | null): string {
@@ -279,7 +273,7 @@ export default function Home() {
           <div className="flex flex-wrap gap-3">
             {needsAttention.pending_approvals > 0 && (
               <Link
-                to="/schedule"
+                to="/approvals"
                 className="inline-flex items-center gap-2 bg-amber-500/5 border border-amber-500/15 rounded-xl px-4 py-2.5 backdrop-blur-sm hover:border-amber-500/30 transition-colors duration-200"
               >
                 <svg className="text-amber-400 shrink-0" width="16" height="16" viewBox="0 0 18 18" fill="none">
