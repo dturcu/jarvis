@@ -1,8 +1,13 @@
-import fs from 'fs'
 import { join } from 'path'
 import { DatabaseSync } from 'node:sqlite'
-import { TRIGGER_DIR, CRM_DB, KNOWLEDGE_DB } from './config.js'
+import { configureJarvisStatePersistence, getJarvisState } from '@jarvis/shared'
+import { CRM_DB, JARVIS_DIR } from './config.js'
 import { loadApprovals, saveApprovals, setApprovalStatus } from './approvals.js'
+
+const RUNTIME_DB_PATH = join(JARVIS_DIR, 'runtime.sqlite')
+
+// Ensure JarvisState is configured for this process
+configureJarvisStatePersistence({ databasePath: RUNTIME_DB_PATH })
 
 const AGENTS = [
   'bd-pipeline', 'proposal-engine', 'evidence-auditor', 'contract-reviewer',
@@ -31,31 +36,63 @@ export async function handleCommand(text: string): Promise<string> {
 function getStatus(): string {
   const lines = ['JARVIS STATUS\n']
 
-  // Last decision per agent
+  // Last completed job per agent from JarvisState
   try {
-    const kb = new DatabaseSync(join(process.env.HOME ?? process.env.USERPROFILE ?? '', '.jarvis', 'knowledge.db'))
-    for (const agentId of AGENTS) {
-      const row = kb.prepare(
-        'SELECT created_at, outcome FROM decisions WHERE agent_id = ? ORDER BY created_at DESC LIMIT 1'
-      ).get(agentId) as { created_at: string; outcome: string } | undefined
-      const ts = row ? new Date(row.created_at).toLocaleDateString() : 'never'
-      lines.push(`${agentId}: ${ts}`)
+    const state = getJarvisState()
+    const db = (state as unknown as { db: DatabaseSync }).db
+    if (db) {
+      const rows = db.prepare(`
+        SELECT job_id, status, updated_at, record_json
+        FROM jobs
+        WHERE job_type = 'agent.start'
+          AND status IN ('completed', 'failed')
+        ORDER BY updated_at DESC
+      `).all() as Array<{ job_id: string; status: string; updated_at: string; record_json: string }>
+
+      const seen = new Set<string>()
+      for (const row of rows) {
+        try {
+          const record = JSON.parse(row.record_json) as { envelope: { input: { agent_id?: string } } }
+          const agentId = record.envelope?.input?.agent_id
+          if (typeof agentId === 'string' && !seen.has(agentId)) {
+            seen.add(agentId)
+            const ts = new Date(row.updated_at).toLocaleDateString()
+            lines.push(`${agentId}: ${ts} (${row.status})`)
+          }
+        } catch { /* skip */ }
+      }
+
+      // Show agents with no runs
+      for (const id of AGENTS) {
+        if (!seen.has(id)) {
+          lines.push(`${id}: never`)
+        }
+      }
     }
-    kb.close()
   } catch {
-    lines.push('(could not read knowledge.db)')
+    lines.push('(could not read runtime DB)')
   }
 
-  // Pending approvals
-  const approvals = loadApprovals().filter(a => a.status === 'pending')
-  lines.push(`\nPending approvals: ${approvals.length}`)
+  // Pending approvals from JarvisState
+  try {
+    const state = getJarvisState()
+    const db = (state as unknown as { db: DatabaseSync }).db
+    if (db) {
+      const row = db.prepare("SELECT COUNT(*) AS count FROM approvals WHERE state = 'pending'").get() as { count: number }
+      lines.push(`\nPending approvals: ${row.count}`)
+    }
+  } catch {
+    // Fall back to legacy
+    const approvals = loadApprovals().filter(a => a.status === 'pending')
+    lines.push(`\nPending approvals: ${approvals.length}`)
+  }
 
   return lines.join('\n')
 }
 
 function getCrmTop5(): string {
   try {
-    const db = new DatabaseSync(join(process.env.HOME ?? process.env.USERPROFILE ?? '', '.jarvis', 'crm.db'))
+    const db = new DatabaseSync(CRM_DB)
     const contacts = db.prepare(
       "SELECT name, company, stage, score FROM contacts WHERE stage NOT IN ('won','lost','parked') ORDER BY score DESC LIMIT 5"
     ).all() as Array<{ name: string; company: string; stage: string; score: number }>
@@ -74,13 +111,16 @@ function getCrmTop5(): string {
 
 function triggerAgent(agentId: string): string {
   try {
-    const triggerFile = join(TRIGGER_DIR, `trigger-${agentId}.json`)
-    fs.writeFileSync(triggerFile, JSON.stringify({
-      agent: agentId,
-      triggered_at: new Date().toISOString(),
-      source: 'telegram'
-    }, null, 2))
-    return `Triggered ${agentId}. It will run within the next scheduled cycle.`
+    // Submit to JarvisState instead of writing trigger file
+    const result = getJarvisState().submitJob({
+      type: "agent.start",
+      input: {
+        agent_id: agentId,
+        trigger_kind: "manual",
+        triggered_by: "telegram",
+      },
+    })
+    return `Triggered ${agentId} (job: ${result.job_id ?? 'submitted'}). It will run within the next poll cycle.`
   } catch (e) {
     return `Failed to trigger ${agentId}: ${String(e)}`
   }
@@ -88,6 +128,17 @@ function triggerAgent(agentId: string): string {
 
 function handleApproval(shortId: string, status: 'approved' | 'rejected'): string {
   if (!shortId) return `Usage: /approve <id> or /reject <id>`
+
+  // Try JarvisState first
+  try {
+    const result = getJarvisState().resolveApproval(shortId, status)
+    if (result) {
+      const emoji = status === 'approved' ? '✅' : '❌'
+      return `${emoji} Approval ${shortId} has been ${status}.`
+    }
+  } catch { /* fall through to legacy */ }
+
+  // Fall back to legacy approvals file
   const approvals = loadApprovals()
   const target = approvals.find(a => a.id.startsWith(shortId) && a.status === 'pending')
   if (!target) return `No pending approval found with ID starting: ${shortId}`

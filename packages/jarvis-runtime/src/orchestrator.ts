@@ -2,6 +2,8 @@ import type { AgentDefinition, AgentTrigger, AgentRun } from "@jarvis/agent-fram
 import { AgentRuntime, SqliteKnowledgeStore, LessonCapture } from "@jarvis/agent-framework";
 import { SqliteEntityGraph } from "@jarvis/agent-framework";
 import { SqliteDecisionLog } from "@jarvis/agent-framework";
+import { getJarvisState } from "@jarvis/shared";
+import type { WorkerCallback } from "@jarvis/shared";
 import { buildPlanWithInference } from "./planner-real.js";
 import { requestApproval, waitForApproval } from "./approval-bridge.js";
 import { buildEnvelope, type WorkerRegistry } from "./worker-registry.js";
@@ -22,14 +24,26 @@ export type OrchestratorDeps = {
   ragPipeline?: RagPipeline;
 };
 
+/** Claim info from JarvisState, passed by AgentQueue */
+export type ClaimInfo = {
+  jobId: string;
+  claimId: string;
+  workerId: string;
+  leaseSeconds: number;
+};
+
 /**
  * Run a single agent: plan → execute steps → evaluate → learn.
  * Blocks until the agent completes (or hits an unresolved approval timeout).
+ *
+ * When claimInfo is provided, the orchestrator heartbeats JarvisState during
+ * execution and reports completion/failure via handleWorkerCallback.
  */
 export async function runAgent(
   agentId: string,
   trigger: AgentTrigger,
   deps: OrchestratorDeps,
+  claimInfo?: ClaimInfo,
 ): Promise<AgentRun> {
   const { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, ragPipeline } = deps;
 
@@ -43,6 +57,24 @@ export async function runAgent(
 
   // Notify status writer that an agent run started (steps TBD until plan completes)
   statusWriter?.setCurrentRun(agentId, 0);
+
+  // Start heartbeat timer to keep the JarvisState lease alive
+  let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  if (claimInfo) {
+    heartbeatTimer = setInterval(() => {
+      try {
+        getJarvisState().heartbeatJob({
+          worker_id: claimInfo.workerId,
+          job_id: claimInfo.jobId,
+          claim_id: claimInfo.claimId,
+          lease_seconds: claimInfo.leaseSeconds,
+          summary: `Agent ${agentId}: step ${run.current_step}/${run.total_steps} — ${run.status}`,
+        });
+      } catch (e) {
+        logger.warn(`Heartbeat failed for job ${claimInfo.jobId}: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }, 30_000); // heartbeat every 30s
+  }
 
   try {
     // 2. Gather context (including RAG-augmented chunks if pipeline is available)
@@ -67,13 +99,14 @@ export async function runAgent(
 
     if (plan.steps.length === 0) {
       logger.warn(`Agent ${agentId} produced empty plan`);
-      statusWriter?.completeRun("empty_plan");
+      statusWriter?.completeRun(agentId, "empty_plan");
       runtime.completeRun(run.run_id, "Empty plan — no steps generated");
+      reportCompletion(claimInfo, agentId, run, "completed", "Empty plan — no steps generated", logger);
       return run;
     }
 
     // Update status writer with actual step count after planning
-    statusWriter?.updateTotalSteps(plan.steps.length);
+    statusWriter?.updateTotalSteps(agentId, plan.steps.length);
 
     logger.info(`Agent ${agentId} plan: ${plan.steps.length} steps`);
 
@@ -82,7 +115,7 @@ export async function runAgent(
       logger.info(`  Step ${step.step}/${plan.steps.length}: ${step.action}`, { reasoning: step.reasoning.slice(0, 100) });
 
       // Update status writer with current step progress
-      statusWriter?.updateStep(step.step, step.action);
+      statusWriter?.updateStep(agentId, step.step, step.action);
 
       // Check approval gate
       const gate = def.approval_gates.find(g => g.action === step.action);
@@ -98,7 +131,21 @@ export async function runAgent(
 
         run.status = "awaiting_approval";
         run.updated_at = new Date().toISOString();
-        statusWriter?.setAwaitingApproval(step.step, step.action);
+        statusWriter?.setAwaitingApproval(agentId, step.step, step.action);
+
+        // Heartbeat with awaiting_approval status
+        if (claimInfo) {
+          try {
+            getJarvisState().heartbeatJob({
+              worker_id: claimInfo.workerId,
+              job_id: claimInfo.jobId,
+              claim_id: claimInfo.claimId,
+              status: "awaiting_approval",
+              lease_seconds: 14400, // 4h lease while waiting for approval
+              summary: `Awaiting approval: ${step.action}`,
+            });
+          } catch { /* best effort */ }
+        }
 
         const decision = await waitForApproval(approvalId, 4 * 60 * 60 * 1000); // 4h timeout
 
@@ -117,14 +164,28 @@ export async function runAgent(
             agent_id: agentId, run_id: run.run_id, step: step.step,
             action: step.action, reasoning: step.reasoning, outcome: "approval_timeout",
           });
-          statusWriter?.completeRun("approval_timeout");
+          statusWriter?.completeRun(agentId, "approval_timeout");
           runtime.completeRun(run.run_id, "Approval timeout");
+          reportCompletion(claimInfo, agentId, run, "failed", "Approval timeout", logger);
           return run;
         }
 
         run.status = "executing";
         run.updated_at = new Date().toISOString();
         logger.info(`  Step ${step.step} approved — executing`);
+
+        // Restore normal lease after approval
+        if (claimInfo) {
+          try {
+            getJarvisState().heartbeatJob({
+              worker_id: claimInfo.workerId,
+              job_id: claimInfo.jobId,
+              claim_id: claimInfo.claimId,
+              lease_seconds: claimInfo.leaseSeconds,
+              summary: `Executing step ${step.step}: ${step.action}`,
+            });
+          } catch { /* best effort */ }
+        }
       }
 
       // Execute the job
@@ -169,9 +230,15 @@ export async function runAgent(
     }
 
     // 5. Complete run
-    statusWriter?.completeRun("completed");
+    // CRITICAL PATH: These durable state writes (JarvisState callback + runtime completion)
+    // record the authoritative outcome. If they fail, the job's lease will expire and
+    // requeueExpiredJobs() will recover it on restart.
+    statusWriter?.completeRun(agentId, "completed");
     runtime.completeRun(run.run_id);
     logger.info(`Agent ${agentId} completed (${run.current_step} steps)`);
+
+    // Report completion to JarvisState
+    reportCompletion(claimInfo, agentId, run, "completed", `Completed ${run.current_step}/${run.total_steps} steps`, logger);
 
     // 6. Capture lessons
     const decisions = decisionLog.getDecisions(agentId, run.run_id);
@@ -185,9 +252,60 @@ export async function runAgent(
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
     logger.error(`Agent ${agentId} run failed: ${errMsg}`);
-    statusWriter?.completeRun(`error: ${errMsg}`);
+    statusWriter?.completeRun(agentId, `error: ${errMsg}`);
     runtime.completeRun(run.run_id, errMsg);
+    reportCompletion(claimInfo, agentId, run, "failed", errMsg, logger);
     return runtime.getRun(run.run_id)!;
+  } finally {
+    // Always clear the heartbeat timer
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+    }
+  }
+}
+
+/** Report run completion/failure to JarvisState via handleWorkerCallback */
+function reportCompletion(
+  claimInfo: ClaimInfo | undefined,
+  agentId: string,
+  run: AgentRun,
+  status: "completed" | "failed",
+  summary: string,
+  logger: Logger,
+): void {
+  if (!claimInfo) return;
+  try {
+    const callback: WorkerCallback = {
+      contract_version: "jarvis.v1",
+      job_id: claimInfo.jobId,
+      job_type: "agent.start",
+      attempt: 1,
+      status,
+      summary,
+      worker_id: claimInfo.workerId,
+      claim_id: claimInfo.claimId,
+      structured_output: {
+        run_id: run.run_id,
+        agent_id: agentId,
+        steps_completed: run.current_step,
+        total_steps: run.total_steps,
+        plan: run.plan,
+      },
+      metrics: {
+        started_at: run.started_at,
+        finished_at: new Date().toISOString(),
+      },
+    };
+    if (status === "failed") {
+      callback.error = {
+        code: "AGENT_RUN_FAILED",
+        message: summary,
+        retryable: true,
+      };
+    }
+    getJarvisState().handleWorkerCallback(callback);
+  } catch (e) {
+    logger.error(`Failed to report completion for job ${claimInfo.jobId}: ${e instanceof Error ? e.message : String(e)}`);
   }
 }
 

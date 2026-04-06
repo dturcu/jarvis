@@ -63,8 +63,10 @@ export const portfolioMonitorAgent: AgentDefinition = {
     { action: "email.send", severity: "critical" },
   ],
   knowledge_collections: [],
-  inference_tier: "haiku",
+  task_profile: { objective: "classify", preferences: { prioritize_speed: true } },
   max_steps_per_run: 5,
   system_prompt: PORTFOLIO_MONITOR_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
+  maturity: "operational",
+  experimental: true,
 };

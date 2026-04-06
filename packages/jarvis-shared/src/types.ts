@@ -7,6 +7,13 @@ import {
   JarvisPriority,
   JarvisToolStatus
 } from "./contracts.js";
+import { Type } from "@sinclair/typebox";
+
+export function asLiteralUnion<const Values extends readonly [string, ...string[]]>(
+  values: Values,
+) {
+  return Type.Union(values.map((value) => Type.Literal(value)) as [ReturnType<typeof Type.Literal>, ReturnType<typeof Type.Literal>, ...ReturnType<typeof Type.Literal>[]]);
+}
 
 export type JarvisContractVersion = typeof CONTRACT_VERSION;
 
@@ -97,6 +104,7 @@ export type ApprovalRecord = {
   scopes: string[];
   created_at: string;
   resolved_at?: string;
+  resolved_by?: string;
 };
 
 export type ToolResponse = {

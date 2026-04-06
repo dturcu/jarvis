@@ -198,8 +198,8 @@ describe("contentEngineAgent", () => {
     expect(contentEngineAgent.triggers).toHaveLength(3);
   });
 
-  it("runs in full auto mode (no approval gates)", () => {
-    expect(contentEngineAgent.approval_gates).toEqual([]);
+  it("has approval gate for publish_post", () => {
+    expect(contentEngineAgent.approval_gates.length).toBeGreaterThanOrEqual(1);
   });
 
   it("system_prompt includes STYLE RULES", () => {
@@ -229,8 +229,8 @@ describe("portfolioMonitorAgent", () => {
     expect(gate?.severity).toBe("critical");
   });
 
-  it("uses haiku inference tier", () => {
-    expect(portfolioMonitorAgent.inference_tier).toBe("haiku");
+  it("is marked experimental", () => {
+    expect(portfolioMonitorAgent.experimental).toBe(true);
   });
 });
 
@@ -325,10 +325,12 @@ describe("all agents structural invariants", () => {
     }
   });
 
-  it("every agent has a valid inference_tier", () => {
+  it("every agent with inference_tier has a valid value", () => {
     const valid = ["haiku", "sonnet", "opus"];
     for (const agent of ALL_AGENTS) {
-      expect(valid).toContain(agent.inference_tier);
+      if (agent.inference_tier) {
+        expect(valid).toContain(agent.inference_tier);
+      }
     }
   });
 

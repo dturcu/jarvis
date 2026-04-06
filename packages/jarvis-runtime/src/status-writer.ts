@@ -1,10 +1,18 @@
-import fs from "node:fs";
-import { join } from "node:path";
-import { JARVIS_DIR } from "./config.js";
+import { randomUUID } from "node:crypto";
+import os from "node:os";
+import type { DatabaseSync } from "node:sqlite";
 import type { Logger } from "./logger.js";
 
-const STATUS_FILE = join(JARVIS_DIR, "daemon-status.json");
 const WRITE_INTERVAL_MS = 10_000; // 10 seconds
+
+type ActiveRun = {
+  agent_id: string;
+  status: string;
+  step: number;
+  total_steps: number;
+  current_action: string;
+  started_at: string;
+};
 
 export interface DaemonStatusData {
   pid: number;
@@ -17,27 +25,29 @@ export interface DaemonStatusData {
     status: string;
     completed_at: string;
   } | null;
-  current_run: {
-    agent_id: string;
-    status: string;
-    step: number;
-    total_steps: number;
-    current_action: string;
-    started_at: string;
-  } | null;
+  /** @deprecated Use active_runs instead */
+  current_run: ActiveRun | null;
+  /** All currently executing agent runs (supports concurrent execution). */
+  active_runs: ActiveRun[];
 }
 
 /**
- * StatusWriter: periodically writes daemon state to ~/.jarvis/daemon-status.json.
- * The dashboard reads this file to display live daemon info without IPC.
+ * StatusWriter: periodically writes daemon heartbeat to runtime.db.
+ * The dashboard reads from the daemon_heartbeats table to display live daemon info.
+ *
+ * Tracks multiple concurrent runs (AgentQueue supports parallel execution).
  */
 export class StatusWriter {
   private state: DaemonStatusData;
   private timer: ReturnType<typeof setInterval> | null = null;
   private logger: Logger;
+  private daemonId: string;
+  private db: DatabaseSync | null;
 
-  constructor(agentsRegistered: number, schedulesActive: number, logger: Logger) {
+  constructor(agentsRegistered: number, schedulesActive: number, logger: Logger, db?: DatabaseSync) {
     this.logger = logger;
+    this.daemonId = `daemon-${process.pid}`;
+    this.db = db ?? null;
     this.state = {
       pid: process.pid,
       started_at: new Date().toISOString(),
@@ -46,16 +56,14 @@ export class StatusWriter {
       schedules_active: schedulesActive,
       last_run: null,
       current_run: null,
+      active_runs: [],
     };
   }
 
   /** Start periodic writes. Call once after initialization. */
   start(): void {
-    // Write immediately on start
     this.flush();
-    // Then write every WRITE_INTERVAL_MS
     this.timer = setInterval(() => this.flush(), WRITE_INTERVAL_MS);
-    // Unref so this timer doesn't keep the process alive
     if (this.timer && typeof this.timer.unref === "function") {
       this.timer.unref();
     }
@@ -68,14 +76,13 @@ export class StatusWriter {
       clearInterval(this.timer);
       this.timer = null;
     }
-    // Write one final status showing daemon is stopping
     this.flush();
     this.logger.info("Status writer stopped");
   }
 
-  /** Mark an agent run as started. */
+  /** Mark an agent run as started. Supports concurrent runs. */
   setCurrentRun(agentId: string, totalSteps: number): void {
-    this.state.current_run = {
+    const run: ActiveRun = {
       agent_id: agentId,
       status: "executing",
       step: 0,
@@ -83,56 +90,87 @@ export class StatusWriter {
       current_action: "planning",
       started_at: new Date().toISOString(),
     };
+    // Remove any stale entry for this agent (shouldn't happen, but defensive)
+    this.state.active_runs = this.state.active_runs.filter(r => r.agent_id !== agentId);
+    this.state.active_runs.push(run);
+    // Keep current_run as the most recently started for backward compat
+    this.state.current_run = run;
     this.flush();
   }
 
-  /** Update progress of the current run. */
-  updateStep(step: number, action: string): void {
-    if (this.state.current_run) {
-      this.state.current_run.step = step;
-      this.state.current_run.current_action = action;
-      this.state.current_run.status = "executing";
+  /** Update progress of a specific agent's run. */
+  updateStep(agentId: string, step: number, action: string): void {
+    const run = this.state.active_runs.find(r => r.agent_id === agentId);
+    if (run) {
+      run.step = step;
+      run.current_action = action;
+      run.status = "executing";
+      this.state.current_run = run;
       this.flush();
     }
   }
 
-  /** Update total steps (after planning completes). */
-  updateTotalSteps(totalSteps: number): void {
-    if (this.state.current_run) {
-      this.state.current_run.total_steps = totalSteps;
+  /** Update total steps for a specific agent (after planning completes). */
+  updateTotalSteps(agentId: string, totalSteps: number): void {
+    const run = this.state.active_runs.find(r => r.agent_id === agentId);
+    if (run) {
+      run.total_steps = totalSteps;
     }
   }
 
-  /** Mark current run as awaiting approval. */
-  setAwaitingApproval(step: number, action: string): void {
-    if (this.state.current_run) {
-      this.state.current_run.status = "awaiting_approval";
-      this.state.current_run.step = step;
-      this.state.current_run.current_action = action;
+  /** Mark a specific run as awaiting approval. */
+  setAwaitingApproval(agentId: string, step: number, action: string): void {
+    const run = this.state.active_runs.find(r => r.agent_id === agentId);
+    if (run) {
+      run.status = "awaiting_approval";
+      run.step = step;
+      run.current_action = action;
+      this.state.current_run = run;
       this.flush();
     }
   }
 
-  /** Mark current run as completed and move to last_run. */
-  completeRun(status: string): void {
-    if (this.state.current_run) {
+  /** Mark a run as completed and remove from active runs. */
+  completeRun(agentId: string, status: string): void {
+    const idx = this.state.active_runs.findIndex(r => r.agent_id === agentId);
+    if (idx >= 0) {
+      const run = this.state.active_runs[idx];
       this.state.last_run = {
-        agent_id: this.state.current_run.agent_id,
+        agent_id: run.agent_id,
         status,
         completed_at: new Date().toISOString(),
       };
-      this.state.current_run = null;
+      this.state.active_runs.splice(idx, 1);
+      // Update current_run: set to most recent active, or null
+      this.state.current_run = this.state.active_runs.length > 0
+        ? this.state.active_runs[this.state.active_runs.length - 1]
+        : null;
       this.flush();
     }
   }
 
-  /** Write state to disk. */
+  /** Write state to database (daemon_heartbeats table). */
   private flush(): void {
     this.state.updated_at = new Date().toISOString();
+    if (!this.db) return;
+
     try {
-      fs.writeFileSync(STATUS_FILE, JSON.stringify(this.state, null, 2), "utf8");
+      this.db.prepare(`
+        INSERT OR REPLACE INTO daemon_heartbeats (daemon_id, pid, host, version, status, last_seen_at, current_run_id, current_agent_id, details_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        this.daemonId,
+        this.state.pid,
+        os.hostname(),
+        "0.1.0",
+        this.state.active_runs.length > 0 ? "busy" : "idle",
+        this.state.updated_at,
+        null,
+        this.state.active_runs.map(r => r.agent_id).join(",") || null,
+        JSON.stringify(this.state),
+      );
     } catch (e) {
-      this.logger.error(`Failed to write daemon status: ${e instanceof Error ? e.message : String(e)}`);
+      this.logger.error(`Failed to write daemon heartbeat: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 }

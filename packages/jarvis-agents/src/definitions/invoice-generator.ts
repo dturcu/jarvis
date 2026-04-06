@@ -8,7 +8,7 @@ Your job: Generate professional invoices for client engagements, calculate total
 WORKFLOW (run in order):
 1. crm.get_contact — retrieve client details (company, contact person, billing address, engagement)
 2. crm.list_notes — get engagement notes to determine billable items (hours, deliverables, milestones)
-3. inference.chat (haiku) — calculate line items, subtotals, tax, and grand total based on engagement data
+3. inference.chat — calculate line items, subtotals, tax, and grand total based on engagement data
 4. office.fill_docx — fill the TIC invoice DOCX template with:
    - Invoice number (TIC-INV-YYYY-NNN format)
    - Client name, address, contact
@@ -58,8 +58,10 @@ export const invoiceGeneratorAgent: AgentDefinition = {
     { action: "email.send", severity: "critical" },
   ],
   knowledge_collections: ["invoices"],
-  inference_tier: "haiku",
+  task_profile: { objective: "classify", preferences: { prioritize_speed: true } },
   max_steps_per_run: 6,
   system_prompt: INVOICE_GENERATOR_SYSTEM_PROMPT,
   output_channels: ["email:daniel@thinking-in-code.com"],
+  maturity: "trusted_with_review",
+  experimental: true,
 };

@@ -3,8 +3,13 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import { join } from 'node:path'
+import { configureJarvisStatePersistence, getJarvisState } from '@jarvis/shared'
 
 const JARVIS_DIR = join(os.homedir(), '.jarvis')
+const RUNTIME_DB_PATH = join(JARVIS_DIR, 'runtime.sqlite')
+
+// Ensure JarvisState is configured for this process
+configureJarvisStatePersistence({ databasePath: RUNTIME_DB_PATH })
 
 const GITHUB_EVENT_TO_AGENT: Record<string, string> = {
   push: 'evidence-auditor',
@@ -23,17 +28,18 @@ function loadWebhookSecret(): string | undefined {
   }
 }
 
-function writeTrigger(agentId: string, triggeredBy: string, context: Record<string, unknown>): void {
-  if (!fs.existsSync(JARVIS_DIR)) {
-    fs.mkdirSync(JARVIS_DIR, { recursive: true })
-  }
-  const triggerPath = join(JARVIS_DIR, `trigger-${agentId}.json`)
-  fs.writeFileSync(triggerPath, JSON.stringify({
-    agentId,
-    triggeredAt: new Date().toISOString(),
-    triggeredBy,
-    context,
-  }, null, 2))
+/** Submit an agent.start job to JarvisState */
+function submitTrigger(agentId: string, triggeredBy: string, context: Record<string, unknown>): { job_id?: string } {
+  const result = getJarvisState().submitJob({
+    type: "agent.start",
+    input: {
+      agent_id: agentId,
+      trigger_kind: "event",
+      triggered_by: triggeredBy,
+      context,
+    },
+  })
+  return { job_id: result.job_id }
 }
 
 export const webhookRouter = Router()
@@ -74,17 +80,17 @@ webhookRouter.post('/github', (req, res) => {
     return
   }
 
-  writeTrigger(agentId, `webhook:github:${event}`, {
+  const { job_id } = submitTrigger(agentId, `webhook:github:${event}`, {
     github_event: event,
     action: payload.action,
     repository: (payload.repository as Record<string, unknown>)?.full_name,
     sender: (payload.sender as Record<string, unknown>)?.login,
-    payload,
   })
 
   res.json({
     status: 'triggered',
     agentId,
+    job_id,
     event,
     triggeredAt: new Date().toISOString(),
   })
@@ -102,11 +108,12 @@ webhookRouter.post('/generic', (req, res) => {
     return
   }
 
-  writeTrigger(agentId, 'webhook:generic', context)
+  const { job_id } = submitTrigger(agentId, 'webhook:generic', context)
 
   res.json({
     status: 'triggered',
     agentId,
+    job_id,
     triggeredAt: new Date().toISOString(),
   })
 })
@@ -116,11 +123,12 @@ webhookRouter.post('/:agentId', (req, res) => {
   const { agentId } = req.params
   const payload = req.body as Record<string, unknown>
 
-  writeTrigger(agentId, 'webhook', payload)
+  const { job_id } = submitTrigger(agentId, 'webhook', payload)
 
   res.json({
     status: 'triggered',
     agentId,
+    job_id,
     triggeredAt: new Date().toISOString(),
   })
 })

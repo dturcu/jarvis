@@ -1,25 +1,22 @@
 import type { AgentRun, AgentTrigger } from "@jarvis/agent-framework";
+import { getJarvisState } from "@jarvis/shared";
+import type { JobClaimResult } from "@jarvis/shared";
 import type { OrchestratorDeps } from "./orchestrator.js";
 import { runAgent } from "./orchestrator.js";
 import type { Logger } from "./logger.js";
 
-type QueueEntry = {
-  agentId: string;
-  trigger: AgentTrigger;
-  priority: number; // higher = run first
-  enqueuedAt: string;
-};
+const WORKER_ID = `daemon-${process.pid}`;
+const LEASE_SECONDS = 300; // 5 minutes, extended by heartbeat during execution
 
 /**
- * Manages concurrent agent execution with resource-lock awareness.
+ * Manages concurrent agent execution by claiming jobs from JarvisState.
  *
- * Browser-using agents (social-engagement, content-engine) share a single
- * browser resource and cannot run concurrently with each other. All other
- * agents can run in parallel up to `maxConcurrent`.
+ * Instead of maintaining an in-memory queue, this claims durable jobs from
+ * the JarvisState SQLite database. Browser-using agents share a single
+ * browser resource and cannot run concurrently with each other.
  */
 export class AgentQueue {
   private running = new Map<string, Promise<AgentRun>>();
-  private queue: QueueEntry[] = [];
   private maxConcurrent: number;
   private resourceLocks = new Map<string, string>(); // resource -> agentId
 
@@ -35,90 +32,94 @@ export class AgentQueue {
   }
 
   /**
-   * Add an agent run to the queue, sorted by priority (descending).
-   * If the agent is already running or already queued, this is a no-op.
-   */
-  enqueue(agentId: string, trigger: AgentTrigger, priority = 0): void {
-    // Don't enqueue if already running
-    if (this.running.has(agentId)) {
-      this.logger.debug(`Agent ${agentId} already running — skipping enqueue`);
-      return;
-    }
-
-    // Don't enqueue if already in queue
-    if (this.queue.some((e) => e.agentId === agentId)) {
-      this.logger.debug(`Agent ${agentId} already queued — skipping enqueue`);
-      return;
-    }
-
-    this.queue.push({
-      agentId,
-      trigger,
-      priority,
-      enqueuedAt: new Date().toISOString(),
-    });
-
-    // Sort by priority descending, then by enqueue time ascending (FIFO within same priority)
-    this.queue.sort((a, b) => {
-      if (b.priority !== a.priority) return b.priority - a.priority;
-      return a.enqueuedAt.localeCompare(b.enqueuedAt);
-    });
-
-    this.logger.debug(
-      `Enqueued agent ${agentId} (priority=${priority}, queue=${this.queue.length})`,
-    );
-  }
-
-  /**
-   * Process the queue: start as many agents as capacity and resource locks allow.
-   * Called after enqueue and after each agent completion.
+   * Process the queue: claim jobs from JarvisState and start execution
+   * up to capacity and resource lock constraints.
    */
   async processQueue(): Promise<void> {
-    while (this.queue.length > 0 && this.running.size < this.maxConcurrent) {
-      const entry = this.pickNext();
-      if (!entry) break; // All remaining entries are blocked on resources
+    while (this.running.size < this.maxConcurrent) {
+      // Determine which routes are available (skip browser if locked)
+      const routes = ["agent"];
 
-      // Acquire resource locks
-      if (this.browserAgents.has(entry.agentId)) {
-        this.resourceLocks.set("browser", entry.agentId);
-        this.logger.debug(`Acquired browser lock for ${entry.agentId}`);
+      const claim = getJarvisState().claimJob({
+        worker_id: WORKER_ID,
+        routes,
+        lease_seconds: LEASE_SECONDS,
+      });
+
+      if (!claim) break; // No eligible jobs
+
+      const agentId = this.extractAgentId(claim);
+      if (!agentId) {
+        this.logger.warn(`Claimed job ${claim.job_id} has no agent_id — skipping`);
+        this.failClaim(claim, "Missing agent_id in job input");
+        continue;
       }
 
-      // Start the agent run
+      // Check resource locks
+      if (this.browserAgents.has(agentId) && this.resourceLocks.has("browser")) {
+        this.logger.debug(`Skipping ${agentId} — browser locked by ${this.resourceLocks.get("browser")}`);
+        // Release the claim so another worker can pick it up
+        // For now, just break — the job stays claimed and will be requeued on lease expiry
+        break;
+      }
+
+      // Don't run the same agent concurrently
+      if (this.running.has(agentId)) {
+        this.logger.debug(`Agent ${agentId} already running — skipping`);
+        break;
+      }
+
+      // Acquire resource locks
+      if (this.browserAgents.has(agentId)) {
+        this.resourceLocks.set("browser", agentId);
+        this.logger.debug(`Acquired browser lock for ${agentId}`);
+      }
+
+      // Build trigger from job input
+      const trigger = this.buildTrigger(claim);
+
       this.logger.info(
-        `Starting agent ${entry.agentId} (running=${this.running.size + 1}/${this.maxConcurrent}, queued=${this.queue.length})`,
+        `Starting agent ${agentId} (job=${claim.job_id}, running=${this.running.size + 1}/${this.maxConcurrent})`,
       );
 
-      const runPromise = runAgent(entry.agentId, entry.trigger, this.deps)
+      // Start the agent run, passing the claim info for heartbeat and completion
+      const runPromise = runAgent(agentId, trigger, this.deps, {
+        jobId: claim.job_id!,
+        claimId: claim.claim_id!,
+        workerId: WORKER_ID,
+        leaseSeconds: LEASE_SECONDS,
+      })
         .catch((e) => {
           this.logger.error(
-            `Agent ${entry.agentId} failed: ${e instanceof Error ? e.message : String(e)}`,
+            `Agent ${agentId} failed: ${e instanceof Error ? e.message : String(e)}`,
           );
+          // Report failure to JarvisState
+          this.failClaim(claim, e instanceof Error ? e.message : String(e));
           // Return a minimal failed AgentRun so the map entry resolves
           return {
-            run_id: "error",
-            agent_id: entry.agentId,
-            trigger: entry.trigger,
+            run_id: claim.job_id ?? "error",
+            agent_id: agentId,
+            trigger,
             goal: "",
             status: "failed" as const,
             current_step: 0,
             total_steps: 0,
-            started_at: entry.enqueuedAt,
+            started_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             error: e instanceof Error ? e.message : String(e),
           };
         })
         .then((result) => {
           // Release resource locks
-          if (this.browserAgents.has(entry.agentId)) {
+          if (this.browserAgents.has(agentId)) {
             this.resourceLocks.delete("browser");
-            this.logger.debug(`Released browser lock for ${entry.agentId}`);
+            this.logger.debug(`Released browser lock for ${agentId}`);
           }
 
           // Remove from running
-          this.running.delete(entry.agentId);
+          this.running.delete(agentId);
           this.logger.info(
-            `Agent ${entry.agentId} finished (running=${this.running.size}, queued=${this.queue.length})`,
+            `Agent ${agentId} finished (running=${this.running.size})`,
           );
 
           // Process queue again — may unblock waiting entries
@@ -127,46 +128,78 @@ export class AgentQueue {
           return result;
         });
 
-      this.running.set(entry.agentId, runPromise);
+      this.running.set(agentId, runPromise);
+    }
+  }
+
+  /** Extract agent_id from the claimed job's input */
+  private extractAgentId(claim: JobClaimResult): string | undefined {
+    const input = claim.job?.input as Record<string, unknown> | undefined;
+    return typeof input?.agent_id === "string" ? input.agent_id : undefined;
+  }
+
+  /** Build an AgentTrigger from the claimed job's input */
+  private buildTrigger(claim: JobClaimResult): AgentTrigger {
+    const input = claim.job?.input as Record<string, unknown> | undefined;
+    const triggerKind = (input?.trigger_kind as string) ?? "manual";
+
+    if (triggerKind === "schedule") {
+      return { kind: "schedule", cron: (input?.cron as string) ?? "" };
+    }
+    return { kind: "manual" };
+  }
+
+  /** Report a failed claim back to JarvisState */
+  private failClaim(claim: JobClaimResult, message: string): void {
+    if (!claim.job_id) return;
+    try {
+      getJarvisState().handleWorkerCallback({
+        contract_version: "jarvis.v1",
+        job_id: claim.job_id,
+        job_type: claim.job_type ?? "agent.start",
+        attempt: claim.attempt ?? 1,
+        status: "failed",
+        summary: message,
+        worker_id: WORKER_ID,
+        claim_id: claim.claim_id,
+        error: {
+          code: "EXECUTION_ERROR",
+          message,
+          retryable: true,
+        },
+        metrics: {
+          finished_at: new Date().toISOString(),
+        },
+      });
+    } catch (e) {
+      this.logger.error(`Failed to report job failure: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
   /**
-   * Pick the next eligible entry from the queue.
-   * Skips entries that need the browser if it's currently locked.
-   * Removes and returns the entry, or returns undefined if nothing is eligible.
+   * Graceful shutdown: cancel claims for running jobs so they can be requeued on restart.
    */
-  private pickNext(): QueueEntry | undefined {
-    for (let i = 0; i < this.queue.length; i++) {
-      const entry = this.queue[i];
-
-      // Check browser lock: if this agent needs browser and browser is locked by another agent, skip
-      if (
-        this.browserAgents.has(entry.agentId) &&
-        this.resourceLocks.has("browser")
-      ) {
-        this.logger.debug(
-          `Skipping ${entry.agentId} — browser locked by ${this.resourceLocks.get("browser")}`,
-        );
-        continue;
-      }
-
-      // This entry is eligible — remove from queue and return
-      this.queue.splice(i, 1);
-      return entry;
+  async shutdown(): Promise<void> {
+    const runningIds = this.getRunningAgentIds();
+    if (runningIds.length === 0) {
+      this.logger.info("Shutdown: no running agents to release");
+      return;
     }
 
-    return undefined;
+    this.logger.info(`Shutdown: releasing ${runningIds.length} running agent(s): ${runningIds.join(", ")}`);
+    // Claims will expire naturally via lease timeout, allowing requeueExpiredJobs() to
+    // pick them up on restart. No explicit cancellation needed — JarvisState handles this.
+    this.running.clear();
+  }
+
+  /** Get the list of currently running agent IDs (for shutdown coordination). */
+  getRunningAgentIds(): string[] {
+    return Array.from(this.running.keys());
   }
 
   /** Number of agents currently executing */
   get runningCount(): number {
     return this.running.size;
-  }
-
-  /** Number of agents waiting in the queue */
-  get queueLength(): number {
-    return this.queue.length;
   }
 
   /** Check if a specific agent is currently executing */

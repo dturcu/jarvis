@@ -14,9 +14,15 @@ import { analyticsRouter } from './analytics.js'
 import { settingsRouter } from './settings.js'
 import { portalRouter } from './portal.js'
 import { godmodeRouter } from './godmode.js'
+import { policyRouter } from './policy.js'
+import { queueRouter } from './queue.js'
 import os from 'os'
 import { DatabaseSync } from 'node:sqlite'
 import fs from 'fs'
+import { configureJarvisStatePersistence, getJarvisState } from '@jarvis/shared'
+
+const RUNTIME_DB_PATH = join(os.homedir(), '.jarvis', 'runtime.sqlite')
+configureJarvisStatePersistence({ databasePath: RUNTIME_DB_PATH })
 
 const app = express()
 const PORT = Number(process.env.PORT ?? 4242)
@@ -49,6 +55,8 @@ app.use('/api/analytics', analyticsRouter)
 app.use('/api/settings', settingsRouter)
 app.use('/portal/api', portalRouter)
 app.use('/api/godmode', godmodeRouter)
+app.use('/api/policy', policyRouter)
+app.use('/api/queue', queueRouter)
 
 app.get('/api/health', (_req, res) => {
   const jarvisDir = join(os.homedir(), '.jarvis')
@@ -65,13 +73,26 @@ app.get('/api/health', (_req, res) => {
     decisionsCount = (kb.prepare('SELECT COUNT(*) as n FROM decisions').get() as { n: number }).n
     kb.close()
   } catch {}
-  const approvalsPath = join(jarvisDir, 'approvals.json')
+  // JarvisState runtime stats
+  let runtimeStats = { jobs: 0, approvals: 0, dispatches: 0 }
   let pendingApprovals = 0
-  if (fs.existsSync(approvalsPath)) {
-    try {
-      const a = JSON.parse(fs.readFileSync(approvalsPath, 'utf8')) as Array<{ status: string }>
-      pendingApprovals = a.filter(x => x.status === 'pending').length
-    } catch {}
+  try {
+    runtimeStats = getJarvisState().getStats()
+    const state = getJarvisState()
+    const db = (state as unknown as { db: DatabaseSync }).db
+    if (db) {
+      const row = db.prepare("SELECT COUNT(*) AS count FROM approvals WHERE state = 'pending'").get() as { count: number }
+      pendingApprovals = row.count
+    }
+  } catch {
+    // Legacy fallback
+    const approvalsPath = join(jarvisDir, 'approvals.json')
+    if (fs.existsSync(approvalsPath)) {
+      try {
+        const a = JSON.parse(fs.readFileSync(approvalsPath, 'utf8')) as Array<{ status: string }>
+        pendingApprovals = a.filter(x => x.status === 'pending').length
+      } catch {}
+    }
   }
   const telegramConfigured = fs.existsSync(join(jarvisDir, 'config.json'))
 
@@ -82,6 +103,7 @@ app.get('/api/health', (_req, res) => {
     crm: { contacts: crmCount },
     knowledge: { documents: docsCount, playbooks: playbooksCount },
     decisions: { total: decisionsCount },
+    runtime: runtimeStats,
     pendingApprovals,
     telegramConfigured,
     dashboardUrl: `http://localhost:${PORT}`

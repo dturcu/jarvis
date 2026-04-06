@@ -16,13 +16,13 @@ WORKFLOW (run in order):
 2. For each new or modified file:
    a. drive.download_file — download to local staging directory
    b. document.ingest — extract text content, chunk, and index in knowledge store
-   c. inference.chat (haiku) — classify the document:
+   c. inference.chat — classify the document:
       - Type: RFQ, SOW, NDA, MSA, technical_spec, safety_analysis, meeting_notes, proposal, invoice, other
       - Relevance: high (action needed), medium (FYI), low (archive)
       - Related CRM contacts/companies
       - Key entities mentioned (standards, companies, people)
 3. crm.update_contact — if document relates to a known prospect/client, add note
-4. inference.chat (haiku) — generate a brief notification summary:
+4. inference.chat — generate a brief notification summary:
    - File name and type
    - Classification and relevance
    - Key highlights (2-3 bullets)
@@ -64,8 +64,10 @@ export const driveWatcherAgent: AgentDefinition = {
   capabilities: ["drive", "document", "inference", "crm"],
   approval_gates: [],
   knowledge_collections: ["documents", "contracts", "proposals"],
-  inference_tier: "haiku",
+  task_profile: { objective: "classify", preferences: { prioritize_speed: true } },
   max_steps_per_run: 10,
   system_prompt: DRIVE_WATCHER_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
+  maturity: "operational",
+  experimental: true,
 };

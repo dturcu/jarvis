@@ -5,6 +5,7 @@ import { join } from "node:path";
 export const JARVIS_DIR = join(os.homedir(), ".jarvis");
 export const CRM_DB_PATH = join(JARVIS_DIR, "crm.db");
 export const KNOWLEDGE_DB_PATH = join(JARVIS_DIR, "knowledge.db");
+export const RUNTIME_DB_PATH = join(JARVIS_DIR, "runtime.sqlite");
 export const APPROVALS_FILE = join(JARVIS_DIR, "approvals.json");
 export const TELEGRAM_QUEUE_FILE = join(JARVIS_DIR, "telegram-queue.json");
 

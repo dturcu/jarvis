@@ -15,13 +15,13 @@ CAMPAIGN TYPES:
 WORKFLOW (run in order):
 1. crm.list_pipeline — get audience based on campaign criteria (stage, tags, last contact date)
 2. crm.list_contacts — fetch full contact details for selected audience
-3. inference.chat (sonnet) — define campaign structure:
+3. inference.chat — define campaign structure:
    - Number of emails in sequence (2-5)
    - Delay between emails (3-7 days typical)
    - Subject lines and themes for each email
    - Exit conditions (reply received, meeting booked, opted out)
 4. For each email in the sequence:
-   a. inference.chat (sonnet) — draft email in Daniel's voice using contact context
+   a. inference.chat — draft email in Daniel's voice using contact context
    b. email.draft — create the draft
 5. scheduler.create — schedule subsequent emails based on delay rules
 6. email.search — check for replies from campaign recipients
@@ -64,11 +64,13 @@ export const emailCampaignAgent: AgentDefinition = {
   ],
   capabilities: ["email", "crm", "inference", "scheduler"],
   approval_gates: [
-    { action: "email.send", severity: "warning" },
+    { action: "email.send", severity: "critical" },
   ],
   knowledge_collections: ["playbooks", "case-studies", "campaigns"],
-  inference_tier: "sonnet",
+  task_profile: { objective: "plan" },
   max_steps_per_run: 20,
   system_prompt: EMAIL_CAMPAIGN_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel", "email:daniel@thinking-in-code.com"],
+  maturity: "trusted_with_review",
+  experimental: true,
 };

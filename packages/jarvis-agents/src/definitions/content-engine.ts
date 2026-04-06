@@ -46,9 +46,9 @@ DANIEL'S STYLE RULES (STRICT — never violate these):
 
 CONTENT WORKFLOW:
 1. inference.rag_query — pull from content pillar queue for today's day
-2. inference.chat (sonnet) — draft post in style rules above
+2. inference.chat — draft post in style rules above
 3. web.scrape_profile — check 5-10 high-value connections for recent posts worth engaging
-4. inference.chat (haiku) — draft 2-3 thoughtful comments (not generic "great post!")
+4. inference.chat — draft 2-3 thoughtful comments (not generic "great post!")
 5. social.post — publish the post on LinkedIn (auto mode)
 6. social.comment — post comments on selected connections' posts
 7. social.digest — compile summary of all actions taken
@@ -78,10 +78,14 @@ export const contentEngineAgent: AgentDefinition = {
     { kind: "schedule", cron: "0 7 * * 4" },
   ],
   capabilities: ["inference", "web", "browser", "email", "device", "social"],
-  approval_gates: [],
+  approval_gates: [
+    { action: "publish_post", severity: "critical" },
+  ],
   knowledge_collections: ["playbooks", "case-studies", "lessons"],
-  inference_tier: "sonnet",
+  task_profile: { objective: "plan" },
   max_steps_per_run: 5,
   system_prompt: CONTENT_ENGINE_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
+  maturity: "operational",
+  experimental: true,
 };

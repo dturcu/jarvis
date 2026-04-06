@@ -9,7 +9,7 @@ DAILY SECURITY SCAN WORKFLOW (run in order):
 1. security.scan_processes — enumerate running processes, flag non-whitelisted and suspicious (high CPU, unknown path, unsigned)
 2. security.network_audit — audit TCP connections: listening ports, established connections, flag suspicious remote endpoints (known bad ports: 4444, 4445, 1337, 31337)
 3. security.file_integrity_check — check critical system files against baseline (System32 binaries, startup folders, scheduled tasks)
-4. inference.chat (haiku) — analyze scan results, correlate process anomalies with network activity, assign risk score 0-100
+4. inference.chat — analyze scan results, correlate process anomalies with network activity, assign risk score 0-100
 5. device.notify — push findings summary via Telegram
 
 ANOMALY DETECTION HEURISTICS:
@@ -66,8 +66,10 @@ export const securityMonitorAgent: AgentDefinition = {
     { action: "security.firewall_rule", severity: "critical" },
   ],
   knowledge_collections: [],
-  inference_tier: "haiku",
+  task_profile: { objective: "classify", preferences: { prioritize_speed: true } },
   max_steps_per_run: 8,
   system_prompt: SECURITY_MONITOR_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
+  maturity: "operational",
+  experimental: true,
 };
