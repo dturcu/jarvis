@@ -75,4 +75,5 @@ export const bdPipelineAgent: AgentDefinition = {
   max_steps_per_run: 10,
   system_prompt: BD_PIPELINE_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel", "email:daniel@thinking-in-code.com"],
+  planner_mode: "critic",
 };

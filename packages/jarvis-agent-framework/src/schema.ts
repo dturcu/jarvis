@@ -50,6 +50,14 @@ export type TaskProfile = {
   preferences?: TaskPreferences;
 };
 
+/**
+ * Controls how many viewpoints participate in plan generation.
+ * - "single": one planner, no review (default, fast)
+ * - "critic": plan → critic review → optional revision
+ * - "multi": N independent planners → evaluator picks best → optional critic
+ */
+export type PlannerMode = "single" | "critic" | "multi";
+
 export type AgentDefinition = {
   agent_id: string;
   label: string;
@@ -63,4 +71,5 @@ export type AgentDefinition = {
   max_steps_per_run: number;
   system_prompt: string;
   output_channels: string[];
+  planner_mode?: PlannerMode;
 };

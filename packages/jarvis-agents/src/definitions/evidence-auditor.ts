@@ -79,4 +79,5 @@ export const evidenceAuditorAgent: AgentDefinition = {
   max_steps_per_run: 7,
   system_prompt: EVIDENCE_AUDITOR_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
+  planner_mode: "critic",
 };
