@@ -3,6 +3,8 @@ import { DatabaseSync } from 'node:sqlite'
 import os from 'os'
 import { join } from 'path'
 import { listApprovals, resolveApproval } from '@jarvis/runtime'
+import { writeAuditLog, getActor } from './middleware/audit.js'
+import type { AuthenticatedRequest } from './middleware/auth.js'
 
 function getDb(): DatabaseSync {
   const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'runtime.db'))
@@ -37,6 +39,8 @@ approvalsRouter.post('/:id/approve', (req, res) => {
       res.status(404).json({ error: 'Approval not found or already resolved' })
       return
     }
+    const actor = getActor(req as AuthenticatedRequest)
+    writeAuditLog(actor.type, actor.id, 'approval.approved', 'approval', req.params.id!, {})
     const approvals = listApprovals(db)
     const entry = approvals.find(a => a.id === req.params.id)
     res.json(entry)
@@ -54,6 +58,8 @@ approvalsRouter.post('/:id/reject', (req, res) => {
       res.status(404).json({ error: 'Approval not found or already resolved' })
       return
     }
+    const actor = getActor(req as AuthenticatedRequest)
+    writeAuditLog(actor.type, actor.id, 'approval.rejected', 'approval', req.params.id!, {})
     const approvals = listApprovals(db)
     const entry = approvals.find(a => a.id === req.params.id)
     res.json(entry)

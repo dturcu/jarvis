@@ -146,9 +146,18 @@ export function loadConfig(): JarvisRuntimeConfig {
     webhook_secret: typeof raw.webhook_secret === "string" ? raw.webhook_secret : undefined,
   };
 
-  // Environment overrides for paths
+  // Environment overrides
   if (process.env.JARVIS_PROJECT_ROOT) {
     config.project_root = process.env.JARVIS_PROJECT_ROOT;
+  }
+  if (process.env.JARVIS_WEBHOOK_SECRET) {
+    config.webhook_secret = process.env.JARVIS_WEBHOOK_SECRET;
+  }
+  if (process.env.JARVIS_TELEGRAM_BOT_TOKEN && process.env.JARVIS_TELEGRAM_CHAT_ID) {
+    config.telegram = {
+      bot_token: process.env.JARVIS_TELEGRAM_BOT_TOKEN,
+      chat_id: process.env.JARVIS_TELEGRAM_CHAT_ID,
+    };
   }
 
   // Validate

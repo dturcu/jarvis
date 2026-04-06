@@ -16,23 +16,37 @@ import { portalRouter } from './portal.js'
 import { godmodeRouter } from './godmode.js'
 import fs from 'fs'
 import { getHealthReport, getReadinessReport } from '@jarvis/runtime'
+import { createAuthMiddleware } from './middleware/auth.js'
 
 const app = express()
 const PORT = Number(process.env.PORT ?? 4242)
+const ALLOWED_ORIGIN = process.env.JARVIS_CORS_ORIGIN ?? `http://localhost:${PORT}`
 const distPath = join(process.cwd(), 'packages', 'jarvis-dashboard', 'dist')
 const indexHtml = join(distPath, 'index.html')
 
-app.use(express.json())
+// Request size limit
+app.use(express.json({ limit: '1mb' }))
 app.use((req, _res, next) => {
   console.log(`[${req.method}] ${req.path}`)
   next()
 })
+
+// CORS — restricted to configured origin (defaults to localhost)
 app.use((_req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*')
-  res.header('Access-Control-Allow-Headers', 'Content-Type')
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE')
+  res.header('Access-Control-Allow-Origin', ALLOWED_ORIGIN)
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS')
+  res.header('Access-Control-Max-Age', '3600')
   next()
 })
+
+// Handle CORS preflight
+app.options('/{*splat}', (_req, res) => {
+  res.sendStatus(204)
+})
+
+// Auth middleware — protects all /api/* except /api/health and /api/ready
+app.use(createAuthMiddleware())
 
 app.use('/api/crm', crmRouter)
 app.use('/api/knowledge', knowledgeRouter)

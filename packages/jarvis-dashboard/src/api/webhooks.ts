@@ -122,8 +122,39 @@ webhookRouter.post('/github', (req, res) => {
   })
 })
 
+/**
+ * Validate HMAC signature for non-GitHub webhooks when webhook_secret is configured.
+ * Expects X-Jarvis-Signature header with format: sha256=<hex>
+ */
+function validateHmac(req: import('express').Request, secret: string | undefined): boolean {
+  if (!secret) return true; // no secret configured, skip validation
+
+  const signature = req.headers['x-jarvis-signature'] as string | undefined
+  if (!signature) return false
+
+  const hmac = crypto.createHmac('sha256', secret)
+  hmac.update(JSON.stringify(req.body))
+  const expected = 'sha256=' + hmac.digest('hex')
+
+  const sigBuf = Buffer.from(signature)
+  const expBuf = Buffer.from(expected)
+  const maxLen = Math.max(sigBuf.length, expBuf.length)
+  const paddedSig = Buffer.alloc(maxLen)
+  const paddedExp = Buffer.alloc(maxLen)
+  sigBuf.copy(paddedSig)
+  expBuf.copy(paddedExp)
+
+  return sigBuf.length === expBuf.length && crypto.timingSafeEqual(paddedSig, paddedExp)
+}
+
 // POST /api/webhooks/generic — generic JSON webhook
 webhookRouter.post('/generic', (req, res) => {
+  const secret = loadWebhookSecret()
+  if (secret && !validateHmac(req, secret)) {
+    res.status(401).json({ error: 'Invalid or missing X-Jarvis-Signature' })
+    return
+  }
+
   const body = req.body as Record<string, unknown>
   const agentId = body.agent_id as string | undefined
   const context = (body.context as Record<string, unknown>) ?? {}
@@ -144,6 +175,12 @@ webhookRouter.post('/generic', (req, res) => {
 
 // POST /api/webhooks/:agentId — trigger any agent with optional payload
 webhookRouter.post('/:agentId', (req, res) => {
+  const secret = loadWebhookSecret()
+  if (secret && !validateHmac(req, secret)) {
+    res.status(401).json({ error: 'Invalid or missing X-Jarvis-Signature' })
+    return
+  }
+
   const { agentId } = req.params
   const payload = req.body as Record<string, unknown>
 
