@@ -35,7 +35,7 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
   const useReal = config.adapter_mode === "real";
 
   // ─── Inference ──────────────────────────────────────────────────────────
-  const inferenceAdapter = useReal ? new DefaultInferenceAdapter() : new MockInferenceAdapter();
+  const inferenceAdapter = useReal ? new DefaultInferenceAdapter(runtimeDb) : new MockInferenceAdapter();
   const inferenceWorker = createInferenceWorker({ adapter: inferenceAdapter });
 
   // Chat helper for adapters that need LLM access.
@@ -51,12 +51,12 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
     if (!model && runtimeDb) {
       try {
         const { loadRegisteredModels } = await import("@jarvis/inference");
-        const { loadBenchmarks } = await import("@jarvis/inference");
+        const { loadAllBenchmarks } = await import("@jarvis/inference");
         const { selectByProfileWithEvidence } = await import("@jarvis/inference");
 
         const registered = loadRegisteredModels(runtimeDb);
         if (registered.length > 0) {
-          const benchmarks = loadBenchmarks(runtimeDb);
+          const benchmarks = loadAllBenchmarks(runtimeDb);
           const taskProfile = {
             objective: (profile?.objective ?? "answer") as any,
           };

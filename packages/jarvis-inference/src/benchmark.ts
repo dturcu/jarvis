@@ -273,6 +273,58 @@ export function loadBenchmarks(
 }
 
 /**
+ * Load aggregated benchmark data for ALL models.
+ *
+ * Returns one {@link ModelBenchmarkData} entry per model_id, combining
+ * the most recent latency, json_success, and tool_call_success values
+ * from separate benchmark runs.
+ */
+export function loadAllBenchmarks(
+  db: DatabaseSync,
+  maxAgeMs = 24 * 60 * 60 * 1000,
+): Array<import("./router.js").ModelBenchmarkData> {
+  const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
+  const rows = db.prepare(`
+    SELECT model_id, benchmark_type, latency_ms, tokens_per_sec, json_success, tool_call_success
+    FROM model_benchmarks
+    WHERE measured_at > ?
+    ORDER BY measured_at DESC
+  `).all(cutoff) as Array<{
+    model_id: string; benchmark_type: string;
+    latency_ms: number; tokens_per_sec: number | null;
+    json_success: number | null; tool_call_success: number | null;
+  }>;
+
+  const map = new Map<string, {
+    model_id: string;
+    latency_ms: number;
+    tokens_per_sec: number | null;
+    json_success: number | null;
+    tool_call_success: number | null;
+  }>();
+
+  for (const r of rows) {
+    let entry = map.get(r.model_id);
+    if (!entry) {
+      entry = { model_id: r.model_id, latency_ms: 0, tokens_per_sec: null, json_success: null, tool_call_success: null };
+      map.set(r.model_id, entry);
+    }
+    if (r.benchmark_type === "latency" && entry.latency_ms === 0) {
+      entry.latency_ms = r.latency_ms;
+      entry.tokens_per_sec = r.tokens_per_sec;
+    }
+    if (r.benchmark_type === "json_reliability" && entry.json_success === null) {
+      entry.json_success = r.json_success;
+    }
+    if (r.benchmark_type === "tool_call" && entry.tool_call_success === null) {
+      entry.tool_call_success = r.tool_call_success;
+    }
+  }
+
+  return [...map.values()];
+}
+
+/**
  * Check if a model has fresh benchmarks.
  */
 export function hasFreshBenchmarks(db: DatabaseSync, modelId: string, maxAgeMs = 24 * 60 * 60 * 1000): boolean {
