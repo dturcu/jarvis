@@ -380,19 +380,19 @@ describe("Lifecycle Certification", () => {
       store.transition(origRunId, "garden-calendar", "failed", "run_failed", { details: { error: "Weather API down" } });
       store.completeCommand(origRunId, "failed");
 
-      // Insert retry command referencing original via payload
-      const retryPayload = JSON.stringify({ retry_of: "cert-orig-cmd", original_run_id: origRunId });
+      // Insert retry command referencing original run_id (not command_id) via payload
+      const retryPayload = JSON.stringify({ retry_of: origRunId });
       db.prepare(
         "INSERT INTO agent_commands (command_id, command_type, target_agent_id, status, priority, created_at, created_by, payload_json, idempotency_key) VALUES (?, ?, ?, 'queued', 0, ?, ?, ?, ?)",
       ).run("cert-retry-cmd", "run_agent", "garden-calendar", now, "dashboard", retryPayload, "retry-garden-001");
 
-      // Verify new command exists
+      // Verify new command exists with retry_of pointing to run_id
       const retryCmd = db.prepare("SELECT status, payload_json FROM agent_commands WHERE command_id = ?").get("cert-retry-cmd") as {
         status: string;
         payload_json: string;
       };
       expect(retryCmd.status).toBe("queued");
-      expect(JSON.parse(retryCmd.payload_json).retry_of).toBe("cert-orig-cmd");
+      expect(JSON.parse(retryCmd.payload_json).retry_of).toBe(origRunId);
     });
 
     it("retry command has unique idempotency_key", () => {

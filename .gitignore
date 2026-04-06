@@ -5,3 +5,4 @@ packages/*/*.tsbuildinfo
 .artifacts/runtime-smoke/
 .claude/plans/
 ~/
+.claude/scheduled_tasks.lock

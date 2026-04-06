@@ -65,23 +65,23 @@ export class AgentQueue {
    * Add an agent run to the queue, sorted by priority (descending).
    * If the agent is already running or already queued, this is a no-op.
    */
-  enqueue(agentId: string, trigger: AgentTrigger, priority = 0, commandId?: string, commandPayload?: Record<string, unknown>): void {
+  enqueue(agentId: string, trigger: AgentTrigger, priority = 0, commandId?: string, commandPayload?: Record<string, unknown>): boolean {
     // Reject in drain mode
     if (this._draining) {
       this.logger.debug(`Agent ${agentId} rejected — queue is draining`);
-      return;
+      return false;
     }
 
     // Don't enqueue if already running
     if (this.running.has(agentId)) {
       this.logger.debug(`Agent ${agentId} already running — skipping enqueue`);
-      return;
+      return false;
     }
 
     // Don't enqueue if already in queue
     if (this.queue.some((e) => e.agentId === agentId)) {
       this.logger.debug(`Agent ${agentId} already queued — skipping enqueue`);
-      return;
+      return false;
     }
 
     this.queue.push({
@@ -102,6 +102,7 @@ export class AgentQueue {
     this.logger.debug(
       `Enqueued agent ${agentId} (priority=${priority}, queue=${this.queue.length})`,
     );
+    return true;
   }
 
   /**

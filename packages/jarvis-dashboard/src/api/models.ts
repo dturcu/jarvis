@@ -1,12 +1,14 @@
 /**
  * Model registry and benchmark API endpoints.
  *
- * Exposes model discovery results, benchmark summaries, and
- * per-model enable/disable controls.
+ * Exposes model discovery results, benchmark summaries,
+ * per-model enable/disable controls, health checks,
+ * workflow-mapping, and on-demand benchmark triggers.
  */
 
 import { Router } from "express";
 import { DatabaseSync } from "node:sqlite";
+import { randomUUID } from "node:crypto";
 import os from "node:os";
 import { join } from "node:path";
 import { writeAuditLog, getActor } from "./middleware/audit.js";
@@ -19,7 +21,117 @@ function getDb(): DatabaseSync {
   return db;
 }
 
+/** Runtime endpoints to probe for connectivity. */
+const RUNTIME_ENDPOINTS: Array<{ name: string; url: string; probe: string }> = [
+  { name: "lmstudio", url: "http://localhost:1234", probe: "http://localhost:1234/v1/models" },
+  { name: "ollama", url: "http://localhost:11434", probe: "http://localhost:11434/api/tags" },
+];
+
+/** Check if a runtime endpoint is reachable (3s timeout). */
+async function probeRuntime(probeUrl: string): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
+  try {
+    const resp = await fetch(probeUrl, { signal: controller.signal });
+    return resp.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Static workflow-to-tier mapping for V1 agents.
+ * Since @jarvis/agents is not a dependency of the dashboard, this is hardcoded.
+ * The inference tier is derived from each agent's task_profile.objective:
+ *   - "plan" with accuracy preference or complex multi-step → opus
+ *   - "plan" standard → sonnet
+ */
+// Only V1 workflows — aligned with V1_WORKFLOWS from @jarvis/runtime
+const WORKFLOW_MAPPING: Array<{
+  workflow_id: string;
+  agent_id: string;
+  inference_tier: string;
+}> = [
+  { workflow_id: "contract-review", agent_id: "contract-reviewer", inference_tier: "opus" },
+  { workflow_id: "rfq-analysis", agent_id: "evidence-auditor", inference_tier: "sonnet" },
+  { workflow_id: "rfq-analysis", agent_id: "proposal-engine", inference_tier: "opus" },
+  { workflow_id: "bd-pipeline", agent_id: "bd-pipeline", inference_tier: "sonnet" },
+  { workflow_id: "staffing-check", agent_id: "staffing-monitor", inference_tier: "sonnet" },
+  { workflow_id: "weekly-report", agent_id: "evidence-auditor", inference_tier: "sonnet" },
+  { workflow_id: "weekly-report", agent_id: "staffing-monitor", inference_tier: "sonnet" },
+  { workflow_id: "weekly-report", agent_id: "bd-pipeline", inference_tier: "sonnet" },
+];
+
+/** Seven-day staleness threshold in milliseconds. */
+const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
+
 export const modelsRouter = Router();
+
+// GET /health — model runtime health summary
+modelsRouter.get("/health", async (_req, res) => {
+  const db = getDb();
+  try {
+    // Probe each runtime endpoint concurrently
+    const runtimeResults = await Promise.all(
+      RUNTIME_ENDPOINTS.map(async (rt) => ({
+        name: rt.name,
+        url: rt.url,
+        connected: await probeRuntime(rt.probe),
+      }))
+    );
+
+    // Query all models with tags in one query (avoids N+1)
+    const models = db.prepare(`
+      SELECT model_id, runtime, enabled, last_seen_at, tags_json
+      FROM model_registry
+      ORDER BY enabled DESC, last_seen_at DESC
+    `).all() as Array<{
+      model_id: string; runtime: string; enabled: number; last_seen_at: string; tags_json: string | null;
+    }>;
+
+    const latestDiscovery = db.prepare(
+      "SELECT MAX(discovered_at) as latest FROM model_registry"
+    ).get() as { latest: string | null } | undefined;
+
+    const enabledCount = models.filter(m => m.enabled === 1).length;
+    const degraded = enabledCount === 0;
+
+    const modelSummaries = models.map(m => {
+      let tier = "sonnet";
+      try {
+        if (m.tags_json) {
+          const tags = JSON.parse(m.tags_json) as string[];
+          if (tags.includes("opus")) tier = "opus";
+          else if (tags.includes("haiku")) tier = "haiku";
+        }
+      } catch { /* best-effort tier detection */ }
+
+      return {
+        model_id: m.model_id,
+        runtime: m.runtime,
+        tier,
+        enabled: m.enabled === 1,
+        last_seen_at: m.last_seen_at,
+      };
+    });
+
+    res.json({
+      runtimes: runtimeResults,
+      models: modelSummaries,
+      degraded,
+      last_discovery_at: latestDiscovery?.latest ?? null,
+    });
+  } finally {
+    try { db.close(); } catch { /* best-effort */ }
+  }
+});
+
+// GET /workflow-mapping — static tier mapping for V1 workflows
+modelsRouter.get("/workflow-mapping", (_req, res) => {
+  res.json(WORKFLOW_MAPPING);
+});
 
 // GET / — list all registered models with latest benchmark summary
 modelsRouter.get("/", (_req, res) => {
@@ -109,7 +221,76 @@ modelsRouter.patch("/:modelId", (req, res) => {
   }
 });
 
-// GET /:modelId/benchmarks — get detailed benchmark history (runtime via query param)
+// GET /:runtime/:modelId/benchmarks — benchmark history using composite key (runtime, model_id)
+modelsRouter.get("/:runtime/:modelId/benchmarks", (req, res) => {
+  const { runtime, modelId } = req.params;
+  const db = getDb();
+  try {
+    const rows = db.prepare(`
+      SELECT benchmark_type, latency_ms, tokens_per_sec, json_success, tool_call_success, notes_json, measured_at
+      FROM model_benchmarks WHERE model_id = ? AND runtime = ?
+      ORDER BY measured_at DESC LIMIT 50
+    `).all(modelId!, runtime!) as Array<{
+      benchmark_type: string; latency_ms: number;
+      tokens_per_sec: number | null;
+      json_success: number | null;
+      tool_call_success: number | null;
+      notes_json: string;
+      measured_at: string;
+    }>;
+
+    // Determine staleness: if most recent benchmark is >7 days old
+    const now = Date.now();
+    const latestMeasured = rows.length > 0 ? new Date(rows[0].measured_at).getTime() : 0;
+    const stale = rows.length === 0 || (now - latestMeasured) > STALE_THRESHOLD_MS;
+
+    res.json({
+      stale,
+      benchmarks: rows.map(r => ({
+        ...r,
+        notes: r.notes_json ? JSON.parse(r.notes_json) : null,
+        notes_json: undefined,
+      })),
+    });
+  } finally {
+    try { db.close(); } catch { /* best-effort */ }
+  }
+});
+
+// POST /:runtime/:modelId/benchmark — record a benchmark result directly
+// Note: actual inference benchmarking requires the daemon. This endpoint records
+// a latency measurement submitted by the client or a scheduled benchmark task.
+modelsRouter.post("/:runtime/:modelId/benchmark", (req, res) => {
+  const { runtime, modelId } = req.params;
+  const { benchmark_type = "latency", latency_ms, tokens_per_sec, json_success, tool_call_success, notes } = req.body as {
+    benchmark_type?: string; latency_ms?: number; tokens_per_sec?: number;
+    json_success?: boolean; tool_call_success?: boolean; notes?: string;
+  };
+
+  const db = getDb();
+  try {
+    const benchmarkId = randomUUID();
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO model_benchmarks (benchmark_id, runtime, model_id, benchmark_type, latency_ms, tokens_per_sec, json_success, tool_call_success, notes, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(benchmarkId, runtime, modelId, benchmark_type, latency_ms ?? null, tokens_per_sec ?? null,
+      json_success != null ? (json_success ? 1 : 0) : null,
+      tool_call_success != null ? (tool_call_success ? 1 : 0) : null,
+      notes ?? null, now);
+
+    const actor = getActor(req as AuthenticatedRequest);
+    writeAuditLog(actor.type, actor.id, "model.benchmark_recorded", "model", modelId!, { runtime, benchmark_type });
+
+    res.json({ ok: true, benchmark_id: benchmarkId, runtime, model_id: modelId });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
+  } finally {
+    try { db.close(); } catch { /* best-effort */ }
+  }
+});
+
+// GET /:modelId/benchmarks — get detailed benchmark history (legacy route, runtime via query param)
 modelsRouter.get("/:modelId/benchmarks", (req, res) => {
   const { modelId } = req.params;
   const runtime = req.query.runtime as string | undefined;

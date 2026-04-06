@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { DatabaseSync } from 'node:sqlite'
 import os from 'os'
 import { join } from 'path'
 import fs from 'fs'
@@ -153,4 +154,115 @@ settingsRouter.patch('/agents/:id', (req, res) => {
   const actor = getActor(req as AuthenticatedRequest)
   writeAuditLog(actor.type, actor.id, 'agent.toggled', 'agent', id, { enabled: enabled !== false })
   res.json({ id, enabled: enabled !== false })
+})
+
+// ─── Repair API ──────────────────────────────────────────────────────────────
+
+settingsRouter.post('/repair', (req, res) => {
+  const { check = 'all' } = req.body as { check?: 'lmstudio' | 'databases' | 'config' | 'all' }
+  const checks: Array<{ name: string; ok: boolean; message: string }> = []
+
+  if (check === 'config' || check === 'all') {
+    try {
+      const config = readConfig()
+      const hasLms = typeof config.lmstudio_url === 'string'
+      const hasMode = typeof config.adapter_mode === 'string'
+      checks.push({ name: 'config', ok: hasLms && hasMode, message: hasLms && hasMode ? 'Config valid' : 'Missing lmstudio_url or adapter_mode' })
+    } catch {
+      checks.push({ name: 'config', ok: false, message: 'Cannot read config.json' })
+    }
+  }
+
+  if (check === 'databases' || check === 'all') {
+    for (const dbName of ['runtime.db', 'crm.db', 'knowledge.db']) {
+      const dbPath = join(JARVIS_DIR, dbName)
+      if (!fs.existsSync(dbPath)) {
+        checks.push({ name: dbName, ok: false, message: `${dbName} not found` })
+      } else {
+        let db: DatabaseSync | undefined
+        try {
+          db = new DatabaseSync(dbPath)
+          db.prepare('SELECT 1').get()
+          checks.push({ name: dbName, ok: true, message: `${dbName} accessible` })
+        } catch {
+          checks.push({ name: dbName, ok: false, message: `${dbName} corrupted or locked` })
+        } finally {
+          try { db?.close() } catch {}
+        }
+      }
+    }
+  }
+
+  if (check === 'lmstudio' || check === 'all') {
+    // Sync check — just verify config has a URL
+    const config = readConfig()
+    const url = config.lmstudio_url as string | undefined
+    checks.push({ name: 'lmstudio', ok: !!url, message: url ? `LM Studio configured at ${url}` : 'No lmstudio_url in config' })
+  }
+
+  const allOk = checks.every(c => c.ok)
+  const actor = getActor(req as AuthenticatedRequest)
+  writeAuditLog(actor.type, actor.id, 'settings.repair', 'settings', check, { checks })
+  res.json({ repaired: allOk, checks, message: allOk ? 'All checks passed' : 'Some checks failed — see details' })
+})
+
+// ─── Expert Mode API ───────────────────────────────────────────────────────
+
+function getModeDb(): DatabaseSync {
+  const dbPath = join(JARVIS_DIR, 'runtime.db')
+  if (!fs.existsSync(dbPath)) {
+    throw new Error('runtime.db not found')
+  }
+  const db = new DatabaseSync(dbPath)
+  db.exec("PRAGMA journal_mode = WAL;")
+  db.exec("PRAGMA busy_timeout = 5000;")
+  return db
+}
+
+export const modeRouter = Router()
+
+// GET / — read current UI mode
+modeRouter.get('/', (_req, res) => {
+  let db: DatabaseSync | null = null
+  try {
+    db = getModeDb()
+    const row = db.prepare(
+      "SELECT value_json FROM settings WHERE key = 'ui_mode'"
+    ).get() as { value_json: string } | undefined
+
+    const mode = row ? JSON.parse(row.value_json) as string : 'simple'
+    res.json({ mode })
+  } catch {
+    // If DB doesn't exist yet, default to simple
+    res.json({ mode: 'simple' })
+  } finally {
+    try { db?.close() } catch { /* best-effort */ }
+  }
+})
+
+// POST / — set UI mode
+modeRouter.post('/', (req, res) => {
+  const { mode } = req.body as { mode?: string }
+
+  if (mode !== 'simple' && mode !== 'expert') {
+    res.status(400).json({ error: 'mode must be "simple" or "expert"' })
+    return
+  }
+
+  let db: DatabaseSync | null = null
+  try {
+    db = getModeDb()
+    db.prepare(
+      "INSERT OR REPLACE INTO settings (key, value_json, updated_at) VALUES ('ui_mode', ?, ?)"
+    ).run(JSON.stringify(mode), new Date().toISOString())
+
+    const actor = getActor(req as AuthenticatedRequest)
+    writeAuditLog(actor.type, actor.id, 'mode.changed', 'settings', 'ui_mode', { mode })
+
+    res.json({ mode })
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : String(e) })
+  } finally {
+    try { db?.close() } catch { /* best-effort */ }
+  }
 })
