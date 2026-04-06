@@ -7,7 +7,7 @@ export type ApprovalEntry = {
   action: string;
   payload: string;
   created_at: string;
-  status: "pending" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected" | "expired";
   run_id: string;
   severity: "info" | "warning" | "critical";
   resolved_at?: string;
@@ -122,7 +122,7 @@ export function resolveApproval(
  */
 export function listApprovals(
   db: DatabaseSync,
-  status?: "pending" | "approved" | "rejected",
+  status?: "pending" | "approved" | "rejected" | "expired",
 ): ApprovalEntry[] {
   if (status) {
     return db.prepare(

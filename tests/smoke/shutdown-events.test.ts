@@ -134,11 +134,14 @@ describe("Shutdown: daemon contract (RunStore.transition + daemon_shutdown event
 
     simulateDaemonShutdown(db);
 
-    // Approval was expired
+    // Approval was expired (not rejected — expired is the correct shutdown status)
     const allApprovals = listApprovals(db);
     const approval = allApprovals.find(a => a.id === approvalId);
     expect(approval!.status).toBe("expired");
     expect(approval!.resolved_by).toContain("daemon");
+
+    // Verify that waitForApproval would map 'expired' to 'rejected' for callers
+    // (this is tested in the approval-bridge, but confirm the DB state is correct)
 
     // Run was failed
     expect(store.getStatus(runId)).toBe("failed");

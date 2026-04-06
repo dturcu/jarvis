@@ -38,6 +38,6 @@ policyRouter.get('/actions/:action', (req, res) => {
   if (requirement) {
     res.json({ action, requirement })
   } else {
-    res.json({ action, requirement: 'denied', reason: 'Unknown action family' })
+    res.status(404).json({ action, reason: 'Unknown action family' })
   }
 })

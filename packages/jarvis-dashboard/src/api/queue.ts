@@ -14,17 +14,19 @@ export const queueRouter = Router()
 
 // GET / — list queued and claimed commands, ordered by priority then creation time
 queueRouter.get('/', (_req, res) => {
+  let db: DatabaseSync | undefined
   try {
-    const db = getRuntimeDb()
+    db = getRuntimeDb()
     const rows = db.prepare(`
       SELECT command_id, target_agent_id, command_type, status, priority, created_at, created_by, claimed_at
       FROM agent_commands
       WHERE status IN ('queued', 'claimed')
       ORDER BY CASE priority WHEN 0 THEN 1 ELSE 0 END, priority DESC, created_at ASC
     `).all() as Record<string, unknown>[]
-    db.close()
     res.json(rows)
   } catch {
     res.json([])
+  } finally {
+    try { db?.close() } catch { /* best-effort */ }
   }
 })
