@@ -85,6 +85,7 @@ export const contentEngineAgent: AgentDefinition = {
   task_profile: { objective: "plan" },
   max_steps_per_run: 5,
   system_prompt: CONTENT_ENGINE_SYSTEM_PROMPT,
+  experimental: true,
   output_channels: ["telegram:daniel"],
   maturity: "operational",
 };

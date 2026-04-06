@@ -1,74 +1,45 @@
 /**
- * Jarvis initialization script — production bootstrap.
+ * Jarvis demo data seeder.
  *
- * Creates ~/.jarvis/ directory and initializes the CRM, Knowledge, and Runtime
-<<<<<<< HEAD
- * SQLite databases via the migration runner. Also initializes the state
- * persistence database.
+ * Seeds the CRM and Knowledge databases with demonstration data:
+ * - 5 fake contacts in the CRM pipeline
+ * - 9 knowledge documents across collections
+ * - 5 playbooks
  *
- * No demo data is seeded here. For demo data, run:
- *   npx tsx scripts/seed-demo.ts
+ * Idempotent — skips seeding if data already exists in the target tables.
  *
- * Idempotent — if databases already exist, applies any pending migrations.
-=======
- * SQLite databases via the migration runner. Seeds initial data on first creation.
- *
- * Idempotent — if databases already exist, applies any pending migrations and skips seeding.
->>>>>>> origin/master
+ * Requires init-jarvis.ts to have been run first (databases must exist).
  *
  * Usage:
- *   npx tsx scripts/init-jarvis.ts
+ *   npx tsx scripts/seed-demo.ts
  */
 
-import { existsSync, mkdirSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
+import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import {
-  runMigrations,
-  RUNTIME_MIGRATIONS,
+  CRM_DB_PATH,
+  KNOWLEDGE_DB_PATH,
+  JARVIS_DIR,
+  initDatabase,
+} from "./init-jarvis.js";
+import {
   CRM_MIGRATIONS,
   KNOWLEDGE_MIGRATIONS,
-<<<<<<< HEAD
-  type Migration,
-} from "../packages/jarvis-runtime/src/migrations/runner.js";
-import { configureJarvisStatePersistence } from "../packages/jarvis-shared/src/state.js";
-
-// ─── Paths ──────────────────────────────────────────────────────────────────
-
-export const JARVIS_DIR = join(homedir(), ".jarvis");
-export const CRM_DB_PATH = join(JARVIS_DIR, "crm.db");
-export const KNOWLEDGE_DB_PATH = join(JARVIS_DIR, "knowledge.db");
-export const RUNTIME_DB_PATH = join(JARVIS_DIR, "runtime.db");
-export const STATE_DB_PATH = join(JARVIS_DIR, "state.sqlite");
-=======
 } from "../packages/jarvis-runtime/src/migrations/runner.js";
 
-// ─── Paths ──────────────────────────────────────────────────────────────────
+function now(): string {
+  return new Date().toISOString();
+}
 
-const JARVIS_DIR = join(homedir(), ".jarvis");
-const CRM_DB_PATH = join(JARVIS_DIR, "crm.db");
-const KNOWLEDGE_DB_PATH = join(JARVIS_DIR, "knowledge.db");
-const RUNTIME_DB_PATH = join(JARVIS_DIR, "runtime.db");
->>>>>>> origin/master
+// ─── CRM Demo Data ─────────────────────────────────────────────────────────
 
-// ─── Database Initialization ────────────────────────────────────────────────
-
-export function initDatabase(
-  label: string,
-  dbPath: string,
-  migrations: Migration[],
-): boolean {
-  const isNew = !existsSync(dbPath);
-
-<<<<<<< HEAD
-=======
 function seedCrmData(db: DatabaseSync): void {
   const ts = now();
   const contacts = [
     {
       id: randomUUID(),
-      name: "François Sagnely",
+      name: "Fran\u00e7ois Sagnely",
       company: "Bertrandt",
       role: "AUTOSAR Architect",
       email: "f.sagnely@bertrandt.com",
@@ -80,7 +51,7 @@ function seedCrmData(db: DatabaseSync): void {
     },
     {
       id: randomUUID(),
-      name: "Anna Lindström",
+      name: "Anna Lindstr\u00f6m",
       company: "Volvo Cars",
       role: "Safety Lead",
       email: "anna.lindstrom@volvocars.com",
@@ -143,7 +114,7 @@ function seedCrmData(db: DatabaseSync): void {
   console.log(`            Seeded ${contacts.length} contacts`);
 }
 
-// ─── Knowledge Database ─────────────────────────────────────────────────────
+// ─── Knowledge Demo Data ────────────────────────────────────────────────────
 
 function seedKnowledgeData(db: DatabaseSync): void {
   const ts = now();
@@ -175,7 +146,7 @@ function seedKnowledgeData(db: DatabaseSync): void {
     },
     {
       collection: "case-studies",
-      title: "Volvo: ASIL-D E/E architecture safety analysis — 12-week engagement",
+      title: "Volvo: ASIL-D E/E architecture safety analysis \u2014 12-week engagement",
       content:
         "Scope: HARA + FSC + TSR for full vehicle E/E architecture. Team: 2 senior safety engineers. Deliverables: HARA report, FSC, TSR document set, DIA with 3 Tier-1s. Key challenges: late requirement changes from powertrain team, conflicting ASIL decomposition between domains. Resolution: weekly alignment calls with system architect, formal change request process with traceability tags.",
       tags: JSON.stringify(["volvo", "asil-d", "hara", "fsc", "tsr", "case-study"]),
@@ -183,7 +154,7 @@ function seedKnowledgeData(db: DatabaseSync): void {
     },
     {
       collection: "proposals",
-      title: "Standard rate card — Thinking in Code 2026",
+      title: "Standard rate card \u2014 Thinking in Code 2026",
       content:
         "Senior Safety Engineer (ISO 26262 / ASPICE): \u20AC130-180/h. Safety Architect (ASIL-D, system level): \u20AC160-200/h. Cyber Security Engineer (UN R155, ISO 21434): \u20AC120-160/h. AUTOSAR Architect: \u20AC140-180/h. Project Lead (technical): \u20AC110-140/h. Standard engagement: T&M with 3-month minimum. Fixed-price only for well-scoped work products (e.g., single HARA, single FMEA). Never T&M for safety-critical delivery milestones.",
       tags: JSON.stringify(["rate-card", "pricing", "engagement-model"]),
@@ -191,7 +162,7 @@ function seedKnowledgeData(db: DatabaseSync): void {
     },
     {
       collection: "iso26262",
-      title: "ISO 26262 Part 6 — Required work products by ASIL level",
+      title: "ISO 26262 Part 6 \u2014 Required work products by ASIL level",
       content:
         "ASIL A/B: Software safety plan (6-5), software design specification (6-8), unit implementation (6-9), unit verification (6-10). ASIL C adds: formal review of unit tests, MC/DC coverage evidence. ASIL D adds: independent review, structural coverage 100% statement + branch + MC/DC, formal inspection records. All ASILs: software requirements spec (6-7), integration test spec+report (6-11), software safety validation report (6-12), configuration management records.",
       tags: JSON.stringify(["iso26262", "part6", "asil", "work-products", "checklist"]),
@@ -199,7 +170,7 @@ function seedKnowledgeData(db: DatabaseSync): void {
     },
     {
       collection: "contracts",
-      title: "NDA baseline — Thinking in Code preferred terms",
+      title: "NDA baseline \u2014 Thinking in Code preferred terms",
       content:
         "Jurisdiction: Romania or EU member state (not US/UK). Confidentiality term: 3 years post-engagement (not indefinite). IP: assign only specific deliverables explicitly listed in SOW, not background IP. Liability cap: total fees paid in preceding 3 months. Indemnity: mutual and symmetric. Non-compete: geographic scope limited to direct competitors, max 12 months. Payment: Net 30 from invoice date. Governing language: English.",
       tags: JSON.stringify(["nda", "contract", "terms", "ip", "liability", "jurisdiction"]),
@@ -215,7 +186,7 @@ function seedKnowledgeData(db: DatabaseSync): void {
     },
     {
       collection: "garden",
-      title: "Ia\u0219i zone 6b — historical frost dates and growing season",
+      title: "Ia\u0219i zone 6b \u2014 historical frost dates and growing season",
       content:
         "Last spring frost: April 15 (average), safe transplant after April 20. First fall frost: October 15 (average). Growing season: ~178 days. Risk dates: late frost risk until May 1, early frost risk from October 1. Warm season crops (tomatoes, peppers, cucumbers): transplant after May 1 for safety. Cool season crops (lettuce, spinach, kale): direct sow March-April, again August-September.",
       tags: JSON.stringify(["zone6b", "iasi", "frost", "growing-season", "planting"]),
@@ -261,7 +232,7 @@ function seedKnowledgeData(db: DatabaseSync): void {
       tags: JSON.stringify(["gate", "delivery", "change-management", "process"]),
     },
     {
-      title: "Proposal cover email template — RFQ response",
+      title: "Proposal cover email template \u2014 RFQ response",
       category: "sales",
       body: "Subject: [Company] \u00d7 Thinking in Code \u2014 Response to [RFQ Title]\n\nHi [Name],\n\nAttached is our response to your RFQ for [scope area].\n\nThree things worth noting:\n1. [Specific technical differentiator for their context]\n2. We\u2019ve included a phased option so you can validate approach before committing to full scope.\n3. [Specific team member / past project relevance]\n\nHappy to walk through the approach on a call \u2014 what does your schedule look like this week?\n\nDaniel",
       tags: JSON.stringify(["email", "rfq", "template", "cover-letter"]),
@@ -282,80 +253,52 @@ function seedKnowledgeData(db: DatabaseSync): void {
   console.log(`            Seeded ${docs.length} documents, ${playbooks.length} playbooks`);
 }
 
-// ─── Database Initialization ────────────────────────────────────────────────
-
-function initDatabase(
-  label: string,
-  dbPath: string,
-  migrations: import("../packages/jarvis-runtime/src/migrations/runner.js").Migration[],
-  seedFn?: (db: DatabaseSync) => void,
-): boolean {
-  const isNew = !existsSync(dbPath);
-
->>>>>>> origin/master
-  const db = new DatabaseSync(dbPath);
-  try {
-    db.exec("PRAGMA journal_mode = WAL;");
-    db.exec("PRAGMA foreign_keys = ON;");
-    db.exec("PRAGMA busy_timeout = 5000;");
-
-    runMigrations(db, migrations);
-
-    const applied = db.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number };
-<<<<<<< HEAD
-=======
-
-    if (isNew && seedFn) {
-      seedFn(db);
-    }
-
->>>>>>> origin/master
-    console.log(`  [${isNew ? "created" : "updated"}] ${label} database: ${dbPath} (${applied.n} migration(s))`);
-  } finally {
-    db.close();
-  }
-  return isNew;
-}
-
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 function main(): void {
-  console.log("Jarvis initialization");
-  console.log("=====================\n");
+  console.log("Jarvis demo data seeder");
+  console.log("=======================\n");
 
-  // Ensure ~/.jarvis/ exists
   if (!existsSync(JARVIS_DIR)) {
-    mkdirSync(JARVIS_DIR, { recursive: true });
-    console.log(`  [created] ${JARVIS_DIR}\n`);
-  } else {
-    console.log(`  [exists]  ${JARVIS_DIR}\n`);
+    console.error(`  ERROR: ${JARVIS_DIR} does not exist. Run 'npx tsx scripts/init-jarvis.ts' first.`);
+    process.exit(1);
   }
 
-<<<<<<< HEAD
-  const crmCreated = initDatabase("CRM", CRM_DB_PATH, CRM_MIGRATIONS);
-  const knowledgeCreated = initDatabase("Knowledge", KNOWLEDGE_DB_PATH, KNOWLEDGE_MIGRATIONS);
-  const runtimeCreated = initDatabase("Runtime", RUNTIME_DB_PATH, RUNTIME_MIGRATIONS);
+  // Ensure databases exist (idempotent — runs migrations if needed)
+  initDatabase("CRM", CRM_DB_PATH, CRM_MIGRATIONS);
+  initDatabase("Knowledge", KNOWLEDGE_DB_PATH, KNOWLEDGE_MIGRATIONS);
 
-  // Initialize state persistence database
-  configureJarvisStatePersistence({ databasePath: STATE_DB_PATH });
-  const stateIsNew = !existsSync(STATE_DB_PATH);
-  console.log(`  [${stateIsNew ? "created" : "updated"}] State database: ${STATE_DB_PATH}`);
-=======
-  const crmCreated = initDatabase("CRM", CRM_DB_PATH, CRM_MIGRATIONS, seedCrmData);
-  const knowledgeCreated = initDatabase("Knowledge", KNOWLEDGE_DB_PATH, KNOWLEDGE_MIGRATIONS, seedKnowledgeData);
-  const runtimeCreated = initDatabase("Runtime", RUNTIME_DB_PATH, RUNTIME_MIGRATIONS);
->>>>>>> origin/master
+  // Seed CRM data (idempotent — skip if contacts exist)
+  const crmDb = new DatabaseSync(CRM_DB_PATH);
+  try {
+    crmDb.exec("PRAGMA journal_mode = WAL;");
+    crmDb.exec("PRAGMA foreign_keys = ON;");
+    const contactCount = (crmDb.prepare("SELECT COUNT(*) as n FROM contacts").get() as { n: number }).n;
+    if (contactCount > 0) {
+      console.log(`  [skipped] CRM already has ${contactCount} contacts — demo data exists`);
+    } else {
+      seedCrmData(crmDb);
+    }
+  } finally {
+    crmDb.close();
+  }
 
-  console.log("\n── Summary ──────────────────────────────────────────────");
-  console.log(`  Directory:    ${JARVIS_DIR}`);
-  console.log(`  CRM DB:       ${crmCreated ? "CREATED" : "already existed"}`);
-  console.log(`  Knowledge DB: ${knowledgeCreated ? "CREATED" : "already existed"}`);
-  console.log(`  Runtime DB:   ${runtimeCreated ? "CREATED" : "already existed"}`);
-<<<<<<< HEAD
-  console.log(`  State DB:     ${STATE_DB_PATH}`);
-=======
->>>>>>> origin/master
-  console.log("  Done.\n");
+  // Seed Knowledge data (idempotent — skip if documents exist)
+  const knowledgeDb = new DatabaseSync(KNOWLEDGE_DB_PATH);
+  try {
+    knowledgeDb.exec("PRAGMA journal_mode = WAL;");
+    knowledgeDb.exec("PRAGMA foreign_keys = ON;");
+    const docCount = (knowledgeDb.prepare("SELECT COUNT(*) as n FROM documents").get() as { n: number }).n;
+    if (docCount > 0) {
+      console.log(`  [skipped] Knowledge already has ${docCount} documents — demo data exists`);
+    } else {
+      seedKnowledgeData(knowledgeDb);
+    }
+  } finally {
+    knowledgeDb.close();
+  }
+
+  console.log("\n  Done.\n");
 }
 
 main();

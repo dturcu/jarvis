@@ -300,6 +300,7 @@ class JarvisState {
       JarvisApprovalState,
       "approved" | "rejected" | "expired" | "cancelled"
     >,
+    resolvedBy?: string,
   ): ApprovalRecord | null {
     const record = this.getApproval(approvalId);
     if (!record) {
@@ -309,7 +310,8 @@ class JarvisState {
     const updated: ApprovalRecord = {
       ...record,
       state,
-      resolved_at: nowIso()
+      resolved_at: nowIso(),
+      resolved_by: resolvedBy,
     };
     this.writeApprovalRecord(updated);
     return updated;

@@ -82,4 +82,7 @@ export type AgentDefinition = {
   output_channels: string[];
   planner_mode?: PlannerMode;
   maturity?: AgentMaturity;
+  inference_tier?: "haiku" | "sonnet" | "opus";
+  /** When true, this agent is not part of the V1 production surface. */
+  experimental?: boolean;
 };

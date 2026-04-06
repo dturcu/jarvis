@@ -70,6 +70,7 @@ export const emailCampaignAgent: AgentDefinition = {
   task_profile: { objective: "plan" },
   max_steps_per_run: 20,
   system_prompt: EMAIL_CAMPAIGN_SYSTEM_PROMPT,
+  experimental: true,
   output_channels: ["telegram:daniel", "email:daniel@thinking-in-code.com"],
   maturity: "trusted_with_review",
 };

@@ -28,7 +28,11 @@
     "setup:status": "tsx scripts/setup-jarvis.ts status",
     "plugin:install": "tsx scripts/plugin-manager.ts install",
     "plugin:list": "tsx scripts/plugin-manager.ts list",
-    "plugin:remove": "tsx scripts/plugin-manager.ts remove"
+    "plugin:remove": "tsx scripts/plugin-manager.ts remove",
+    "seed:demo": "tsx scripts/seed-demo.ts",
+    "backup": "tsx scripts/backup.ts",
+    "restore": "tsx scripts/restore.ts",
+    "doctor": "tsx scripts/doctor.ts"
   },
   "engines": {
     "node": ">=22.5.0"
