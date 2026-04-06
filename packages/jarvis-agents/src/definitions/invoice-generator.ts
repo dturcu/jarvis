@@ -62,4 +62,5 @@ export const invoiceGeneratorAgent: AgentDefinition = {
   max_steps_per_run: 6,
   system_prompt: INVOICE_GENERATOR_SYSTEM_PROMPT,
   output_channels: ["email:daniel@thinking-in-code.com"],
+  maturity: "trusted_with_review",
 };

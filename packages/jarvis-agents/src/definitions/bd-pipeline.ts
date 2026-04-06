@@ -76,4 +76,5 @@ export const bdPipelineAgent: AgentDefinition = {
   system_prompt: BD_PIPELINE_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel", "email:daniel@thinking-in-code.com"],
   planner_mode: "critic",
+  maturity: "trusted_with_review",
 };

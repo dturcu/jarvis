@@ -15,6 +15,26 @@ export class SqliteEntityGraph {
   constructor(dbPath: string) {
     this.db = new DatabaseSync(dbPath);
     this.db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
+    this.ensureProvenanceTable();
+  }
+
+  private ensureProvenanceTable(): void {
+    try {
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS entity_provenance (
+          provenance_id TEXT PRIMARY KEY,
+          entity_id TEXT NOT NULL,
+          change_type TEXT NOT NULL,
+          agent_id TEXT NOT NULL,
+          run_id TEXT,
+          step_no INTEGER,
+          action TEXT,
+          changed_at TEXT NOT NULL
+        )
+      `);
+      this.db.exec("CREATE INDEX IF NOT EXISTS idx_prov_entity ON entity_provenance(entity_id)");
+      this.db.exec("CREATE INDEX IF NOT EXISTS idx_prov_agent ON entity_provenance(agent_id)");
+    } catch { /* best-effort — may already exist */ }
   }
 
   close(): void {
@@ -23,9 +43,13 @@ export class SqliteEntityGraph {
 
   // ─── Entity operations ──────────────────────────────────────────────────────
 
+  /**
+   * Provenance context for tracking which agent run caused a change.
+   */
   upsertEntity(
     params: Omit<GraphEntity, "entity_id" | "seen_by" | "created_at" | "updated_at">,
     agentId: string,
+    provenance?: { run_id: string; step_no?: number; action?: string },
   ): GraphEntity {
     const now = new Date().toISOString();
 
@@ -48,6 +72,8 @@ export class SqliteEntityGraph {
           params.name, JSON.stringify(merged), JSON.stringify(seenBy),
           now, existing.entity_id as string,
         );
+
+        this.writeProvenance(existing.entity_id as string, "updated", agentId, provenance);
 
         return this.rowToEntity({ ...existing, name: params.name, attributes: JSON.stringify(merged), seen_by: JSON.stringify(seenBy), updated_at: now });
       }
@@ -73,6 +99,8 @@ export class SqliteEntityGraph {
         now, byName.entity_id as string,
       );
 
+      this.writeProvenance(byName.entity_id as string, "updated", agentId, provenance);
+
       return this.rowToEntity({ ...byName, canonical_key: canonicalKey, attributes: JSON.stringify(merged), seen_by: JSON.stringify(seenBy), updated_at: now });
     }
 
@@ -87,6 +115,8 @@ export class SqliteEntityGraph {
       entityId, params.entity_type, params.name, params.canonical_key ?? null,
       JSON.stringify(params.attributes), JSON.stringify(seenBy), now, now,
     );
+
+    this.writeProvenance(entityId, "created", agentId, provenance);
 
     return {
       entity_id: entityId,
@@ -198,6 +228,56 @@ export class SqliteEntityGraph {
     const by_type: Record<string, number> = {};
     for (const r of typeRows) by_type[r.entity_type] = r.cnt;
     return { entity_count: entityCount, relation_count: relationCount, by_type };
+  }
+
+  // ─── Provenance ─────────────────────────────────────────────────────────────
+
+  /**
+   * Get provenance history for an entity (who changed it, when, which run).
+   */
+  getProvenance(entityId: string, limit = 20): Array<{
+    change_type: string;
+    agent_id: string;
+    run_id: string | null;
+    step_no: number | null;
+    action: string | null;
+    changed_at: string;
+  }> {
+    try {
+      return this.db.prepare(`
+        SELECT change_type, agent_id, run_id, step_no, action, changed_at
+        FROM entity_provenance
+        WHERE entity_id = ?
+        ORDER BY changed_at DESC
+        LIMIT ?
+      `).all(entityId, limit) as Array<{
+        change_type: string; agent_id: string; run_id: string | null;
+        step_no: number | null; action: string | null; changed_at: string;
+      }>;
+    } catch {
+      // Table may not exist yet (pre-migration)
+      return [];
+    }
+  }
+
+  private writeProvenance(
+    entityId: string,
+    changeType: "created" | "updated" | "deleted",
+    agentId: string,
+    provenance?: { run_id: string; step_no?: number; action?: string },
+  ): void {
+    try {
+      this.db.prepare(`
+        INSERT INTO entity_provenance (provenance_id, entity_id, change_type, agent_id, run_id, step_no, action, changed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        randomUUID(), entityId, changeType, agentId,
+        provenance?.run_id ?? null, provenance?.step_no ?? null,
+        provenance?.action ?? null, new Date().toISOString(),
+      );
+    } catch {
+      // Table may not exist yet — non-fatal
+    }
   }
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
