@@ -1,6 +1,8 @@
 import { DatabaseSync } from "node:sqlite";
 import { migration0001 } from "./0001_runtime_core.js";
 import { migration0002 } from "./0002_production_fixes.js";
+import { crmMigration0001 } from "./crm_0001_core.js";
+import { knowledgeMigration0001 } from "./knowledge_0001_core.js";
 
 export type Migration = {
   id: string;        // e.g. "0001"
@@ -8,10 +10,20 @@ export type Migration = {
   sql: string;       // DDL statements
 };
 
-/** All registered migrations in order. Add new migrations to this array. */
-const ALL_MIGRATIONS: Migration[] = [
+/** Runtime DB migrations — control plane tables. */
+export const RUNTIME_MIGRATIONS: Migration[] = [
   migration0001,
   migration0002,
+];
+
+/** CRM DB migrations — contacts, notes, stages, campaigns. */
+export const CRM_MIGRATIONS: Migration[] = [
+  crmMigration0001,
+];
+
+/** Knowledge DB migrations — documents, playbooks, entities, decisions, memory, vectors. */
+export const KNOWLEDGE_MIGRATIONS: Migration[] = [
+  knowledgeMigration0001,
 ];
 
 /**
@@ -22,8 +34,11 @@ const ALL_MIGRATIONS: Migration[] = [
  * transaction is rolled back and startup is aborted.
  *
  * Migrations are idempotent: already-applied migrations are skipped.
+ *
+ * @param db - The database to migrate.
+ * @param migrations - Migration list to apply. Defaults to RUNTIME_MIGRATIONS for backward compat.
  */
-export function runMigrations(db: DatabaseSync): void {
+export function runMigrations(db: DatabaseSync, migrations: Migration[] = RUNTIME_MIGRATIONS): void {
   // Create tracking table
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -40,7 +55,7 @@ export function runMigrations(db: DatabaseSync): void {
     applied.add(row.id);
   }
 
-  for (const migration of ALL_MIGRATIONS) {
+  for (const migration of migrations) {
     if (applied.has(migration.id)) continue;
 
     try {
