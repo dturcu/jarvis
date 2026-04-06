@@ -134,7 +134,7 @@ function checkDatabases() {
   checkDatabase("CRM", CRM_DB_PATH, ["contacts", "notes", "stage_history"]);
   checkDatabase("Knowledge", KNOWLEDGE_DB_PATH, ["documents", "playbooks", "entities", "relations", "decisions"]);
   checkDatabase("Runtime", RUNTIME_DB_PATH, [
-    "schema_migrations", "approvals", "agent_commands", "run_events",
+    "schema_migrations", "approvals", "agent_commands", "runs", "run_events",
     "daemon_heartbeats", "notifications", "plugin_installs", "audit_log",
     "settings", "model_registry", "model_benchmarks", "schedules", "agent_memory",
   ]);
