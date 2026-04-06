@@ -2,6 +2,8 @@ import { Router } from 'express'
 import os from 'os'
 import { join } from 'path'
 import fs from 'fs'
+import { writeAuditLog, getActor } from './middleware/audit.js'
+import type { AuthenticatedRequest } from './middleware/auth.js'
 
 const JARVIS_DIR = join(os.homedir(), '.jarvis')
 const CONFIG_PATH = join(JARVIS_DIR, 'config.json')
@@ -119,6 +121,8 @@ settingsRouter.patch('/', (req, res) => {
   }
   const merged = deepMerge(config, updates, maskedConfig)
   writeConfig(merged)
+  const actor = getActor(req as AuthenticatedRequest)
+  writeAuditLog(actor.type, actor.id, 'settings.updated', 'settings', 'config', { keys: Object.keys(updates) })
   res.json(maskSensitive(merged))
 })
 
@@ -146,5 +150,7 @@ settingsRouter.patch('/agents/:id', (req, res) => {
   if (!config.enabled_agents) config.enabled_agents = {}
   ;(config.enabled_agents as Record<string, boolean>)[id] = enabled !== false
   writeConfig(config)
+  const actor = getActor(req as AuthenticatedRequest)
+  writeAuditLog(actor.type, actor.id, 'agent.toggled', 'agent', id, { enabled: enabled !== false })
   res.json({ id, enabled: enabled !== false })
 })
