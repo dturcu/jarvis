@@ -61,7 +61,7 @@ async function main() {
   }
 
   // Register plugin agents
-  const pluginManifests = loadPlugins();
+  const pluginManifests = loadPlugins(logger);
   for (const manifest of pluginManifests) {
     try {
       runtime.registerAgent(manifest.agent);

@@ -15,5 +15,10 @@ export { createFilesWorkerBridge } from "./files-bridge.js";
 export { StatusWriter, type DaemonStatusData } from "./status-writer.js";
 export { AgentQueue } from "./agent-queue.js";
 export { RagPipeline } from "./rag-pipeline.js";
-export { loadPlugins, installPlugin, uninstallPlugin, listPlugins, type PluginManifest } from "./plugin-loader.js";
+export {
+  loadPlugins, installPlugin, uninstallPlugin, listPlugins,
+  validateManifest, deriveRequiredPermissions, isActionPermitted,
+  PLUGIN_PERMISSIONS,
+  type PluginManifest, type PluginPermission, type ManifestValidationResult, type InstallResult,
+} from "./plugin-loader.js";
 export { getHealthReport, getReadinessReport, type HealthReport, type HealthStatus, type ReadinessReport } from "./health.js";
