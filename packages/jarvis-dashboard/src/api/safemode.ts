@@ -29,11 +29,11 @@ safemodeRouter.get('/', (_req, res) => {
       db = new DatabaseSync(RUNTIME_DB_PATH)
       db.exec('PRAGMA journal_mode = WAL;')
       db.exec('PRAGMA busy_timeout = 5000;')
-      // Quick integrity check — verify key tables exist
+      // Quick integrity check — verify key tables exist (must match daemon + POST /exit)
       const tables = db.prepare(
-        "SELECT COUNT(*) as n FROM sqlite_master WHERE type = 'table' AND name IN ('runs', 'approvals', 'daemon_heartbeats')"
+        "SELECT COUNT(*) as n FROM sqlite_master WHERE type = 'table' AND name IN ('runs', 'approvals', 'agent_commands', 'daemon_heartbeats')"
       ).get() as { n: number }
-      if (tables.n < 3) {
+      if (tables.n < 4) {
         checks.databases_ok = false
         reason = 'Runtime database is missing required tables'
       }
@@ -51,7 +51,11 @@ safemodeRouter.get('/', (_req, res) => {
     if (!reason) reason = 'Configuration file missing'
   } else {
     try {
-      JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8'))
+      const parsed = JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) as Record<string, unknown>
+      if (!parsed.lmstudio_url || !parsed.adapter_mode) {
+        checks.config_ok = false
+        if (!reason) reason = 'Configuration missing required fields (lmstudio_url or adapter_mode)'
+      }
     } catch {
       checks.config_ok = false
       if (!reason) reason = 'Configuration file is invalid JSON'

@@ -272,12 +272,12 @@ modelsRouter.post("/:runtime/:modelId/benchmark", (req, res) => {
     const benchmarkId = randomUUID();
     const now = new Date().toISOString();
     db.prepare(`
-      INSERT INTO model_benchmarks (benchmark_id, runtime, model_id, benchmark_type, latency_ms, tokens_per_sec, json_success, tool_call_success, notes, created_at)
+      INSERT INTO model_benchmarks (benchmark_id, runtime, model_id, benchmark_type, latency_ms, tokens_per_sec, json_success, tool_call_success, notes_json, measured_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(benchmarkId, runtime, modelId, benchmark_type, latency_ms ?? null, tokens_per_sec ?? null,
       json_success != null ? (json_success ? 1 : 0) : null,
       tool_call_success != null ? (tool_call_success ? 1 : 0) : null,
-      notes ?? null, now);
+      notes != null ? JSON.stringify(notes) : null, now);
 
     const actor = getActor(req as AuthenticatedRequest);
     writeAuditLog(actor.type, actor.id, "model.benchmark_recorded", "model", modelId!, { runtime, benchmark_type });

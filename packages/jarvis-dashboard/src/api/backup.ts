@@ -8,7 +8,7 @@ import type { AuthenticatedRequest } from './middleware/auth.js'
 
 const JARVIS_DIR = join(os.homedir(), '.jarvis')
 const BACKUPS_DIR = join(JARVIS_DIR, 'backups')
-const CONFIG_PATH = join(JARVIS_DIR, 'config.json')
+
 
 // Files to include in backup. Include WAL/SHM sidecars for SQLite consistency.
 const BACKUP_FILES = ['config.json', 'crm.db', 'knowledge.db', 'runtime.db']
@@ -185,7 +185,7 @@ backupRouter.post('/restore', (req, res) => {
           const staleness = Date.now() - new Date(heartbeat.last_seen_at).getTime()
           if (staleness < 30_000) {
             // Daemon appears to be running
-            if (!req.body.force) {
+            if (req.body.force !== true) {
               res.status(409).json({
                 ok: false,
                 error: 'Daemon is running. Stop it before restoring, or pass force: true to override.',
@@ -196,11 +196,21 @@ backupRouter.post('/restore', (req, res) => {
           }
         }
       } catch {
-        // If we can't read runtime.db, daemon is likely not running — proceed
+        // Cannot read runtime.db — fail closed unless force
+        if (req.body.force !== true) {
+          res.status(409).json({
+            ok: false,
+            error: 'Cannot verify daemon status (runtime.db unreadable). Pass force: true to override.',
+          })
+          return
+        }
       } finally {
         try { checkDb?.close() } catch { /* best-effort */ }
       }
     }
+
+    // Ensure target directory exists (fresh install or deleted dir)
+    fs.mkdirSync(JARVIS_DIR, { recursive: true })
 
     // Copy each safe file back to ~/.jarvis/
     const restored: string[] = []

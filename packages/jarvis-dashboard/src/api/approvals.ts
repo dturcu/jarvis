@@ -92,8 +92,10 @@ approvalsRouter.post('/:id/approve', (req, res) => {
       return
     }
     // Note: resolveApproval() already writes an audit_log entry atomically — no duplicate here
+    // Return enriched response (consistent with GET /)
     const approvals = listApprovals(db)
-    const entry = approvals.find(a => a.id === req.params.id)
+    const enriched = enrichApprovals(db, approvals)
+    const entry = enriched.find(a => a.id === req.params.id)
     res.json(entry)
   } finally {
     try { db.close() } catch { /* best-effort */ }
@@ -111,7 +113,8 @@ approvalsRouter.post('/:id/reject', (req, res) => {
     }
     // Note: resolveApproval() already writes an audit_log entry atomically — no duplicate here
     const approvals = listApprovals(db)
-    const entry = approvals.find(a => a.id === req.params.id)
+    const enriched = enrichApprovals(db, approvals)
+    const entry = enriched.find(a => a.id === req.params.id)
     res.json(entry)
   } finally {
     try { db.close() } catch { /* best-effort */ }

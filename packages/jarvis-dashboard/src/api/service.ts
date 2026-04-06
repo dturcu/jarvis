@@ -106,18 +106,22 @@ serviceRouter.post('/restart', (req, res) => {
   }
 })
 
-// GET /restart-policy — document what happens to each run state on daemon restart
+// GET /restart-policy — document what happens on daemon shutdown + restart
 serviceRouter.get('/restart-policy', (_req, res) => {
   res.json({
-    states: {
-      queued: { on_restart: 'eligible for claim', action: 'none' },
-      claimed: { on_restart: 'released to queued after 10min stale threshold', action: 'automatic' },
-      planning: { on_restart: 'marked failed with daemon_shutdown', action: 'operator must retry' },
-      executing: { on_restart: 'marked failed with daemon_shutdown', action: 'operator must retry' },
-      awaiting_approval: { on_restart: 'pending approvals expired, run marked failed', action: 'operator must retry' },
-      completed: { on_restart: 'no change', action: 'none' },
-      failed: { on_restart: 'no change', action: 'none' },
-      cancelled: { on_restart: 'no change', action: 'none' },
+    run_states: {
+      planning: { on_shutdown: 'marked failed with daemon_shutdown event', on_restart: 'stays failed', action: 'operator must retry' },
+      executing: { on_shutdown: 'marked failed with daemon_shutdown event', on_restart: 'stays failed', action: 'operator must retry' },
+      awaiting_approval: { on_shutdown: 'pending approvals expired, run marked failed', on_restart: 'stuck runs without pending approvals also failed', action: 'operator must retry' },
+      completed: { on_shutdown: 'no change', on_restart: 'no change', action: 'none' },
+      failed: { on_shutdown: 'no change', on_restart: 'no change', action: 'none' },
+      cancelled: { on_shutdown: 'no change', on_restart: 'no change', action: 'none' },
+    },
+    command_states: {
+      queued: { on_shutdown: 'no change', on_restart: 'eligible for claim', action: 'none' },
+      claimed: { on_shutdown: 'released back to queued', on_restart: 'stale claims (>10min) released to queued', action: 'automatic' },
+      completed: { on_shutdown: 'no change', on_restart: 'no change', action: 'none' },
+      failed: { on_shutdown: 'no change', on_restart: 'no change', action: 'none' },
     },
   })
 })
