@@ -184,11 +184,12 @@ export function deriveRequiredPermissions(capabilities: string[]): PluginPermiss
 
 /**
  * Check if a plugin's agent action is allowed by its granted permissions.
+ * Fails closed: unknown/unmapped action families are denied.
  */
 export function isActionPermitted(action: string, grantedPermissions: PluginPermission[]): boolean {
   const prefix = action.split(".")[0];
   const required = CAPABILITY_PERMISSION_MAP[prefix];
-  if (!required) return true; // Unknown prefix — allow (built-in actions)
+  if (!required) return false; // Unknown prefix — deny (fail closed)
   return grantedPermissions.includes(required);
 }
 

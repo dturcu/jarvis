@@ -1,9 +1,7 @@
 // Usage: node push.js <agent-id> <message>
 // Or: tsx packages/jarvis-telegram/src/push.ts <agent-id> <message>
-import fs from 'fs'
-import { QUEUE_FILE } from './config.js'
-
-type QueueEntry = { agent: string; message: string; ts: string; sent: boolean }
+import { randomUUID } from 'node:crypto'
+import { openRuntimeDb } from './config.js'
 
 function main() {
   const [,, agentId, ...messageParts] = process.argv
@@ -14,13 +12,20 @@ function main() {
     process.exit(1)
   }
 
-  const queue: QueueEntry[] = fs.existsSync(QUEUE_FILE)
-    ? JSON.parse(fs.readFileSync(QUEUE_FILE, 'utf8')) as QueueEntry[]
-    : []
-
-  queue.push({ agent: agentId, message, ts: new Date().toISOString(), sent: false })
-  fs.writeFileSync(QUEUE_FILE, JSON.stringify(queue, null, 2))
-  console.log(`Queued message for ${agentId}`)
+  const db = openRuntimeDb()
+  try {
+    db.prepare(`
+      INSERT INTO notifications (notification_id, channel, kind, payload_json, status, created_at)
+      VALUES (?, 'telegram', 'agent_notification', ?, 'pending', ?)
+    `).run(
+      randomUUID(),
+      JSON.stringify({ agent: agentId, message }),
+      new Date().toISOString(),
+    )
+    console.log(`Queued message for ${agentId}`)
+  } finally {
+    try { db.close() } catch {}
+  }
 }
 
 // Only run when invoked directly

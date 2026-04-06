@@ -4,20 +4,23 @@ import type { SQLInputValue } from 'node:sqlite'
 import os from 'os'
 import { join } from 'path'
 
-function getDb() {
-  return new DatabaseSync(join(os.homedir(), '.jarvis', 'knowledge.db'))
+function getRuntimeDb() {
+  const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'runtime.db'))
+  db.exec("PRAGMA journal_mode = WAL;")
+  db.exec("PRAGMA busy_timeout = 5000;")
+  return db
 }
 
 export const runsRouter = Router()
 
-// GET / — list recent runs, paginated, optional agent filter
+// GET / — list recent runs from runtime.db, paginated, optional agent filter
 runsRouter.get('/', (req, res) => {
   const { agent, limit = '50', offset = '0' } = req.query as {
     agent?: string; limit?: string; offset?: string
   }
   try {
-    const db = getDb()
-    let sql = 'SELECT * FROM agent_runs WHERE 1=1'
+    const db = getRuntimeDb()
+    let sql = 'SELECT * FROM runs WHERE 1=1'
     const params: SQLInputValue[] = []
     if (agent && agent !== 'all') {
       sql += ' AND agent_id = ?'
@@ -27,40 +30,28 @@ runsRouter.get('/', (req, res) => {
     params.push(Number(limit), Number(offset))
     const rows = db.prepare(sql).all(...params) as Record<string, unknown>[]
     db.close()
-    // Parse plan_json for each row
-    const runs = rows.map(r => {
-      let plan = null
-      if (r.plan_json && typeof r.plan_json === 'string') {
-        try { plan = JSON.parse(r.plan_json) } catch {}
-      }
-      return { ...r, plan }
-    })
-    res.json(runs)
+    res.json(rows)
   } catch {
     res.json([])
   }
 })
 
-// GET /:runId — full run detail with parsed plan + decisions
+// GET /:runId — full run detail with events from runtime.db
 runsRouter.get('/:runId', (req, res) => {
   try {
-    const db = getDb()
-    const run = db.prepare('SELECT * FROM agent_runs WHERE run_id = ?').get(req.params.runId) as Record<string, unknown> | undefined
+    const db = getRuntimeDb()
+    const run = db.prepare('SELECT * FROM runs WHERE run_id = ?').get(req.params.runId) as Record<string, unknown> | undefined
     if (!run) {
       db.close()
       res.status(404).json({ error: 'Run not found' })
       return
     }
-    let plan = null
-    if (run.plan_json && typeof run.plan_json === 'string') {
-      try { plan = JSON.parse(run.plan_json as string) } catch {}
-    }
-    // Get decisions for this run
-    const decisions = db.prepare(
-      'SELECT * FROM decisions WHERE run_id = ? ORDER BY decision_id ASC'
+    // Get run events for this run
+    const events = db.prepare(
+      'SELECT * FROM run_events WHERE run_id = ? ORDER BY created_at ASC'
     ).all(req.params.runId)
     db.close()
-    res.json({ ...run, plan, decisions })
+    res.json({ ...run, events })
   } catch {
     res.status(500).json({ error: 'Database error' })
   }

@@ -181,21 +181,10 @@ async function main() {
         if (cmd.command_type === "run_agent" && cmd.target_agent_id) {
           logger.info(`Command ${cmd.command_id}: run_agent ${cmd.target_agent_id}`);
 
-          // Enqueue the agent — command stays 'claimed' until agent completes.
-          // The orchestrator links the command_id to the run via RunStore,
-          // and RunStore.completeCommand() marks it completed/failed when the run ends.
-          agentQueue.enqueue(cmd.target_agent_id, { kind: "manual" });
-
-          // Store command_id so orchestrator can link it to the run
-          try {
-            runtimeDb.prepare(
-              "INSERT OR REPLACE INTO settings (key, value_json, updated_at) VALUES (?, ?, ?)",
-            ).run(
-              `pending_command:${cmd.target_agent_id}`,
-              JSON.stringify(cmd.command_id),
-              new Date().toISOString(),
-            );
-          } catch { /* best-effort */ }
+          // Enqueue the agent with command_id for atomic linkage.
+          // The orchestrator receives command_id via trigger and links it to the run directly.
+          // RunStore.completeCommand() marks the command completed/failed when the run ends.
+          agentQueue.enqueue(cmd.target_agent_id, { kind: "manual" }, 0, cmd.command_id);
         } else {
           logger.warn(`Unknown command type: ${cmd.command_type}`);
           runtimeDb.prepare(

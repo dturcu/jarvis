@@ -11,9 +11,11 @@ import {
   selectModel,
   selectByProfileWithEvidence,
   loadAllBenchmarks,
+  loadRegisteredModels,
   indexDocuments,
   queryRag,
   type LlmRuntime,
+  type ModelInfo,
   type TaskProfile,
 } from "@jarvis/inference";
 import type { DatabaseSync } from "node:sqlite";
@@ -44,183 +46,221 @@ const batchStore = new Map<
   { jobs: InferenceBatchJobStatus[]; submittedAt: string }
 >();
 
-async function getAvailableRuntimes(): Promise<LlmRuntime[]> {
-  const runtimes = await detectRuntimes();
-  return runtimes.filter((r) => r.available);
-}
+/** Well-known runtime URLs. LM Studio URL can be overridden via config. */
+const DEFAULT_RUNTIME_URLS: Record<string, string> = {
+  ollama: "http://localhost:11434",
+  lmstudio: "http://localhost:1234",
+};
 
 export class DefaultInferenceAdapter implements InferenceAdapter {
   private runtimeDb?: DatabaseSync;
+  private runtimeUrls: Record<string, string>;
 
-  constructor(runtimeDb?: DatabaseSync) {
+  constructor(runtimeDb?: DatabaseSync, lmStudioUrl?: string) {
     this.runtimeDb = runtimeDb;
+    this.runtimeUrls = {
+      ...DEFAULT_RUNTIME_URLS,
+      ...(lmStudioUrl ? { lmstudio: lmStudioUrl } : {}),
+    };
   }
 
-  async chat(input: InferenceChatInput): Promise<ExecutionOutcome<InferenceChatOutput>> {
-    const available = await getAvailableRuntimes();
+  /**
+   * Resolve a runtime baseUrl from registry model info.
+   * Checks availability before returning.
+   */
+  private async resolveRuntimeUrl(runtimeName: string): Promise<string> {
+    const baseUrl = this.runtimeUrls[runtimeName];
+    if (!baseUrl) {
+      throw new InferenceWorkerError(
+        "RUNTIME_UNAVAILABLE",
+        `Unknown runtime '${runtimeName}'. Known: ${Object.keys(this.runtimeUrls).join(", ")}`,
+        true,
+      );
+    }
+    return baseUrl;
+  }
+
+  /**
+   * Primary model selection: load from registry, select with evidence.
+   * Returns null if registry is empty (triggers fallback to live discovery).
+   */
+  private selectFromRegistry(
+    profile: TaskProfile,
+    explicitModel?: string,
+  ): { model: ModelInfo; source: "registry" } | null {
+    if (!this.runtimeDb) return null;
+
+    try {
+      const registered = loadRegisteredModels(this.runtimeDb);
+      if (registered.length === 0) return null;
+
+      if (explicitModel) {
+        const match = registered.find(m => m.id === explicitModel);
+        if (match) return { model: match, source: "registry" };
+        return null; // explicit model not in registry — fall through to discovery
+      }
+
+      const benchmarks = loadAllBenchmarks(this.runtimeDb);
+      const selected = selectByProfileWithEvidence(registered, profile, benchmarks);
+      if (selected) return { model: selected, source: "registry" };
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Fallback: live discovery (used only on first boot before registry is populated).
+   */
+  private async discoverAndSelect(
+    profile: TaskProfile,
+    explicitModel?: string,
+  ): Promise<{ model: ModelInfo; runtimeUrl: string }> {
+    const runtimes = await detectRuntimes();
+    const available = runtimes.filter(r => r.available);
     if (available.length === 0) {
       throw new InferenceWorkerError(
         "RUNTIME_UNAVAILABLE",
         "No local LLM runtimes are available. Ensure Ollama or LM Studio is running.",
-        true
+        true,
       );
     }
 
-    // Build model list across all available runtimes
     const allModels = await Promise.all(
       available.map(async (runtime) => {
         const ids = await listModels(runtime.baseUrl);
-        return ids.map((id) => buildModelInfo(id, runtime.name));
-      })
+        return ids.map(id => buildModelInfo(id, runtime.name));
+      }),
     );
     const flatModels = allModels.flat();
 
-    // If a specific model was requested, use it
-    let targetRuntime: LlmRuntime;
-    let modelId: string;
-
-    if (input.model) {
-      const match = flatModels.find((m) => m.id === input.model);
+    if (explicitModel) {
+      const match = flatModels.find(m => m.id === explicitModel);
       if (!match) {
-        throw new InferenceWorkerError(
-          "MODEL_NOT_FOUND",
-          `Model '${input.model}' was not found on any available runtime.`,
-          false
-        );
+        throw new InferenceWorkerError("MODEL_NOT_FOUND", `Model '${explicitModel}' not found.`, false);
       }
-      const rt = available.find((r) => r.name === match.runtime);
+      const rt = available.find(r => r.name === match.runtime);
       if (!rt) {
-        throw new InferenceWorkerError("RUNTIME_UNAVAILABLE", `Runtime '${match.runtime}' is not available.`, true);
+        throw new InferenceWorkerError("RUNTIME_UNAVAILABLE", `Runtime '${match.runtime}' unavailable.`, true);
       }
-      targetRuntime = rt;
-      modelId = match.id;
+      return { model: match, runtimeUrl: rt.baseUrl };
+    }
+
+    const selected = selectModel(flatModels, "balanced_local");
+    if (!selected) {
+      throw new InferenceWorkerError("NO_SUITABLE_MODEL", "No suitable model available.", true);
+    }
+    const rt = available.find(r => r.name === selected.runtime);
+    if (!rt) {
+      throw new InferenceWorkerError("RUNTIME_UNAVAILABLE", `Runtime '${selected.runtime}' unavailable.`, true);
+    }
+    return { model: selected, runtimeUrl: rt.baseUrl };
+  }
+
+  async chat(input: InferenceChatInput): Promise<ExecutionOutcome<InferenceChatOutput>> {
+    const profile: TaskProfile = { objective: "answer" };
+    let modelId: string;
+    let runtimeUrl: string;
+
+    // Primary path: registry + evidence-backed selection
+    const fromRegistry = this.selectFromRegistry(profile, input.model);
+    if (fromRegistry) {
+      modelId = fromRegistry.model.id;
+      runtimeUrl = await this.resolveRuntimeUrl(fromRegistry.model.runtime);
     } else {
-      // Evidence-backed selection: use benchmarks from DB when available,
-      // fall back to heuristic-only selection when no DB or no benchmarks.
-      let selected = null;
-      if (this.runtimeDb) {
-        try {
-          const benchmarks = loadAllBenchmarks(this.runtimeDb);
-          const profile: TaskProfile = { objective: "answer" };
-          selected = selectByProfileWithEvidence(flatModels, profile, benchmarks);
-        } catch {
-          // Fall through to heuristic
-        }
-      }
-      if (!selected) {
-        selected = selectModel(flatModels, "balanced_local");
-      }
-      if (!selected) {
-        throw new InferenceWorkerError(
-          "NO_SUITABLE_MODEL",
-          "No suitable model available.",
-          true
-        );
-      }
-      const rt = available.find((r) => r.name === selected.runtime);
-      if (!rt) {
-        throw new InferenceWorkerError("RUNTIME_UNAVAILABLE", `Runtime '${selected.runtime}' is not available.`, true);
-      }
-      targetRuntime = rt;
-      modelId = selected.id;
+      // Fallback: live discovery (first boot only, before daemon populates registry)
+      const discovered = await this.discoverAndSelect(profile, input.model);
+      modelId = discovered.model.id;
+      runtimeUrl = discovered.runtimeUrl;
     }
 
     const result = await chatCompletion({
-      baseUrl: targetRuntime.baseUrl,
+      baseUrl: runtimeUrl,
       model: modelId,
       messages: input.messages,
       temperature: input.temperature,
-      maxTokens: input.max_tokens
+      maxTokens: input.max_tokens,
     });
 
     const output: InferenceChatOutput = {
       content: result.content,
       model: result.model,
-      runtime: targetRuntime.name,
+      runtime: runtimeUrl.includes("11434") ? "ollama" : "lmstudio",
       usage: {
         prompt_tokens: result.usage.prompt_tokens,
         completion_tokens: result.usage.completion_tokens,
-        total_tokens: result.usage.prompt_tokens + result.usage.completion_tokens
-      }
+        total_tokens: result.usage.prompt_tokens + result.usage.completion_tokens,
+      },
     };
 
-    const tokenSummary = `${output.usage.total_tokens} tokens`;
     return {
-      summary: `Chat completed via ${targetRuntime.name} (${modelId}): ${tokenSummary}.`,
-      structured_output: output
+      summary: `Chat completed via ${output.runtime} (${modelId}): ${output.usage.total_tokens} tokens.`,
+      structured_output: output,
     };
   }
 
   async embed(input: InferenceEmbedInput): Promise<ExecutionOutcome<InferenceEmbedOutput>> {
-    const available = await getAvailableRuntimes();
-    if (available.length === 0) {
-      throw new InferenceWorkerError(
-        "RUNTIME_UNAVAILABLE",
-        "No local LLM runtimes are available for embedding.",
-        true
-      );
-    }
-
-    const allModels = await Promise.all(
-      available.map(async (runtime) => {
-        const ids = await listModels(runtime.baseUrl);
-        return ids.map((id) => buildModelInfo(id, runtime.name));
-      })
-    );
-    const flatModels = allModels.flat();
-
-    let targetRuntime: LlmRuntime;
     let modelId: string;
+    let runtimeUrl: string;
+    let runtimeName: "ollama" | "lmstudio";
 
-    if (input.model) {
-      const match = flatModels.find((m) => m.id === input.model);
-      if (!match) {
-        throw new InferenceWorkerError(
-          "MODEL_NOT_FOUND",
-          `Embedding model '${input.model}' was not found.`,
-          false
-        );
+    // Primary path: registry
+    if (this.runtimeDb && input.model) {
+      const registered = loadRegisteredModels(this.runtimeDb);
+      const match = registered.find(m => m.id === input.model);
+      if (match) {
+        modelId = match.id;
+        runtimeUrl = await this.resolveRuntimeUrl(match.runtime);
+        runtimeName = match.runtime;
+      } else {
+        const discovered = await this.discoverAndSelect({ objective: "extract" }, input.model);
+        modelId = discovered.model.id;
+        runtimeUrl = discovered.runtimeUrl;
+        runtimeName = discovered.model.runtime;
       }
-      const rt = available.find((r) => r.name === match.runtime);
-      if (!rt) {
-        throw new InferenceWorkerError("RUNTIME_UNAVAILABLE", `Runtime '${match.runtime}' is not available.`, true);
+    } else if (this.runtimeDb) {
+      const registered = loadRegisteredModels(this.runtimeDb);
+      const selected = selectEmbeddingModel(registered);
+      if (selected) {
+        modelId = selected.id;
+        runtimeUrl = await this.resolveRuntimeUrl(selected.runtime);
+        runtimeName = selected.runtime;
+      } else {
+        const discovered = await this.discoverAndSelect({ objective: "extract" });
+        modelId = discovered.model.id;
+        runtimeUrl = discovered.runtimeUrl;
+        runtimeName = discovered.model.runtime;
       }
-      targetRuntime = rt;
-      modelId = match.id;
     } else {
-      const selected = selectEmbeddingModel(flatModels);
-      if (!selected) {
-        throw new InferenceWorkerError("NO_SUITABLE_MODEL", "No embedding model available.", true);
-      }
-      const rt = available.find((r) => r.name === selected.runtime);
-      if (!rt) {
-        throw new InferenceWorkerError("RUNTIME_UNAVAILABLE", `Runtime '${selected.runtime}' is not available.`, true);
-      }
-      targetRuntime = rt;
-      modelId = selected.id;
+      const discovered = await this.discoverAndSelect({ objective: "extract" }, input.model);
+      modelId = discovered.model.id;
+      runtimeUrl = discovered.runtimeUrl;
+      runtimeName = discovered.model.runtime;
     }
 
     const result = await embedTexts({
-      baseUrl: targetRuntime.baseUrl,
+      baseUrl: runtimeUrl,
       model: modelId,
-      texts: input.texts
+      texts: input.texts,
     });
 
     const dimensions = result.embeddings[0]?.length ?? 0;
     const output: InferenceEmbedOutput = {
       embeddings: result.embeddings,
       model: modelId,
-      runtime: targetRuntime.name,
-      dimensions
+      runtime: runtimeName!,
+      dimensions,
     };
 
     return {
-      summary: `Embedded ${input.texts.length} text(s) via ${targetRuntime.name} (${modelId}), ${dimensions} dimensions.`,
-      structured_output: output
+      summary: `Embedded ${input.texts.length} text(s) via ${runtimeName!} (${modelId}), ${dimensions} dimensions.`,
+      structured_output: output,
     };
   }
 
   async listModels(input: InferenceListModelsInput): Promise<ExecutionOutcome<InferenceListModelsOutput>> {
+    // listModels is an explicit discovery action — always probe live runtimes
     const all = await detectRuntimes();
     const filter = input.runtime ?? "all";
 
@@ -235,22 +275,22 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
           id,
           runtime: runtime.name,
           size_class: classifyModelSize(id),
-          capabilities: inferCapabilities(id)
+          capabilities: inferCapabilities(id),
         }));
-      })
+      }),
     );
     const models = allModelEntries.flat();
 
     const output: InferenceListModelsOutput = {
       models,
       runtimes_available: availableNames,
-      total_count: models.length
+      total_count: models.length,
     };
 
     const runtimeLabel = filter === "all" ? "all runtimes" : filter;
     return {
       summary: `Found ${models.length} model(s) across ${runtimeLabel}.`,
-      structured_output: output
+      structured_output: output,
     };
   }
 
@@ -260,13 +300,13 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
     const output: InferenceRagIndexOutput = {
       collection: collection.name,
       document_count: collection.documentCount,
-      chunk_count: input.paths.length * 10, // estimated; real implementation would count chunks
-      last_indexed_at: collection.lastIndexedAt
+      chunk_count: input.paths.length * 10,
+      last_indexed_at: collection.lastIndexedAt,
     };
 
     return {
       summary: `Indexed ${collection.documentCount} document(s) into collection '${collection.name}'.`,
-      structured_output: output
+      structured_output: output,
     };
   }
 
@@ -277,12 +317,12 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
       results,
       collection: input.collection,
       query: input.query,
-      returned_count: results.length
+      returned_count: results.length,
     };
 
     return {
       summary: `RAG query returned ${results.length} result(s) from collection '${input.collection}'.`,
-      structured_output: output
+      structured_output: output,
     };
   }
 
@@ -292,24 +332,22 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
 
     const jobs: InferenceBatchJobStatus[] = input.jobs.map((_, i) => ({
       index: i,
-      status: "pending"
+      status: "pending",
     }));
 
     batchStore.set(batchId, { jobs, submittedAt });
-
-    // Fire-and-forget: process jobs asynchronously
     void this._processBatch(batchId, input);
 
     const output: InferenceBatchSubmitOutput = {
       batch_id: batchId,
       job_count: input.jobs.length,
       status: "accepted",
-      submitted_at: submittedAt
+      submitted_at: submittedAt,
     };
 
     return {
       summary: `Batch of ${input.jobs.length} job(s) accepted (batch_id=${batchId}).`,
-      structured_output: output
+      structured_output: output,
     };
   }
 
@@ -348,7 +386,7 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
       throw new InferenceWorkerError(
         "BATCH_NOT_FOUND",
         `Batch '${input.batch_id}' was not found.`,
-        false
+        false,
       );
     }
 
@@ -375,12 +413,12 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
       failed_jobs: failedJobs,
       pending_jobs: pendingJobs,
       overall_status: overallStatus,
-      jobs: [...jobs]
+      jobs: [...jobs],
     };
 
     return {
       summary: `Batch ${input.batch_id}: ${completedJobs}/${jobs.length} complete, ${failedJobs} failed, ${pendingJobs} pending.`,
-      structured_output: output
+      structured_output: output,
     };
   }
 }

@@ -1,9 +1,15 @@
 import { Router } from 'express'
 import { DatabaseSync } from 'node:sqlite'
-import type { SQLInputValue } from 'node:sqlite'
+import { randomUUID } from 'node:crypto'
 import os from 'os'
 import { join } from 'path'
-import fs from 'fs'
+
+function getRuntimeDb() {
+  const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'runtime.db'))
+  db.exec("PRAGMA journal_mode = WAL;")
+  db.exec("PRAGMA busy_timeout = 5000;")
+  return db
+}
 
 function getKnowledgeDb() {
   return new DatabaseSync(join(os.homedir(), '.jarvis', 'knowledge.db'))
@@ -56,50 +62,50 @@ const AGENT_IDS = Object.keys(AGENT_META)
 
 export const agentsRouter = Router()
 
-// GET / — list 8 agents with last decision from decisions table
+// GET / — list agents with last run from runtime.db runs table
 agentsRouter.get('/', (_req, res) => {
-  let lastDecisions: Record<string, Record<string, unknown>> = {}
+  let lastRuns: Record<string, Record<string, unknown>> = {}
   try {
-    const db = getKnowledgeDb()
+    const db = getRuntimeDb()
     const rows = db.prepare(
-      `SELECT * FROM decisions d1
-       WHERE decision_id = (
-         SELECT MAX(decision_id) FROM decisions d2 WHERE d2.agent_id = d1.agent_id
+      `SELECT * FROM runs r1
+       WHERE started_at = (
+         SELECT MAX(started_at) FROM runs r2 WHERE r2.agent_id = r1.agent_id
        )`
     ).all() as Record<string, unknown>[]
     db.close()
     for (const row of rows) {
       if (typeof row.agent_id === 'string') {
-        lastDecisions[row.agent_id] = row
+        lastRuns[row.agent_id] = row
       }
     }
   } catch {
-    // DB may not exist yet
+    // runtime.db may not exist yet
   }
 
   const agents = AGENT_IDS.map(id => {
     const meta = AGENT_META[id]
-    const last = lastDecisions[id]
+    const last = lastRuns[id]
     return {
       agentId: id,
       label: meta.label,
       description: meta.description,
       schedule: meta.schedule,
-      lastRun: last?.decided_at ?? last?.created_at ?? null,
-      lastOutcome: last?.outcome ?? null,
-      lastStep: last?.step ?? null
+      lastRun: last?.started_at ?? null,
+      lastOutcome: last?.status ?? null,
+      lastStep: last?.current_step ?? null
     }
   })
   res.json(agents)
 })
 
-// GET /decisions?agent=&limit=50&offset=0 — paginated decisions log
+// GET /decisions?agent=&limit=50&offset=0 — paginated decisions log (still from knowledge.db — decisions are knowledge artifacts)
 agentsRouter.get('/decisions', (req, res) => {
   const { agent, limit = '50', offset = '0' } = req.query as { agent?: string; limit?: string; offset?: string }
   try {
     const db = getKnowledgeDb()
     let sql = 'SELECT * FROM decisions WHERE 1=1'
-    const params: SQLInputValue[] = []
+    const params: (string | number)[] = []
     if (agent && agent !== 'all') {
       sql += ' AND agent_id = ?'
       params.push(agent)
@@ -114,26 +120,30 @@ agentsRouter.get('/decisions', (req, res) => {
   }
 })
 
-// POST /:agentId/trigger — write ~/.jarvis/trigger-{agentId}.json to trigger agent run
+// POST /:agentId/trigger — insert command into agent_commands in runtime.db
 agentsRouter.post('/:agentId/trigger', (req, res) => {
   const { agentId } = req.params
   if (!AGENT_IDS.includes(agentId)) {
     res.status(400).json({ error: `Unknown agent: ${agentId}` })
     return
   }
+  const db = getRuntimeDb()
   try {
-    const jarvisDir = join(os.homedir(), '.jarvis')
-    if (!fs.existsSync(jarvisDir)) {
-      fs.mkdirSync(jarvisDir, { recursive: true })
-    }
-    const triggerPath = join(jarvisDir, `trigger-${agentId}.json`)
-    fs.writeFileSync(triggerPath, JSON.stringify({
+    const commandId = randomUUID()
+    db.prepare(`
+      INSERT INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
+      VALUES (?, 'run_agent', ?, ?, 'queued', 0, ?, 'dashboard', ?)
+    `).run(
+      commandId,
       agentId,
-      triggeredAt: new Date().toISOString(),
-      triggeredBy: 'dashboard'
-    }, null, 2))
-    res.json({ ok: true, triggerFile: triggerPath })
+      JSON.stringify({ triggered_by: 'dashboard' }),
+      new Date().toISOString(),
+      `dashboard-${agentId}-${Date.now()}`
+    )
+    res.json({ ok: true, command_id: commandId })
   } catch {
-    res.status(500).json({ error: 'Failed to write trigger file' })
+    res.status(500).json({ error: 'Failed to queue agent command' })
+  } finally {
+    try { db.close() } catch {}
   }
 })

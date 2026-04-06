@@ -35,7 +35,7 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
   const useReal = config.adapter_mode === "real";
 
   // ─── Inference ──────────────────────────────────────────────────────────
-  const inferenceAdapter = useReal ? new DefaultInferenceAdapter(runtimeDb) : new MockInferenceAdapter();
+  const inferenceAdapter = useReal ? new DefaultInferenceAdapter(runtimeDb, config.lmstudio_url) : new MockInferenceAdapter();
   const inferenceWorker = createInferenceWorker({ adapter: inferenceAdapter });
 
   // Chat helper for adapters that need LLM access.
