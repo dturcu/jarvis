@@ -104,7 +104,6 @@ export type ApprovalRecord = {
   scopes: string[];
   created_at: string;
   resolved_at?: string;
-  resolved_by?: string;
 };
 
 export type ToolResponse = {

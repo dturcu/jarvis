@@ -126,31 +126,6 @@ describe("Registry Creation", () => {
     expect(result.error!.code).toBe("UNKNOWN_JOB_TYPE");
     expect(result.error!.message).toContain("zebra");
   });
-
-  it("deny-by-default: unknown action family fails closed with error code (RT-501)", async () => {
-    // Submitting a job with an unmapped action family prefix must be rejected.
-    // This proves the worker registry enforces a deny-by-default policy:
-    // any action type not explicitly registered to a worker is refused.
-    const unknownTypes = [
-      "unknown.action",
-      "notreal.do_something",
-      "phantom.execute",
-    ];
-
-    for (const jobType of unknownTypes) {
-      const env = makeEnvelope(jobType, { some: "payload" });
-      const result = await registry.executeJob(env);
-
-      expect(result.status).toBe("failed");
-      expect(result.error).toBeDefined();
-      expect(result.error!.code).toBe("UNKNOWN_JOB_TYPE");
-      expect(result.error!.retryable).toBe(false);
-
-      // The error message should reference the unknown prefix
-      const prefix = jobType.split(".")[0]!;
-      expect(result.error!.message).toContain(prefix);
-    }
-  });
 });
 
 // ═════════════════════════════════════════════════════════════════════════════

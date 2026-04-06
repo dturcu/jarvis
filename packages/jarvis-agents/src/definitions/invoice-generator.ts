@@ -61,7 +61,6 @@ export const invoiceGeneratorAgent: AgentDefinition = {
   task_profile: { objective: "classify", preferences: { prioritize_speed: true } },
   max_steps_per_run: 6,
   system_prompt: INVOICE_GENERATOR_SYSTEM_PROMPT,
-  experimental: true,
   output_channels: ["email:daniel@thinking-in-code.com"],
   maturity: "trusted_with_review",
 };

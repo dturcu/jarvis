@@ -70,7 +70,6 @@ export const meetingTranscriberAgent: AgentDefinition = {
   task_profile: { objective: "plan" },
   max_steps_per_run: 8,
   system_prompt: MEETING_TRANSCRIBER_SYSTEM_PROMPT,
-  experimental: true,
   output_channels: ["telegram:daniel"],
   maturity: "operational",
 };

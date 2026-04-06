@@ -66,7 +66,6 @@ export const portfolioMonitorAgent: AgentDefinition = {
   task_profile: { objective: "classify", preferences: { prioritize_speed: true } },
   max_steps_per_run: 5,
   system_prompt: PORTFOLIO_MONITOR_SYSTEM_PROMPT,
-  experimental: true,
   output_channels: ["telegram:daniel"],
   maturity: "operational",
 };
