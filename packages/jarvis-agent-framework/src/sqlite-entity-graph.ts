@@ -35,6 +35,24 @@ export class SqliteEntityGraph {
   ): GraphEntity {
     const now = new Date().toISOString();
 
+    // Wrap entity mutation + provenance in a transaction for atomicity
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const result = this._upsertEntityInner(params, agentId, provenance, now);
+      this.db.exec("COMMIT");
+      return result;
+    } catch (e) {
+      this.db.exec("ROLLBACK");
+      throw e;
+    }
+  }
+
+  private _upsertEntityInner(
+    params: Omit<GraphEntity, "entity_id" | "seen_by" | "created_at" | "updated_at">,
+    agentId: string,
+    provenance: { run_id: string; step_no?: number; action?: string } | undefined,
+    now: string,
+  ): GraphEntity {
     // Try canonical key first
     if (params.canonical_key) {
       const existing = this.db

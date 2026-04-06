@@ -6,6 +6,9 @@
   "scripts": {
     "start": "tsx src/index.ts"
   },
+  "dependencies": {
+    "@jarvis/runtime": "file:../jarvis-runtime"
+  },
   "devDependencies": {
     "@types/node": "^24.12.2",
     "tsx": "^4.19.3",

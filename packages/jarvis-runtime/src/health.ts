@@ -18,6 +18,9 @@ export type HealthReport = {
   knowledge: { ok: boolean; documents: number; playbooks: number; decisions: number };
   runtime: { ok: boolean; pending_approvals: number; pending_commands: number; recent_runs: number };
   daemon: { running: boolean; pid: number | null; last_seen: string | null };
+  schedules: { total: number; enabled: number; overdue: number };
+  migrations: { latest_id: string | null; count: number };
+  models: { registered: number; enabled: number };
   disk_free_gb: number | null;
 };
 
@@ -50,6 +53,9 @@ export function getHealthReport(): HealthReport {
     knowledge: { ok: false, documents: 0, playbooks: 0, decisions: 0 },
     runtime: { ok: false, pending_approvals: 0, pending_commands: 0, recent_runs: 0 },
     daemon: { running: false, pid: null, last_seen: null },
+    schedules: { total: 0, enabled: 0, overdue: 0 },
+    migrations: { latest_id: null, count: 0 },
+    models: { registered: 0, enabled: 0 },
     disk_free_gb: null,
   };
 
@@ -79,8 +85,28 @@ export function getHealthReport(): HealthReport {
 
     report.runtime.pending_approvals = queryCount(rtDb, "SELECT COUNT(*) as n FROM approvals WHERE status = 'pending'");
     report.runtime.pending_commands = queryCount(rtDb, "SELECT COUNT(*) as n FROM agent_commands WHERE status = 'queued'");
-    report.runtime.recent_runs = queryCount(rtDb, "SELECT COUNT(DISTINCT run_id) as n FROM run_events WHERE created_at > datetime('now', '-24 hours')");
+    report.runtime.recent_runs = queryCount(rtDb, "SELECT COUNT(*) as n FROM runs WHERE started_at > datetime('now', '-24 hours')");
     report.runtime.ok = true;
+
+    // Schedules
+    report.schedules.total = queryCount(rtDb, "SELECT COUNT(*) as n FROM schedules");
+    report.schedules.enabled = queryCount(rtDb, "SELECT COUNT(*) as n FROM schedules WHERE enabled = 1");
+    report.schedules.overdue = queryCount(rtDb, "SELECT COUNT(*) as n FROM schedules WHERE enabled = 1 AND next_fire_at < datetime('now')");
+
+    // Migrations
+    try {
+      const mig = rtDb.prepare(
+        "SELECT id, COUNT(*) OVER () as total FROM schema_migrations ORDER BY id DESC LIMIT 1",
+      ).get() as { id: string; total: number } | undefined;
+      if (mig) {
+        report.migrations.latest_id = mig.id;
+        report.migrations.count = mig.total;
+      }
+    } catch { /* pre-migration DB */ }
+
+    // Models
+    report.models.registered = queryCount(rtDb, "SELECT COUNT(*) as n FROM model_registry");
+    report.models.enabled = queryCount(rtDb, "SELECT COUNT(*) as n FROM model_registry WHERE enabled = 1");
 
     // Daemon heartbeat
     const heartbeat = rtDb.prepare(

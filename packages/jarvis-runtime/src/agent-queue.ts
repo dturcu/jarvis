@@ -6,6 +6,7 @@ import type { Logger } from "./logger.js";
 type QueueEntry = {
   agentId: string;
   trigger: AgentTrigger;
+  commandId?: string; // links this queue entry to an agent_commands row
   priority: number; // higher = run first
   enqueuedAt: string;
 };
@@ -63,7 +64,7 @@ export class AgentQueue {
    * Add an agent run to the queue, sorted by priority (descending).
    * If the agent is already running or already queued, this is a no-op.
    */
-  enqueue(agentId: string, trigger: AgentTrigger, priority = 0): void {
+  enqueue(agentId: string, trigger: AgentTrigger, priority = 0, commandId?: string): void {
     // Reject in drain mode
     if (this._draining) {
       this.logger.debug(`Agent ${agentId} rejected — queue is draining`);
@@ -85,6 +86,7 @@ export class AgentQueue {
     this.queue.push({
       agentId,
       trigger,
+      commandId,
       priority,
       enqueuedAt: new Date().toISOString(),
     });
@@ -120,7 +122,11 @@ export class AgentQueue {
         `Starting agent ${entry.agentId} (running=${this.running.size + 1}/${this.maxConcurrent}, queued=${this.queue.length})`,
       );
 
-      const runPromise = runAgent(entry.agentId, entry.trigger, this.deps)
+      // Attach command_id to trigger so orchestrator can link the run atomically
+      const triggerWithCommand = entry.commandId
+        ? { ...entry.trigger, command_id: entry.commandId }
+        : entry.trigger;
+      const runPromise = runAgent(entry.agentId, triggerWithCommand, this.deps)
         .catch((e) => {
           this.logger.error(
             `Agent ${entry.agentId} failed: ${e instanceof Error ? e.message : String(e)}`,

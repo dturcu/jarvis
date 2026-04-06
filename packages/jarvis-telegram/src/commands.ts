@@ -1,8 +1,7 @@
-import fs from 'fs'
-import { join } from 'path'
+import { randomUUID } from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'
-import { TRIGGER_DIR, CRM_DB, KNOWLEDGE_DB } from './config.js'
-import { loadApprovals, saveApprovals, setApprovalStatus } from './approvals.js'
+import { CRM_DB, openRuntimeDb } from './config.js'
+import { loadApprovals, resolveApproval } from './approvals.js'
 
 const AGENTS = [
   'bd-pipeline', 'proposal-engine', 'evidence-auditor', 'contract-reviewer',
@@ -30,27 +29,29 @@ export async function handleCommand(text: string): Promise<string> {
 
 function getStatus(): string {
   const lines = ['JARVIS STATUS\n']
+  let db: DatabaseSync | undefined
 
-  // Last decision per agent
-  let kb: DatabaseSync | undefined
   try {
-    kb = new DatabaseSync(KNOWLEDGE_DB)
-    for (const agentId of AGENTS) {
-      const row = kb.prepare(
-        'SELECT created_at, outcome FROM decisions WHERE agent_id = ? ORDER BY created_at DESC LIMIT 1'
-      ).get(agentId) as { created_at: string; outcome: string } | undefined
-      const ts = row ? new Date(row.created_at).toLocaleDateString() : 'never'
-      lines.push(`${agentId}: ${ts}`)
-    }
-  } catch {
-    lines.push('(could not read knowledge.db)')
-  } finally {
-    kb?.close()
-  }
+    db = openRuntimeDb()
 
-  // Pending approvals
-  const approvals = loadApprovals().filter(a => a.status === 'pending')
-  lines.push(`\nPending approvals: ${approvals.length}`)
+    // Last run per agent from runtime.db runs table
+    for (const agentId of AGENTS) {
+      const row = db.prepare(
+        'SELECT started_at, status FROM runs WHERE agent_id = ? ORDER BY started_at DESC LIMIT 1'
+      ).get(agentId) as { started_at: string; status: string } | undefined
+      const ts = row ? new Date(row.started_at).toLocaleDateString() : 'never'
+      const status = row?.status ?? ''
+      lines.push(`${agentId}: ${ts}${status ? ` (${status})` : ''}`)
+    }
+
+    // Pending approvals from runtime.db
+    const pending = loadApprovals(db, 'pending')
+    lines.push(`\nPending approvals: ${pending.length}`)
+  } catch {
+    lines.push('(could not read runtime.db)')
+  } finally {
+    try { db?.close() } catch {}
+  }
 
   return lines.join('\n')
 }
@@ -76,29 +77,56 @@ function getCrmTop5(): string {
   }
 }
 
+/**
+ * Trigger an agent by inserting a command into agent_commands in runtime.db.
+ * The daemon polls this table and claims queued commands.
+ */
 function triggerAgent(agentId: string): string {
+  let db: DatabaseSync | undefined
   try {
-    const triggerFile = join(TRIGGER_DIR, `trigger-${agentId}.json`)
-    fs.writeFileSync(triggerFile, JSON.stringify({
-      agent: agentId,
-      triggered_at: new Date().toISOString(),
-      source: 'telegram'
-    }, null, 2))
+    db = openRuntimeDb()
+    const commandId = randomUUID()
+    db.prepare(`
+      INSERT INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
+      VALUES (?, 'run_agent', ?, ?, 'queued', 0, ?, 'telegram', ?)
+    `).run(
+      commandId,
+      agentId,
+      JSON.stringify({ triggered_by: 'telegram' }),
+      new Date().toISOString(),
+      `telegram-${agentId}-${Date.now()}`
+    )
     return `Triggered ${agentId}. It will run within the next scheduled cycle.`
   } catch (e) {
     return `Failed to trigger ${agentId}: ${String(e)}`
+  } finally {
+    try { db?.close() } catch {}
   }
 }
 
+/**
+ * Approve or reject a pending approval via runtime.db.
+ */
 function handleApproval(shortId: string, status: 'approved' | 'rejected'): string {
   if (!shortId) return `Usage: /approve <id> or /reject <id>`
   if (shortId.length < 6) return 'Approval ID must be at least 6 characters for safety.'
-  const approvals = loadApprovals()
-  const target = approvals.find(a => a.id.startsWith(shortId) && a.status === 'pending')
-  if (!target) return `No pending approval found with ID starting: ${shortId}`
-  const updated = setApprovalStatus(approvals, target.id, status)
-  saveApprovals(updated)
-  return `${status === 'approved' ? '✅' : '❌'} ${target.action} by ${target.agent} has been ${status}.`
+
+  let db: DatabaseSync | undefined
+  try {
+    db = openRuntimeDb()
+    const pending = loadApprovals(db, 'pending')
+    const target = pending.find(a => a.id.startsWith(shortId))
+    if (!target) return `No pending approval found with ID starting: ${shortId}`
+
+    const ok = resolveApproval(db, target.id, status)
+    if (!ok) return `Failed to ${status === 'approved' ? 'approve' : 'reject'} — may already be resolved.`
+
+    return `${status === 'approved' ? '✅' : '❌'} ${target.action} by ${target.agent} has been ${status}.`
+  } catch (e) {
+    return `Failed to process approval: ${String(e)}`
+  } finally {
+    try { db?.close() } catch {}
+  }
 }
 
 function getHelp(): string {

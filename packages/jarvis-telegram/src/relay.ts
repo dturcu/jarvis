@@ -1,36 +1,41 @@
-import fs from 'fs'
-import { QUEUE_FILE } from './config.js'
+import { openRuntimeDb } from './config.js'
 
-type QueueEntry = {
-  agent: string
-  message: string
-  ts: string
-  sent: boolean
-}
-
+/**
+ * Process pending Telegram notifications from runtime.db.
+ * Reads pending notifications, delivers them via sendFn, and marks as delivered.
+ */
 export async function processTelegramQueue(sendFn: (msg: string) => Promise<void>): Promise<number> {
-  if (!fs.existsSync(QUEUE_FILE)) return 0
-  let queue: QueueEntry[] = []
+  let db;
   try {
-    queue = JSON.parse(fs.readFileSync(QUEUE_FILE, 'utf8')) as QueueEntry[]
-  } catch { return 0 }
+    db = openRuntimeDb()
+  } catch {
+    return 0
+  }
 
-  const unsent = queue.filter(e => !e.sent)
-  let sent = 0
-  for (const entry of unsent) {
-    try {
-      await sendFn(`[${entry.agent.toUpperCase()}]\n\n${entry.message}`)
-      entry.sent = true
-      sent++
-    } catch {
-      // leave as unsent, retry next cycle
+  try {
+    const pending = db.prepare(`
+      SELECT notification_id, payload_json FROM notifications
+      WHERE channel = 'telegram' AND status = 'pending' AND kind = 'agent_notification'
+      ORDER BY created_at ASC LIMIT 20
+    `).all() as Array<{ notification_id: string; payload_json: string }>
+
+    let sent = 0
+    for (const entry of pending) {
+      try {
+        const payload = JSON.parse(entry.payload_json) as { agent: string; message: string }
+        await sendFn(`[${payload.agent.toUpperCase()}]\n\n${payload.message}`)
+
+        db.prepare(
+          "UPDATE notifications SET status = 'delivered', delivered_at = ? WHERE notification_id = ?"
+        ).run(new Date().toISOString(), entry.notification_id)
+
+        sent++
+      } catch {
+        // Leave as pending, retry next cycle
+      }
     }
+    return sent
+  } finally {
+    try { db.close() } catch {}
   }
-
-  if (sent > 0) {
-    // Prune sent entries to prevent unbounded file growth
-    const pruned = queue.filter(e => !e.sent);
-    fs.writeFileSync(QUEUE_FILE, JSON.stringify(pruned, null, 2))
-  }
-  return sent
 }

@@ -79,29 +79,40 @@ export function resolveApproval(
 ): boolean {
   const now = new Date().toISOString();
 
-  const result = db.prepare(`
-    UPDATE approvals SET status = ?, resolved_at = ?, resolved_by = ?, resolution_note = ?
-    WHERE approval_id = ? AND status = 'pending'
-  `).run(status, now, resolvedBy, note ?? null, approvalId);
+  // Atomic: approval resolution + audit log entry
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const result = db.prepare(`
+      UPDATE approvals SET status = ?, resolved_at = ?, resolved_by = ?, resolution_note = ?
+      WHERE approval_id = ? AND status = 'pending'
+    `).run(status, now, resolvedBy, note ?? null, approvalId);
 
-  if ((result as { changes: number }).changes === 0) return false;
+    if ((result as { changes: number }).changes === 0) {
+      db.exec("ROLLBACK");
+      return false;
+    }
 
-  // Write audit log entry
-  db.prepare(`
-    INSERT INTO audit_log (audit_id, actor_type, actor_id, action, target_type, target_id, payload_json, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    randomUUID(),
-    "user",
-    resolvedBy,
-    `approval.${status}`,
-    "approval",
-    approvalId,
-    JSON.stringify({ note }),
-    now,
-  );
+    // Write audit log entry
+    db.prepare(`
+      INSERT INTO audit_log (audit_id, actor_type, actor_id, action, target_type, target_id, payload_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      randomUUID(),
+      "user",
+      resolvedBy,
+      `approval.${status}`,
+      "approval",
+      approvalId,
+      JSON.stringify({ note }),
+      now,
+    );
 
-  return true;
+    db.exec("COMMIT");
+    return true;
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
 }
 
 /**

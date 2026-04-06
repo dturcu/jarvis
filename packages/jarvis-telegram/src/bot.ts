@@ -1,5 +1,6 @@
 import { handleCommand } from './commands.js'
-import { loadApprovals, saveApprovals, getUnnotifiedPending, markNotified, formatApprovalMessage } from './approvals.js'
+import { getUnnotifiedPending, markNotified, formatApprovalMessage } from './approvals.js'
+import { openRuntimeDb } from './config.js'
 import type { JarvisConfig } from './config.js'
 
 type TelegramUpdate = {
@@ -48,20 +49,30 @@ export class JarvisBot {
     return data.ok ? data.result : []
   }
 
+  /**
+   * Check for pending approvals in runtime.db that haven't been sent
+   * to Telegram yet, and send notifications for them.
+   */
   async checkApprovals(): Promise<void> {
-    const approvals = loadApprovals()
-    const unnotified = getUnnotifiedPending(approvals)
-    let updated = approvals
-    for (const entry of unnotified) {
-      try {
-        await this.send(formatApprovalMessage(entry))
-        updated = markNotified(updated, entry.id)
-      } catch {
-        // retry next cycle
-      }
+    let db;
+    try {
+      db = openRuntimeDb()
+    } catch {
+      return
     }
-    if (unnotified.length > 0) {
-      saveApprovals(updated)
+
+    try {
+      const unnotified = getUnnotifiedPending(db)
+      for (const entry of unnotified) {
+        try {
+          await this.send(formatApprovalMessage(entry))
+          markNotified(db, entry.id)
+        } catch {
+          // retry next cycle
+        }
+      }
+    } finally {
+      try { db.close() } catch {}
     }
   }
 

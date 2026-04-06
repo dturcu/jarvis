@@ -46,20 +46,8 @@ export async function runAgent(
   // Initialize durable run tracking if runtime DB is available
   const runStore = runtimeDb ? new RunStore(runtimeDb) : null;
 
-  // Look up pending command_id for this agent (set by daemon when processing commands)
-  let commandId: string | undefined;
-  if (runtimeDb) {
-    try {
-      const row = runtimeDb.prepare(
-        "SELECT value_json FROM settings WHERE key = ?",
-      ).get(`pending_command:${agentId}`) as { value_json: string } | undefined;
-      if (row) {
-        commandId = JSON.parse(row.value_json) as string;
-        // Clean up the pending command key
-        runtimeDb.prepare("DELETE FROM settings WHERE key = ?").run(`pending_command:${agentId}`);
-      }
-    } catch { /* best-effort */ }
-  }
+  // command_id is carried directly on the trigger by AgentQueue (atomic linkage)
+  const commandId = (trigger as { command_id?: string }).command_id;
 
   // Load plugin permissions if this is a plugin agent
   const pluginPermissions = loadPluginPermissions(agentId, runtimeDb);
@@ -389,11 +377,11 @@ export async function runAgent(
 
     // 7. Notify via Telegram queue
     const summary = `${def.label}: completed ${run.current_step}/${plan.steps.length} steps. Goal: ${run.goal}`;
-    writeTelegramQueue(agentId, summary);
+    writeTelegramQueue(agentId, summary, runtimeDb);
 
     // 8. Post-hoc review notification for trusted_with_review agents
     if (def.maturity === "trusted_with_review") {
-      writeTelegramQueue(agentId, `[REVIEW] ${def.label} completed autonomously. Run: ${run.run_id}. Review output and decisions.`);
+      writeTelegramQueue(agentId, `[REVIEW] ${def.label} completed autonomously. Run: ${run.run_id}. Review output and decisions.`, runtimeDb);
     }
 
     return runtime.getRun(run.run_id)!;

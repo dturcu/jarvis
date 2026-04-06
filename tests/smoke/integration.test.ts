@@ -291,8 +291,8 @@ describe("Plugin Permissions", () => {
     expect(isActionPermitted("email.send", [...granted])).toBe(false);
   });
 
-  it("allows unknown action prefixes", () => {
-    expect(isActionPermitted("custom.action", [])).toBe(true);
+  it("denies unknown action prefixes (fail closed)", () => {
+    expect(isActionPermitted("custom.action", [])).toBe(false);
   });
 });
 
