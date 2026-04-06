@@ -8,7 +8,6 @@ export type InferenceChatMessage = {
 export type InferenceChatInput = {
   messages: InferenceChatMessage[];
   model?: string;
-  tier?: "haiku" | "sonnet" | "opus";
   temperature?: number;
   max_tokens?: number;
 };
@@ -47,7 +46,7 @@ export type InferenceListModelsInput = {
 export type InferenceModelEntry = {
   id: string;
   runtime: "ollama" | "lmstudio";
-  tier: "haiku" | "sonnet" | "opus";
+  size_class: "small" | "medium" | "large";
   capabilities: string[];
 };
 

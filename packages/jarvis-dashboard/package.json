@@ -9,7 +9,7 @@
     "preview": "tsx src/api/server.ts"
   },
   "dependencies": {
-    "@jarvis/shared": "file:../jarvis-shared",
+    "@jarvis/runtime": "file:../jarvis-runtime",
     "express": "^5.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

@@ -62,11 +62,12 @@ export const staffingMonitorAgent: AgentDefinition = {
   ],
   capabilities: ["crm", "inference", "files", "email", "calendar", "device"],
   approval_gates: [
-    { action: "email.send", severity: "warning" },
+    { action: "email.send", severity: "critical" },
   ],
   knowledge_collections: ["playbooks"],
-  inference_tier: "sonnet",
+  task_profile: { objective: "plan" },
   max_steps_per_run: 7,
   system_prompt: STAFFING_MONITOR_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
+  maturity: "operational",
 };

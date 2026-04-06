@@ -9,7 +9,7 @@ import {
   INFERENCE_JOB_TYPES,
   InferenceWorkerError
 } from "@jarvis/inference-worker";
-import { classifyModelTier } from "@jarvis/inference";
+import { classifyModelSize } from "@jarvis/inference";
 import type { JobEnvelope } from "@jarvis/shared";
 
 function makeEnvelope(
@@ -38,38 +38,38 @@ function makeEnvelope(
   };
 }
 
-// ── classifyModelTier ─────────────────────────────────────────────────────────
+// ── classifyModelSize ────────────────────────────────────────────────────────
 
-describe("classifyModelTier", () => {
-  it("classifies tiny/mini/small models as haiku", () => {
-    expect(classifyModelTier("llama3.2:1b")).toBe("haiku");
-    expect(classifyModelTier("phi3:mini")).toBe("haiku");
-    expect(classifyModelTier("gemma2:2b")).toBe("haiku");
-    expect(classifyModelTier("qwen2.5:3b")).toBe("haiku");
-    expect(classifyModelTier("tinyllama:1.5b")).toBe("haiku");
-    expect(classifyModelTier("smollm:tiny")).toBe("haiku");
+describe("classifyModelSize", () => {
+  it("classifies tiny/mini/small models as small", () => {
+    expect(classifyModelSize("llama3.2:1b")).toBe("small");
+    expect(classifyModelSize("phi3:mini")).toBe("small");
+    expect(classifyModelSize("gemma2:2b")).toBe("small");
+    expect(classifyModelSize("qwen2.5:3b")).toBe("small");
+    expect(classifyModelSize("tinyllama:1.5b")).toBe("small");
+    expect(classifyModelSize("smollm:tiny")).toBe("small");
   });
 
-  it("classifies 70B+ models as opus", () => {
-    expect(classifyModelTier("llama3.1:70b")).toBe("opus");
-    expect(classifyModelTier("qwen2.5:72b")).toBe("opus");
-    expect(classifyModelTier("llama3.3:70b-instruct")).toBe("opus");
-    expect(classifyModelTier("mixtral:8x7b-large")).toBe("opus");
-    expect(classifyModelTier("command-r-plus:110b")).toBe("opus");
+  it("classifies 70B+ models as large", () => {
+    expect(classifyModelSize("llama3.1:70b")).toBe("large");
+    expect(classifyModelSize("qwen2.5:72b")).toBe("large");
+    expect(classifyModelSize("llama3.3:70b-instruct")).toBe("large");
+    expect(classifyModelSize("mixtral:8x7b-large")).toBe("large");
+    expect(classifyModelSize("command-r-plus:110b")).toBe("large");
   });
 
-  it("classifies mid-range models as sonnet by default", () => {
-    expect(classifyModelTier("llama3.1:8b")).toBe("sonnet");
-    expect(classifyModelTier("mistral:7b")).toBe("sonnet");
-    expect(classifyModelTier("codellama:13b")).toBe("sonnet");
-    expect(classifyModelTier("phi3:medium")).toBe("sonnet");
-    expect(classifyModelTier("nomic-embed-text")).toBe("sonnet");
+  it("classifies mid-range models as medium by default", () => {
+    expect(classifyModelSize("llama3.1:8b")).toBe("medium");
+    expect(classifyModelSize("mistral:7b")).toBe("medium");
+    expect(classifyModelSize("codellama:13b")).toBe("medium");
+    expect(classifyModelSize("phi3:medium")).toBe("medium");
+    expect(classifyModelSize("nomic-embed-text")).toBe("medium");
   });
 
   it("is case-insensitive", () => {
-    expect(classifyModelTier("Llama3.2:1B")).toBe("haiku");
-    expect(classifyModelTier("LLAMA3.1:70B")).toBe("opus");
-    expect(classifyModelTier("MISTRAL:7B")).toBe("sonnet");
+    expect(classifyModelSize("Llama3.2:1B")).toBe("small");
+    expect(classifyModelSize("LLAMA3.1:70B")).toBe("large");
+    expect(classifyModelSize("MISTRAL:7B")).toBe("medium");
   });
 });
 
@@ -138,18 +138,11 @@ describe("MockInferenceAdapter", () => {
       expect(usage.total_tokens).toBe(usage.prompt_tokens + usage.completion_tokens);
     });
 
-    it("picks the correct tier model", async () => {
-      const haiku = await adapter.chat({
+    it("picks the default medium model when no model is specified", async () => {
+      const result = await adapter.chat({
         messages: [{ role: "user", content: "Hi" }],
-        tier: "haiku"
       });
-      expect(haiku.structured_output.model).toContain("1b");
-
-      const opus = await adapter.chat({
-        messages: [{ role: "user", content: "Hi" }],
-        tier: "opus"
-      });
-      expect(opus.structured_output.model).toContain("70b");
+      expect(result.structured_output.model).toContain("8b");
     });
 
     it("tracks chat calls", async () => {
@@ -213,7 +206,7 @@ describe("MockInferenceAdapter", () => {
       for (const model of result.structured_output.models) {
         expect(model.id).toBeTruthy();
         expect(["ollama", "lmstudio"]).toContain(model.runtime);
-        expect(["haiku", "sonnet", "opus"]).toContain(model.tier);
+        expect(["small", "medium", "large"]).toContain(model.size_class);
         expect(Array.isArray(model.capabilities)).toBe(true);
       }
     });
@@ -349,7 +342,6 @@ describe("executeInferenceJob", () => {
   it("produces a completed JobResult for inference.chat", async () => {
     const envelope = makeEnvelope("inference.chat", {
       messages: [{ role: "user", content: "Hello" }],
-      tier: "sonnet"
     });
     const result = await executeInferenceJob(envelope, adapter);
 
@@ -525,7 +517,6 @@ describe("createInferenceWorker", () => {
     const worker = createInferenceWorker({ adapter: createMockInferenceAdapter() });
     const envelope = makeEnvelope("inference.chat", {
       messages: [{ role: "user", content: "Hello" }],
-      tier: "haiku"
     });
     const result = await worker.execute(envelope);
 

@@ -8,7 +8,6 @@ import {
 import {
   DEVICE_COMMAND_NAMES,
   DEVICE_TOOL_NAMES,
-  getJarvisState,
   safeJsonParse,
   submitDeviceClick,
   submitDeviceClipboardGet,

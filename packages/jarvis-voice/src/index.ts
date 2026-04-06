@@ -8,7 +8,6 @@ import {
 import {
   VOICE_TOOL_NAMES,
   VOICE_COMMAND_NAMES,
-  getJarvisState,
   safeJsonParse,
   submitVoiceListen,
   submitVoiceTranscribe,

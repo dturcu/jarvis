@@ -76,7 +76,7 @@ export type AgentDefinition = {
   capabilities: string[];
   approval_gates: ApprovalGate[];
   knowledge_collections: string[];
-  task_profile?: TaskProfile;
+  task_profile: TaskProfile;
   max_steps_per_run: number;
   system_prompt: string;
   output_channels: string[];

@@ -142,7 +142,11 @@ export class SqliteKnowledgeStore {
     // Try FTS5 first
     if (this.hasFts() && terms.length > 0) {
       try {
-        const ftsQuery = terms.map(t => `"${t}"`).join(" OR ");
+        const sanitizeFtsToken = (token: string): string => {
+          // Strip FTS5 operators and special characters, keep only word characters
+          return token.replace(/[^\w]/g, "");
+        };
+        const ftsQuery = terms.map(t => sanitizeFtsToken(t)).filter(Boolean).map(t => `"${t}"`).join(" OR ");
         let ftsRows: Array<Record<string, unknown>>;
         if (options?.collection) {
           ftsRows = this.db.prepare(`

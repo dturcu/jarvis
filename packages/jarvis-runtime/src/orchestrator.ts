@@ -1,13 +1,17 @@
+import type { DatabaseSync } from "node:sqlite";
 import type { AgentDefinition, AgentTrigger, AgentRun } from "@jarvis/agent-framework";
 import { AgentRuntime, SqliteKnowledgeStore, LessonCapture } from "@jarvis/agent-framework";
 import { SqliteEntityGraph } from "@jarvis/agent-framework";
 import { SqliteDecisionLog } from "@jarvis/agent-framework";
-import { getJarvisState } from "@jarvis/shared";
-import type { WorkerCallback } from "@jarvis/shared";
 import { buildPlanWithInference } from "./planner-real.js";
+import { buildPlanWithCritic } from "./planner-critic.js";
+import { buildPlanMultiViewpoint } from "./planner-multi.js";
 import { requestApproval, waitForApproval } from "./approval-bridge.js";
 import { buildEnvelope, type WorkerRegistry } from "./worker-registry.js";
 import { writeTelegramQueue } from "./notify.js";
+import { RunStore } from "./run-store.js";
+import { isReadOnlyAction } from "./action-classifier.js";
+import { isActionPermitted, type PluginPermission } from "./plugin-loader.js";
 import type { RagPipeline } from "./rag-pipeline.js";
 import type { Logger } from "./logger.js";
 import type { StatusWriter } from "./status-writer.js";
@@ -22,66 +26,49 @@ export type OrchestratorDeps = {
   logger: Logger;
   statusWriter?: StatusWriter;
   ragPipeline?: RagPipeline;
-};
-
-/** Claim info from JarvisState, passed by AgentQueue */
-export type ClaimInfo = {
-  jobId: string;
-  claimId: string;
-  workerId: string;
-  leaseSeconds: number;
+  runtimeDb?: DatabaseSync;
 };
 
 /**
  * Run a single agent: plan → execute steps → evaluate → learn.
  * Blocks until the agent completes (or hits an unresolved approval timeout).
- *
- * When claimInfo is provided, the orchestrator heartbeats JarvisState during
- * execution and reports completion/failure via handleWorkerCallback.
  */
 export async function runAgent(
   agentId: string,
   trigger: AgentTrigger,
   deps: OrchestratorDeps,
-  claimInfo?: ClaimInfo,
 ): Promise<AgentRun> {
-  const { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, ragPipeline } = deps;
+  const { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, ragPipeline, runtimeDb } = deps;
 
   const def = runtime.getDefinition(agentId);
   if (!def) throw new Error(`Agent not registered: ${agentId}`);
 
-  logger.info(`Starting agent: ${agentId} (trigger: ${trigger.kind})`);
+  // Initialize durable run tracking if runtime DB is available
+  const runStore = runtimeDb ? new RunStore(runtimeDb) : null;
+
+  // command_id is carried directly on the trigger by AgentQueue (atomic linkage)
+  const commandId = (trigger as { command_id?: string }).command_id;
+
+  // Load plugin permissions if this is a plugin agent
+  const pluginPermissions = loadPluginPermissions(agentId, runtimeDb);
 
   // 1. Start run
   const run = runtime.startRun(agentId, trigger);
+  const durableRunId = runStore?.startRun(agentId, trigger.kind, commandId, run.goal);
+
+  // Create a context-aware logger for this run
+  const log = logger.withContext({ run_id: run.run_id, agent_id: agentId });
+  log.info(`Starting agent (trigger: ${trigger.kind})`);
 
   // Notify status writer that an agent run started (steps TBD until plan completes)
   statusWriter?.setCurrentRun(agentId, 0);
-
-  // Start heartbeat timer to keep the JarvisState lease alive
-  let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-  if (claimInfo) {
-    heartbeatTimer = setInterval(() => {
-      try {
-        getJarvisState().heartbeatJob({
-          worker_id: claimInfo.workerId,
-          job_id: claimInfo.jobId,
-          claim_id: claimInfo.claimId,
-          lease_seconds: claimInfo.leaseSeconds,
-          summary: `Agent ${agentId}: step ${run.current_step}/${run.total_steps} — ${run.status}`,
-        });
-      } catch (e) {
-        logger.warn(`Heartbeat failed for job ${claimInfo.jobId}: ${e instanceof Error ? e.message : String(e)}`);
-      }
-    }, 30_000); // heartbeat every 30s
-  }
 
   try {
     // 2. Gather context (including RAG-augmented chunks if pipeline is available)
     const context = await gatherContext(def, knowledgeStore, entityGraph, ragPipeline, logger);
 
-    // 3. Build plan via inference
-    const plan = await buildPlanWithInference({
+    // 3. Build plan via inference (dispatch based on planner_mode)
+    const plannerParams = {
       agent_id: agentId,
       run_id: run.run_id,
       goal: run.goal,
@@ -90,38 +77,180 @@ export async function runAgent(
       capabilities: def.capabilities,
       max_steps: def.max_steps_per_run,
       deps: { chat: registry.chat.bind(registry), logger },
-    });
+    };
+
+    const plannerMode = def.planner_mode ?? "single";
+    let plan;
+
+    if (plannerMode === "critic") {
+      const result = await buildPlanWithCritic(plannerParams);
+      plan = result.plan;
+      log.info(`Critic assessment: ${result.critique.overall_assessment}`, {
+        issues: result.critique.issues.length,
+        risks: result.critique.risks.length,
+      });
+      runStore?.emitEvent(run.run_id, agentId, "plan_critique", {
+        details: {
+          assessment: result.critique.overall_assessment,
+          issues: result.critique.issues,
+          risks: result.critique.risks,
+        },
+      });
+    } else if (plannerMode === "multi") {
+      const result = await buildPlanMultiViewpoint({
+        ...plannerParams,
+        run_critic: true,
+      });
+      plan = result.plan;
+      log.info(`Multi-viewpoint: ${result.candidates.length} plans, selected #${result.selected_index} (score ${result.scores[0]?.total ?? "N/A"})`);
+      runStore?.emitEvent(run.run_id, agentId, "plan_multi_viewpoint", {
+        details: {
+          candidate_count: result.candidates.length,
+          selected_index: result.selected_index,
+          scores: result.scores.map(s => ({ index: s.plan_index, total: s.total })),
+          disagreement: result.disagreement,
+        },
+      });
+
+      // Disagreement-aware escalation: if planners disagree substantially,
+      // request human approval before proceeding with the selected plan
+      if (result.disagreement.disagreement && runtimeDb) {
+        log.warn(`Planner disagreement: ${result.disagreement.reason}`);
+        const approvalPayload = [
+          `Multi-viewpoint planners disagreed: ${result.disagreement.reason}`,
+          `Unique actions: ${result.disagreement.details.unique_actions.join(", ")}`,
+          `Step count range: ${result.disagreement.details.step_count_range.join("-")}`,
+          `\nSelected plan (score ${result.scores[0]?.total ?? "N/A"}):`,
+          ...result.plan.steps.map(s => `  ${s.step}. [${s.action}] ${s.reasoning}`),
+          `\nAlternative plans:`,
+          ...result.candidates
+            .filter((_, i) => i !== result.selected_index)
+            .map((c, i) => `  Plan ${i + 1}: ${c.steps.map(s => s.action).join(" → ")}`),
+        ].join("\n");
+
+        runStore?.transition(run.run_id, agentId, "awaiting_approval", "approval_requested", {
+          details: { reason: result.disagreement.reason },
+        });
+
+        const approvalId = requestApproval(runtimeDb, {
+          agent_id: agentId,
+          run_id: run.run_id,
+          action: "plan_disagreement",
+          severity: "warning",
+          payload: approvalPayload,
+        });
+
+        run.status = "awaiting_approval";
+        run.updated_at = new Date().toISOString();
+        statusWriter?.setAwaitingApproval(0, "plan_disagreement");
+
+        const decision = await waitForApproval(runtimeDb, approvalId, 4 * 60 * 60 * 1000);
+
+        runStore?.emitEvent(run.run_id, agentId, "disagreement_resolved", {
+          details: { decision },
+        });
+
+        if (decision === "rejected") {
+          log.info("Disagreement escalation rejected — aborting run");
+          runStore?.transition(run.run_id, agentId, "cancelled", "run_cancelled", {
+            details: { reason: "disagreement_rejected" },
+          });
+          runStore?.completeCommand(run.run_id, "failed");
+          statusWriter?.completeRun("disagreement_rejected");
+          runtime.completeRun(run.run_id, "Plan rejected due to planner disagreement");
+          return run;
+        }
+
+        if (decision === "timeout") {
+          log.warn("Disagreement escalation timeout — aborting run");
+          runStore?.transition(run.run_id, agentId, "failed", "run_failed", {
+            details: { reason: "disagreement_timeout" },
+          });
+          runStore?.completeCommand(run.run_id, "failed");
+          statusWriter?.completeRun("disagreement_timeout");
+          runtime.completeRun(run.run_id, "Disagreement approval timeout");
+          return run;
+        }
+
+        run.status = "executing";
+        run.updated_at = new Date().toISOString();
+        log.info("Disagreement escalation approved — proceeding with selected plan");
+      }
+    } else {
+      // Default: single planner
+      plan = await buildPlanWithInference(plannerParams);
+    }
 
     run.plan = plan;
     run.total_steps = plan.steps.length;
     run.status = "executing";
     run.updated_at = new Date().toISOString();
 
+    // Update durable run metadata
+    runStore?.updateRunMeta(run.run_id, { goal: run.goal, total_steps: plan.steps.length });
+
+    // Emit plan_built event
+    runStore?.emitEvent(run.run_id, agentId, "plan_built", {
+      details: { steps: plan.steps.length, goal: run.goal, planner_mode: plannerMode },
+    });
+
     if (plan.steps.length === 0) {
-      logger.warn(`Agent ${agentId} produced empty plan`);
-      statusWriter?.completeRun(agentId, "empty_plan");
+      log.warn("Produced empty plan");
+      runStore?.transition(run.run_id, agentId, "completed", "run_completed", {
+        details: { reason: "empty_plan" },
+      });
+      runStore?.completeCommand(run.run_id, "completed");
+      statusWriter?.completeRun("empty_plan");
       runtime.completeRun(run.run_id, "Empty plan — no steps generated");
-      reportCompletion(claimInfo, agentId, run, "completed", "Empty plan — no steps generated", logger);
       return run;
     }
 
     // Update status writer with actual step count after planning
-    statusWriter?.updateTotalSteps(agentId, plan.steps.length);
+    statusWriter?.updateTotalSteps(plan.steps.length);
 
-    logger.info(`Agent ${agentId} plan: ${plan.steps.length} steps`);
+    log.info(`Plan: ${plan.steps.length} steps`);
 
     // 4. Execute steps sequentially
     for (const step of plan.steps) {
-      logger.info(`  Step ${step.step}/${plan.steps.length}: ${step.action}`, { reasoning: step.reasoning.slice(0, 100) });
+      const stepLog = log.withContext({ step_no: step.step, action: step.action });
+      stepLog.info(`Step ${step.step}/${plan.steps.length}: ${step.action}`, { reasoning: step.reasoning.slice(0, 100) });
+
+      // Emit step_started event
+      runStore?.emitEvent(run.run_id, agentId, "step_started", {
+        step_no: step.step, action: step.action,
+      });
 
       // Update status writer with current step progress
-      statusWriter?.updateStep(agentId, step.step, step.action);
+      statusWriter?.updateStep(step.step, step.action);
 
-      // Check approval gate
-      const gate = def.approval_gates.find(g => g.action === step.action);
-      if (gate) {
-        logger.info(`  Approval required for ${step.action} (${gate.severity})`);
-        const approvalId = requestApproval({
+      // ── Plugin permission check ──
+      // Enforce permissions at runtime for plugin agents
+      if (pluginPermissions && !isActionPermitted(step.action, pluginPermissions)) {
+        stepLog.warn(`Action blocked by plugin permissions: ${step.action}`);
+        runStore?.emitEvent(run.run_id, agentId, "step_failed", {
+          step_no: step.step, action: step.action,
+          details: { error: "permission_denied", reason: `Plugin lacks permission for ${step.action}` },
+        });
+        decisionLog.logDecision({
+          agent_id: agentId, run_id: run.run_id, step: step.step,
+          action: step.action, reasoning: step.reasoning, outcome: "permission_denied",
+        });
+        continue; // Skip this step
+      }
+
+      // ── Maturity-based approval gates ──
+      const gate = resolveApprovalGate(def, step.action);
+
+      if (gate && runtimeDb) {
+        stepLog.info(`Approval required (${gate.severity}, ${gate.source})`);
+
+        // Emit approval_requested event
+        runStore?.transition(run.run_id, agentId, "awaiting_approval", "approval_requested", {
+          step_no: step.step, action: step.action,
+          details: { severity: gate.severity, source: gate.source },
+        });
+
+        const approvalId = requestApproval(runtimeDb, {
           agent_id: agentId,
           run_id: run.run_id,
           action: step.action,
@@ -131,26 +260,18 @@ export async function runAgent(
 
         run.status = "awaiting_approval";
         run.updated_at = new Date().toISOString();
-        statusWriter?.setAwaitingApproval(agentId, step.step, step.action);
+        statusWriter?.setAwaitingApproval(step.step, step.action);
 
-        // Heartbeat with awaiting_approval status
-        if (claimInfo) {
-          try {
-            getJarvisState().heartbeatJob({
-              worker_id: claimInfo.workerId,
-              job_id: claimInfo.jobId,
-              claim_id: claimInfo.claimId,
-              status: "awaiting_approval",
-              lease_seconds: 14400, // 4h lease while waiting for approval
-              summary: `Awaiting approval: ${step.action}`,
-            });
-          } catch { /* best effort */ }
-        }
+        const decision = await waitForApproval(runtimeDb, approvalId, 4 * 60 * 60 * 1000); // 4h timeout
 
-        const decision = await waitForApproval(approvalId, 4 * 60 * 60 * 1000); // 4h timeout
+        // Emit approval_resolved event
+        runStore?.emitEvent(run.run_id, agentId, "approval_resolved", {
+          step_no: step.step, action: step.action,
+          details: { decision },
+        });
 
         if (decision === "rejected") {
-          logger.info(`  Step ${step.step} rejected — skipping`);
+          stepLog.info("Rejected — skipping");
           decisionLog.logDecision({
             agent_id: agentId, run_id: run.run_id, step: step.step,
             action: step.action, reasoning: step.reasoning, outcome: "rejected",
@@ -159,33 +280,27 @@ export async function runAgent(
         }
 
         if (decision === "timeout") {
-          logger.warn(`  Approval timeout for step ${step.step} — aborting run`);
+          stepLog.warn("Approval timeout — aborting run");
+          runStore?.transition(run.run_id, agentId, "failed", "run_failed", {
+            step_no: step.step, action: step.action,
+            details: { reason: "approval_timeout" },
+          });
+          runStore?.completeCommand(run.run_id, "failed");
           decisionLog.logDecision({
             agent_id: agentId, run_id: run.run_id, step: step.step,
             action: step.action, reasoning: step.reasoning, outcome: "approval_timeout",
           });
-          statusWriter?.completeRun(agentId, "approval_timeout");
+          statusWriter?.completeRun("approval_timeout");
           runtime.completeRun(run.run_id, "Approval timeout");
-          reportCompletion(claimInfo, agentId, run, "failed", "Approval timeout", logger);
           return run;
         }
 
         run.status = "executing";
         run.updated_at = new Date().toISOString();
-        logger.info(`  Step ${step.step} approved — executing`);
-
-        // Restore normal lease after approval
-        if (claimInfo) {
-          try {
-            getJarvisState().heartbeatJob({
-              worker_id: claimInfo.workerId,
-              job_id: claimInfo.jobId,
-              claim_id: claimInfo.claimId,
-              lease_seconds: claimInfo.leaseSeconds,
-              summary: `Executing step ${step.step}: ${step.action}`,
-            });
-          } catch { /* best effort */ }
-        }
+        runStore?.transition(run.run_id, agentId, "executing", "step_started", {
+          step_no: step.step, action: step.action,
+        });
+        stepLog.info("Approved — executing");
       }
 
       // Execute the job
@@ -205,23 +320,41 @@ export async function runAgent(
         });
 
         if (result.status === "failed") {
+          runStore?.emitEvent(run.run_id, agentId, "step_failed", {
+            step_no: step.step, action: step.action,
+            details: { error: result.error?.message, retryable: result.error?.retryable },
+          });
+
           // Retry once if retryable
           if (result.error?.retryable) {
-            logger.info(`  Step ${step.step} failed (retryable) — retrying`);
+            stepLog.info("Failed (retryable) — retrying");
             const retry = await registry.executeJob({ ...envelope, attempt: 2 });
             if (retry.status === "failed") {
-              logger.warn(`  Step ${step.step} retry also failed`);
+              stepLog.warn("Retry also failed");
+            } else {
+              runStore?.emitEvent(run.run_id, agentId, "step_completed", {
+                step_no: step.step, action: step.action,
+                details: { retry: true },
+              });
             }
           } else {
-            logger.warn(`  Step ${step.step} failed: ${result.error?.message}`);
+            stepLog.warn(`Failed: ${result.error?.message}`);
           }
+        } else {
+          runStore?.emitEvent(run.run_id, agentId, "step_completed", {
+            step_no: step.step, action: step.action,
+          });
         }
 
         run.current_step = step.step;
         run.updated_at = new Date().toISOString();
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
-        logger.error(`  Step ${step.step} threw: ${errMsg}`);
+        stepLog.error(`Threw: ${errMsg}`);
+        runStore?.emitEvent(run.run_id, agentId, "step_failed", {
+          step_no: step.step, action: step.action,
+          details: { error: errMsg },
+        });
         decisionLog.logDecision({
           agent_id: agentId, run_id: run.run_id, step: step.step,
           action: step.action, reasoning: step.reasoning, outcome: `error: ${errMsg}`,
@@ -230,15 +363,13 @@ export async function runAgent(
     }
 
     // 5. Complete run
-    // CRITICAL PATH: These durable state writes (JarvisState callback + runtime completion)
-    // record the authoritative outcome. If they fail, the job's lease will expire and
-    // requeueExpiredJobs() will recover it on restart.
-    statusWriter?.completeRun(agentId, "completed");
+    runStore?.transition(run.run_id, agentId, "completed", "run_completed", {
+      details: { steps_completed: run.current_step, total_steps: plan.steps.length },
+    });
+    runStore?.completeCommand(run.run_id, "completed");
+    statusWriter?.completeRun("completed");
     runtime.completeRun(run.run_id);
-    logger.info(`Agent ${agentId} completed (${run.current_step} steps)`);
-
-    // Report completion to JarvisState
-    reportCompletion(claimInfo, agentId, run, "completed", `Completed ${run.current_step}/${run.total_steps} steps`, logger);
+    log.info(`Completed (${run.current_step} steps)`);
 
     // 6. Capture lessons
     const decisions = decisionLog.getDecisions(agentId, run.run_id);
@@ -246,66 +377,91 @@ export async function runAgent(
 
     // 7. Notify via Telegram queue
     const summary = `${def.label}: completed ${run.current_step}/${plan.steps.length} steps. Goal: ${run.goal}`;
-    writeTelegramQueue(agentId, summary);
+    writeTelegramQueue(agentId, summary, runtimeDb);
+
+    // 8. Post-hoc review notification for trusted_with_review agents
+    if (def.maturity === "trusted_with_review") {
+      writeTelegramQueue(agentId, `[REVIEW] ${def.label} completed autonomously. Run: ${run.run_id}. Review output and decisions.`, runtimeDb);
+    }
 
     return runtime.getRun(run.run_id)!;
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
-    logger.error(`Agent ${agentId} run failed: ${errMsg}`);
-    statusWriter?.completeRun(agentId, `error: ${errMsg}`);
+    log.error(`Run failed: ${errMsg}`);
+    runStore?.transition(run.run_id, agentId, "failed", "run_failed", {
+      details: { error: errMsg },
+    });
+    runStore?.completeCommand(run.run_id, "failed");
+    statusWriter?.completeRun(`error: ${errMsg}`);
     runtime.completeRun(run.run_id, errMsg);
-    reportCompletion(claimInfo, agentId, run, "failed", errMsg, logger);
     return runtime.getRun(run.run_id)!;
-  } finally {
-    // Always clear the heartbeat timer
-    if (heartbeatTimer) {
-      clearInterval(heartbeatTimer);
-    }
   }
 }
 
-/** Report run completion/failure to JarvisState via handleWorkerCallback */
-function reportCompletion(
-  claimInfo: ClaimInfo | undefined,
-  agentId: string,
-  run: AgentRun,
-  status: "completed" | "failed",
-  summary: string,
-  logger: Logger,
-): void {
-  if (!claimInfo) return;
-  try {
-    const callback: WorkerCallback = {
-      contract_version: "jarvis.v1",
-      job_id: claimInfo.jobId,
-      job_type: "agent.start",
-      attempt: 1,
-      status,
-      summary,
-      worker_id: claimInfo.workerId,
-      claim_id: claimInfo.claimId,
-      structured_output: {
-        run_id: run.run_id,
-        agent_id: agentId,
-        steps_completed: run.current_step,
-        total_steps: run.total_steps,
-        plan: run.plan,
-      },
-      metrics: {
-        started_at: run.started_at,
-        finished_at: new Date().toISOString(),
-      },
-    };
-    if (status === "failed") {
-      callback.error = {
-        code: "AGENT_RUN_FAILED",
-        message: summary,
-        retryable: true,
-      };
+// ─── Maturity-based approval gate resolution ─────────────────────────────────
+
+type ResolvedGate = {
+  severity: "info" | "warning" | "critical";
+  source: "explicit" | "maturity_experimental" | "maturity_high_stakes";
+};
+
+/**
+ * Resolve the approval gate for a step action based on:
+ * 1. Explicit approval_gates defined on the agent
+ * 2. Maturity-level enforcement:
+ *    - experimental: every action requires approval (including read-only)
+ *    - high_stakes_manual_gate: every mutating action requires approval
+ *    - trusted_with_review / operational: explicit gates only (post-hoc for trusted)
+ */
+function resolveApprovalGate(def: AgentDefinition, action: string): ResolvedGate | null {
+  // 1. Explicit gate always takes precedence
+  const explicit = def.approval_gates.find(g => g.action === action);
+  if (explicit) {
+    return { severity: explicit.severity, source: "explicit" };
+  }
+
+  // 2. Maturity-level enforcement
+  const maturity = def.maturity;
+
+  if (maturity === "experimental") {
+    // Experimental agents: every action requires approval (human-in-the-loop for all)
+    return { severity: "warning", source: "maturity_experimental" };
+  }
+
+  if (maturity === "high_stakes_manual_gate") {
+    // High-stakes: every mutating action requires approval; read-only is exempt
+    if (!isReadOnlyAction(action)) {
+      return { severity: "warning", source: "maturity_high_stakes" };
     }
-    getJarvisState().handleWorkerCallback(callback);
-  } catch (e) {
-    logger.error(`Failed to report completion for job ${claimInfo.jobId}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  // operational / trusted_with_review: explicit gates only
+  return null;
+}
+
+// ─── Plugin permission loading ───────────────────────────────────────────────
+
+/**
+ * Load plugin permissions for an agent from the plugin_installs table.
+ * Returns null for built-in agents (no permission restrictions).
+ */
+function loadPluginPermissions(agentId: string, runtimeDb?: DatabaseSync): PluginPermission[] | null {
+  if (!runtimeDb) return null;
+
+  // Plugin agents typically have IDs starting with "plugin-"
+  const pluginId = agentId.startsWith("plugin-") ? agentId.slice(7) : agentId;
+
+  try {
+    const row = runtimeDb.prepare(
+      "SELECT manifest_json FROM plugin_installs WHERE plugin_id = ? AND status = 'active'",
+    ).get(pluginId) as { manifest_json: string } | undefined;
+
+    if (!row?.manifest_json) return null;
+
+    const manifest = JSON.parse(row.manifest_json) as { permissions?: string[] };
+    return (manifest.permissions as PluginPermission[]) ?? null;
+  } catch {
+    return null;
   }
 }
 

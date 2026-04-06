@@ -99,8 +99,10 @@ export class StatusWriter {
   }
 
   /** Update progress of a specific agent's run. */
-  updateStep(agentId: string, step: number, action: string): void {
-    const run = this.state.active_runs.find(r => r.agent_id === agentId);
+  updateStep(step: number, action: string, agentId?: string): void {
+    const run = agentId
+      ? this.state.active_runs.find(r => r.agent_id === agentId)
+      : this.state.active_runs[this.state.active_runs.length - 1];
     if (run) {
       run.step = step;
       run.current_action = action;
@@ -111,16 +113,20 @@ export class StatusWriter {
   }
 
   /** Update total steps for a specific agent (after planning completes). */
-  updateTotalSteps(agentId: string, totalSteps: number): void {
-    const run = this.state.active_runs.find(r => r.agent_id === agentId);
+  updateTotalSteps(totalSteps: number, agentId?: string): void {
+    const run = agentId
+      ? this.state.active_runs.find(r => r.agent_id === agentId)
+      : this.state.active_runs[this.state.active_runs.length - 1];
     if (run) {
       run.total_steps = totalSteps;
     }
   }
 
   /** Mark a specific run as awaiting approval. */
-  setAwaitingApproval(agentId: string, step: number, action: string): void {
-    const run = this.state.active_runs.find(r => r.agent_id === agentId);
+  setAwaitingApproval(step: number, action: string, agentId?: string): void {
+    const run = agentId
+      ? this.state.active_runs.find(r => r.agent_id === agentId)
+      : this.state.active_runs[this.state.active_runs.length - 1];
     if (run) {
       run.status = "awaiting_approval";
       run.step = step;
@@ -131,8 +137,10 @@ export class StatusWriter {
   }
 
   /** Mark a run as completed and remove from active runs. */
-  completeRun(agentId: string, status: string): void {
-    const idx = this.state.active_runs.findIndex(r => r.agent_id === agentId);
+  completeRun(status: string, agentId?: string): void {
+    const idx = agentId
+      ? this.state.active_runs.findIndex(r => r.agent_id === agentId)
+      : this.state.active_runs.length - 1;
     if (idx >= 0) {
       const run = this.state.active_runs[idx];
       this.state.last_run = {

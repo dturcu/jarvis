@@ -3,46 +3,44 @@ import { randomUUID } from "node:crypto";
 import os from "node:os";
 import fs from "node:fs";
 import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { runMigrations } from "../packages/jarvis-runtime/src/migrations/runner.ts";
 
-// ─── Approval Bridge ─────────────────────────────────────────────────────────
-// We need to redirect the APPROVALS_FILE to a temp location. The module reads
-// from the config import, so we mock the config module.
-// vi.mock is hoisted, so we must compute paths inside the factory using only
-// inline imports (no references to module-level variables).
+// ─── Config Mock ────────────────────────────────────────────────────────────
+// Logger and notify still write to JARVIS_DIR paths (daemon.log, telegram-queue.json).
+// We redirect those to a temp directory for testing.
 
 vi.mock("../packages/jarvis-runtime/src/config.ts", async () => {
   const _os = await import("node:os");
   const _path = await import("node:path");
-  // Use a fixed seed so the path is deterministic within this test file.
-  // We store it on globalThis so the rest of the file can read it.
   const dir = _path.join(_os.default.tmpdir(), "jarvis-daemon-test-fixed");
-  (globalThis as Record<string, unknown>).__JARVIS_TEST_DIR = dir;
   return {
     JARVIS_DIR: dir,
     APPROVALS_FILE: _path.join(dir, "approvals.json"),
     TELEGRAM_QUEUE_FILE: _path.join(dir, "telegram-queue.json"),
     CRM_DB_PATH: _path.join(dir, "crm.db"),
     KNOWLEDGE_DB_PATH: _path.join(dir, "knowledge.db"),
+    RUNTIME_DB_PATH: _path.join(dir, "runtime.db"),
     loadConfig: () => ({
       lmstudio_url: "http://localhost:1234",
       default_model: "auto",
       adapter_mode: "mock",
       poll_interval_ms: 60_000,
       trigger_poll_ms: 10_000,
+      max_concurrent: 2,
       log_level: "info",
     }),
+    validateConfig: () => ({ valid: true, errors: [], warnings: [] }),
   };
 });
 
-// Resolve the temp directory that the mock factory created
-const TEMP_DIR = join(os.tmpdir(), "jarvis-daemon-test-fixed");
-const TEMP_APPROVALS = join(TEMP_DIR, "approvals.json");
-const TEMP_TELEGRAM_QUEUE = join(TEMP_DIR, "telegram-queue.json");
+// ─── Approval Bridge (DB-backed) ─────────────────────────────────────────────
 
-// Now import the modules under test (after mock is set up)
 import {
   requestApproval,
   waitForApproval,
+  resolveApproval,
+  listApprovals,
   type ApprovalEntry,
 } from "../packages/jarvis-runtime/src/approval-bridge.ts";
 import { buildPlanWithInference, type PlannerDeps } from "../packages/jarvis-runtime/src/planner-real.ts";
@@ -51,15 +49,30 @@ import { Logger } from "../packages/jarvis-runtime/src/logger.ts";
 import { loadConfig } from "../packages/jarvis-runtime/src/config.ts";
 import type { JobEnvelope } from "@jarvis/shared";
 
-// ─── Setup / Teardown ────────────────────────────────────────────────────────
+// ─── Temp Setup ─────────────────────────────────────────────────────────────
+
+const TEMP_DIR = join(os.tmpdir(), "jarvis-daemon-test-fixed");
+const TEMP_TELEGRAM_QUEUE = join(TEMP_DIR, "telegram-queue.json");
+
+let testDb: DatabaseSync;
+let testDbPath: string;
 
 beforeEach(() => {
+  // Temp directory for logger/notify tests
   fs.mkdirSync(TEMP_DIR, { recursive: true });
+
+  // Temp DB for approval bridge tests
+  testDbPath = join(os.tmpdir(), `jarvis-daemon-test-${Date.now()}-${Math.random().toString(36).slice(2)}.db`);
+  testDb = new DatabaseSync(testDbPath);
+  testDb.exec("PRAGMA journal_mode = WAL;");
+  testDb.exec("PRAGMA foreign_keys = ON;");
+  runMigrations(testDb);
 });
 
 afterEach(() => {
-  // Clean up temp files
-  try { fs.rmSync(TEMP_DIR, { recursive: true, force: true }); } catch { /* ignore */ }
+  try { testDb.close(); } catch { /* ok */ }
+  try { fs.unlinkSync(testDbPath); } catch { /* ok */ }
+  try { fs.rmSync(TEMP_DIR, { recursive: true, force: true }); } catch { /* ok */ }
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -89,8 +102,8 @@ function makeEnvelope(type: string, input: Record<string, unknown>): JobEnvelope
 // ═══════════════════════════════════════════════════════════════════════════════
 
 describe("Approval Bridge", () => {
-  it("requestApproval creates entry in file", () => {
-    const id = requestApproval({
+  it("requestApproval creates entry in DB", () => {
+    const id = requestApproval(testDb, {
       agent_id: "bd-pipeline",
       run_id: "run-1",
       action: "email.send",
@@ -102,15 +115,15 @@ describe("Approval Bridge", () => {
     expect(typeof id).toBe("string");
     expect(id.length).toBe(8); // short UUID
 
-    const raw = JSON.parse(fs.readFileSync(TEMP_APPROVALS, "utf8")) as ApprovalEntry[];
-    expect(raw).toHaveLength(1);
-    expect(raw[0]!.id).toBe(id);
-    expect(raw[0]!.status).toBe("pending");
-    expect(raw[0]!.agent).toBe("bd-pipeline");
+    const rows = listApprovals(testDb);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.id).toBe(id);
+    expect(rows[0]!.status).toBe("pending");
+    expect(rows[0]!.agent).toBe("bd-pipeline");
   });
 
   it("requestApproval returns short ID (8 chars)", () => {
-    const id = requestApproval({
+    const id = requestApproval(testDb, {
       agent_id: "agent-a",
       run_id: "run-1",
       action: "publish_post",
@@ -120,17 +133,17 @@ describe("Approval Bridge", () => {
     expect(id).toHaveLength(8);
   });
 
-  it("multiple approvals accumulate in same file", () => {
-    requestApproval({ agent_id: "a1", run_id: "r1", action: "email.send", severity: "critical", payload: "p1" });
-    requestApproval({ agent_id: "a2", run_id: "r2", action: "publish_post", severity: "critical", payload: "p2" });
-    requestApproval({ agent_id: "a3", run_id: "r3", action: "trade_execute", severity: "warning", payload: "p3" });
+  it("multiple approvals accumulate in DB", () => {
+    requestApproval(testDb, { agent_id: "a1", run_id: "r1", action: "email.send", severity: "critical", payload: "p1" });
+    requestApproval(testDb, { agent_id: "a2", run_id: "r2", action: "publish_post", severity: "critical", payload: "p2" });
+    requestApproval(testDb, { agent_id: "a3", run_id: "r3", action: "trade_execute", severity: "warning", payload: "p3" });
 
-    const raw = JSON.parse(fs.readFileSync(TEMP_APPROVALS, "utf8")) as ApprovalEntry[];
-    expect(raw).toHaveLength(3);
+    const rows = listApprovals(testDb);
+    expect(rows).toHaveLength(3);
   });
 
   it("waitForApproval returns 'approved' when status changes", async () => {
-    const id = requestApproval({
+    const id = requestApproval(testDb, {
       agent_id: "agent-a",
       run_id: "run-1",
       action: "email.send",
@@ -140,18 +153,15 @@ describe("Approval Bridge", () => {
 
     // Simulate external approval after a short delay
     setTimeout(() => {
-      const approvals = JSON.parse(fs.readFileSync(TEMP_APPROVALS, "utf8")) as ApprovalEntry[];
-      const entry = approvals.find(a => a.id === id);
-      if (entry) entry.status = "approved";
-      fs.writeFileSync(TEMP_APPROVALS, JSON.stringify(approvals, null, 2));
+      resolveApproval(testDb, id, "approved", "test-user");
     }, 50);
 
-    const result = await waitForApproval(id, 5000, 30);
+    const result = await waitForApproval(testDb, id, 5000, 30);
     expect(result).toBe("approved");
   });
 
   it("waitForApproval returns 'rejected' when status changes", async () => {
-    const id = requestApproval({
+    const id = requestApproval(testDb, {
       agent_id: "agent-a",
       run_id: "run-1",
       action: "trade_execute",
@@ -160,18 +170,15 @@ describe("Approval Bridge", () => {
     });
 
     setTimeout(() => {
-      const approvals = JSON.parse(fs.readFileSync(TEMP_APPROVALS, "utf8")) as ApprovalEntry[];
-      const entry = approvals.find(a => a.id === id);
-      if (entry) entry.status = "rejected";
-      fs.writeFileSync(TEMP_APPROVALS, JSON.stringify(approvals, null, 2));
+      resolveApproval(testDb, id, "rejected", "test-user");
     }, 50);
 
-    const result = await waitForApproval(id, 5000, 30);
+    const result = await waitForApproval(testDb, id, 5000, 30);
     expect(result).toBe("rejected");
   });
 
   it("waitForApproval returns 'timeout' after deadline", async () => {
-    const id = requestApproval({
+    const id = requestApproval(testDb, {
       agent_id: "agent-a",
       run_id: "run-1",
       action: "email.send",
@@ -180,12 +187,12 @@ describe("Approval Bridge", () => {
     });
 
     // Very short timeout, never approve
-    const result = await waitForApproval(id, 80, 20);
+    const result = await waitForApproval(testDb, id, 80, 20);
     expect(result).toBe("timeout");
   });
 
   it("waitForApproval polls at specified interval", async () => {
-    const id = requestApproval({
+    const id = requestApproval(testDb, {
       agent_id: "agent-a",
       run_id: "run-1",
       action: "email.send",
@@ -197,13 +204,10 @@ describe("Approval Bridge", () => {
 
     // Approve after 80ms, poll every 30ms, timeout at 500ms
     setTimeout(() => {
-      const approvals = JSON.parse(fs.readFileSync(TEMP_APPROVALS, "utf8")) as ApprovalEntry[];
-      const entry = approvals.find(a => a.id === id);
-      if (entry) entry.status = "approved";
-      fs.writeFileSync(TEMP_APPROVALS, JSON.stringify(approvals, null, 2));
+      resolveApproval(testDb, id, "approved", "test-user");
     }, 80);
 
-    const result = await waitForApproval(id, 500, 30);
+    const result = await waitForApproval(testDb, id, 500, 30);
     const elapsed = Date.now() - start;
 
     expect(result).toBe("approved");
@@ -212,9 +216,8 @@ describe("Approval Bridge", () => {
     expect(elapsed).toBeLessThan(500);
   });
 
-  it("requestApproval + external approve full flow", async () => {
-    // Full flow: request → external approval → wait returns approved
-    const id = requestApproval({
+  it("requestApproval + resolveApproval full flow with audit log", async () => {
+    const id = requestApproval(testDb, {
       agent_id: "bd-pipeline",
       run_id: "run-x",
       action: "crm.move_stage",
@@ -223,19 +226,22 @@ describe("Approval Bridge", () => {
     });
 
     // Verify pending
-    const before = JSON.parse(fs.readFileSync(TEMP_APPROVALS, "utf8")) as ApprovalEntry[];
-    expect(before.find(a => a.id === id)!.status).toBe("pending");
+    const pending = listApprovals(testDb, "pending");
+    expect(pending.find(a => a.id === id)!.status).toBe("pending");
 
-    // Simulate external approval
+    // Resolve via resolveApproval (simulates dashboard)
     setTimeout(() => {
-      const approvals = JSON.parse(fs.readFileSync(TEMP_APPROVALS, "utf8")) as ApprovalEntry[];
-      const entry = approvals.find(a => a.id === id);
-      if (entry) entry.status = "approved";
-      fs.writeFileSync(TEMP_APPROVALS, JSON.stringify(approvals, null, 2));
+      resolveApproval(testDb, id, "approved", "dashboard");
     }, 40);
 
-    const result = await waitForApproval(id, 2000, 20);
+    const result = await waitForApproval(testDb, id, 2000, 20);
     expect(result).toBe("approved");
+
+    // Verify audit log entry was created
+    const auditRows = testDb.prepare("SELECT * FROM audit_log WHERE target_id = ?").all(id) as Array<Record<string, unknown>>;
+    expect(auditRows).toHaveLength(1);
+    expect(auditRows[0]!.action).toBe("approval.approved");
+    expect(auditRows[0]!.actor_id).toBe("dashboard");
   });
 });
 
@@ -553,20 +559,22 @@ describe("Logger", () => {
     expect(firstLine.ts).toBeTruthy();
   });
 
-  it("error level triggers Telegram alert", () => {
+  it("error level triggers alert", () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const alertsFile = join(TEMP_DIR, "alerts.jsonl");
 
     const logger = new Logger("info", { logToFile: false, alertOnError: true });
     logger.error("critical failure", { component: "crm" });
 
     consoleSpy.mockRestore();
 
-    expect(fs.existsSync(TEMP_TELEGRAM_QUEUE)).toBe(true);
-    const queue = JSON.parse(fs.readFileSync(TEMP_TELEGRAM_QUEUE, "utf8")) as Array<Record<string, unknown>>;
-    expect(queue.length).toBeGreaterThan(0);
-    expect(queue[0]!.agent).toBe("daemon");
-    expect((queue[0]!.message as string)).toContain("critical failure");
-    expect(queue[0]!.sent).toBe(false);
+    expect(fs.existsSync(alertsFile)).toBe(true);
+    const lines = fs.readFileSync(alertsFile, "utf8").trim().split("\n");
+    expect(lines.length).toBeGreaterThan(0);
+    const entry = JSON.parse(lines[0]!) as Record<string, unknown>;
+    expect(entry.level).toBe("ERROR");
+    expect(entry.msg).toContain("critical failure");
+    expect(entry.agent_id).toBe("daemon");
   });
 
   it("debug messages filtered when level is 'info'", () => {
@@ -615,16 +623,9 @@ describe("Config", () => {
     expect(typeof config.trigger_poll_ms).toBe("number");
   });
 
-  it("ModelTierConfig resolves haiku/sonnet/opus structure", () => {
-    // Verify the type structure is correct
-    const tiers = {
-      haiku: "claude-3-haiku",
-      sonnet: "claude-3-sonnet",
-      opus: "claude-3-opus",
-    };
-    expect(tiers.haiku).toBe("claude-3-haiku");
-    expect(tiers.sonnet).toBe("claude-3-sonnet");
-    expect(tiers.opus).toBe("claude-3-opus");
+  it("config structure no longer has model tiers", () => {
+    const config = loadConfig();
+    expect(config).not.toHaveProperty("model_tiers");
   });
 
   it("config defaults include expected fields", () => {

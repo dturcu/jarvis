@@ -32,10 +32,10 @@ STYLE: Conservative, credible, delivery-oriented. No fluff.
 
 WORKFLOW:
 1. document.ingest — parse the RFQ/SOW document
-2. inference.chat (opus) — extract work packages, scope, assumptions, risks
+2. inference.chat — extract work packages, scope, assumptions, risks
 3. inference.rag_query — search past proposals for similar engagements
 4. crm.search — find prior interactions with this prospect
-5. inference.chat (sonnet) — build quote structure (phases, rates, staffing, exclusions)
+5. inference.chat — build quote structure (phases, rates, staffing, exclusions)
 6. document.generate_report — produce proposal document (DOCX)
 7. email.draft — draft cover email
 8. crm.add_note — log proposal activity
@@ -56,8 +56,10 @@ export const proposalEngineAgent: AgentDefinition = {
     { action: "document.generate_report", severity: "warning" },
   ],
   knowledge_collections: ["proposals", "case-studies", "playbooks", "contracts"],
-  inference_tier: "opus",
+  task_profile: { objective: "plan", preferences: { prioritize_accuracy: true } },
   max_steps_per_run: 8,
   system_prompt: PROPOSAL_ENGINE_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
+  planner_mode: "multi",
+  maturity: "high_stakes_manual_gate",
 };

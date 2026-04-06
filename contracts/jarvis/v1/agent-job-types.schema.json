@@ -258,9 +258,17 @@
           "type": "string",
           "minLength": 1
         },
-        "inference_tier": {
-          "type": "string",
-          "enum": ["haiku", "sonnet", "opus"]
+        "task_profile": {
+          "type": "object",
+          "properties": {
+            "objective": {
+              "type": "string",
+              "enum": ["plan", "execute", "critique", "summarize", "extract", "classify", "answer", "code", "rag_synthesis"]
+            },
+            "constraints": { "type": "object" },
+            "preferences": { "type": "object" }
+          },
+          "required": ["objective"]
         },
         "max_steps_per_run": {
           "type": "integer",
@@ -280,6 +288,16 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "planner_mode": {
+          "type": "string",
+          "enum": ["single", "critic", "multi"],
+          "description": "Controls multi-viewpoint planning: single (default), critic (plan+review), multi (N planners+evaluator)"
+        },
+        "maturity": {
+          "type": "string",
+          "enum": ["experimental", "operational", "trusted_with_review", "high_stakes_manual_gate"],
+          "description": "Agent maturity level controlling operational trust and review requirements"
         }
       },
       "additionalProperties": false
@@ -296,9 +314,17 @@
           "type": "string",
           "minLength": 1
         },
-        "inference_tier": {
-          "type": "string",
-          "enum": ["haiku", "sonnet", "opus"]
+        "task_profile": {
+          "type": "object",
+          "properties": {
+            "objective": {
+              "type": "string",
+              "enum": ["plan", "execute", "critique", "summarize", "extract", "classify", "answer", "code", "rag_synthesis"]
+            },
+            "constraints": { "type": "object" },
+            "preferences": { "type": "object" }
+          },
+          "required": ["objective"]
         },
         "max_steps_per_run": {
           "type": "integer",

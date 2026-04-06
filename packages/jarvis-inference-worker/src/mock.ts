@@ -22,25 +22,25 @@ const MOCK_MODELS = [
   {
     id: "llama3.2:1b",
     runtime: "ollama" as const,
-    tier: "haiku" as const,
+    size_class: "small" as const,
     capabilities: ["chat"] as string[]
   },
   {
     id: "llama3.1:8b",
     runtime: "ollama" as const,
-    tier: "sonnet" as const,
+    size_class: "medium" as const,
     capabilities: ["chat", "code"] as string[]
   },
   {
     id: "llama3.1:70b",
     runtime: "lmstudio" as const,
-    tier: "opus" as const,
+    size_class: "large" as const,
     capabilities: ["chat", "code"] as string[]
   },
   {
     id: "nomic-embed-text",
     runtime: "ollama" as const,
-    tier: "haiku" as const,
+    size_class: "small" as const,
     capabilities: ["embedding"] as string[]
   }
 ];
@@ -79,8 +79,7 @@ export class MockInferenceAdapter implements InferenceAdapter {
   async chat(input: InferenceChatInput): Promise<ExecutionOutcome<InferenceChatOutput>> {
     this.chatCalls.push(input);
 
-    const tier = input.tier ?? "sonnet";
-    const model = input.model ?? MOCK_MODELS.find((m) => m.tier === tier && m.capabilities.includes("chat"))?.id ?? "llama3.1:8b";
+    const model = input.model ?? MOCK_MODELS.find((m) => m.size_class === "medium" && m.capabilities.includes("chat"))?.id ?? "llama3.1:8b";
     const lastMessage = input.messages[input.messages.length - 1];
     const content = `Mock response to: ${lastMessage?.content?.slice(0, 50) ?? "(empty)"}`;
     const promptTokens = input.messages.reduce((sum, m) => sum + m.content.split(" ").length, 0);

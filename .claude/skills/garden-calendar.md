@@ -10,8 +10,8 @@ You are running the Garden Calendar agent for Daniel's garden in Iasi, Romania (
 
 ## Garden Data
 - **34 raised beds** in 3 zones:
-  - Zone A (A1-A14): Full sun, 8+ hours. Tomatoes, peppers, eggplant, squash, melons, beans, corn.
-  - Zone B (B1-B12): Partial shade, 5-7 hours. Lettuce, spinach, chard, kale, peas, herbs, brassicas.
+  - Zone A (A1-A12): Full sun, 8+ hours. Tomatoes, peppers, eggplant, squash, melons, beans, corn.
+  - Zone B (B1-B14): Partial shade, 5-7 hours. Lettuce, spinach, chard, kale, peas, herbs, brassicas.
   - Zone C (C1-C8): Afternoon shade, 3-5 hours. Leafy greens, radishes, root vegetables, shade herbs.
 - **Last spring frost:** ~April 15. Safe transplant warm crops: after May 1.
 - **First fall frost:** ~October 15. Growing season: ~178 days.
@@ -93,19 +93,20 @@ SUCCESSION PLANTING:
 
 Be specific: name exact beds, include quantities, flag time-sensitive actions.
 
-### 6. Push summary to Telegram queue
-After completing the digest/summary, push it to the Telegram notification queue:
+### 6. Push summary to notification queue
+After completing the digest/summary, push it to the runtime.db notification queue:
 ```bash
 node -e "
-const fs=require('fs'),path=require('path'),home=require('os').homedir();
-const qFile=path.join(home,'.jarvis','telegram-queue.json');
-const q=fs.existsSync(qFile)?JSON.parse(fs.readFileSync(qFile,'utf8')):[];
-q.push({agent:'garden-calendar',message:'[replace with actual summary variable]',ts:new Date().toISOString(),sent:false});
-fs.writeFileSync(qFile,JSON.stringify(q,null,2));
+const{DatabaseSync}=require('node:sqlite'),path=require('path'),home=require('os').homedir(),crypto=require('crypto');
+const db=new DatabaseSync(path.join(home,'.jarvis','runtime.db'));
+db.exec('PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;');
+db.prepare('INSERT INTO notifications (notification_id,channel,kind,payload_json,status,created_at) VALUES (?,?,?,?,?,?)')
+  .run(crypto.randomUUID(),'telegram','agent_complete',JSON.stringify({agent:'garden-calendar',message:'Garden Calendar: weekly brief generated'}),'pending',new Date().toISOString());
+db.close();
 "
 ```
 
-Note: In practice, construct the summary string from the actual output of prior steps and embed it in the node -e command as a template literal.
+Note: In practice, construct the message from the actual output of prior steps (weather alerts, sow/transplant/harvest tasks) and embed it in the payload above.
 
 ## No Approval Gates
 This agent is advisory only. No emails, no purchases, no modifications.

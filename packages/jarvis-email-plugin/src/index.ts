@@ -8,7 +8,6 @@ import {
 import {
   EMAIL_TOOL_NAMES,
   EMAIL_COMMAND_NAMES,
-  getJarvisState,
   safeJsonParse,
   submitEmailSearch,
   submitEmailRead,
@@ -242,6 +241,9 @@ export function createEmailCommand() {
           return toCommandReply(formatJobReply(response));
         }
         case "send": {
+          if (!args.draft_id && (!args.to || !args.subject || !args.body)) {
+            return toCommandReply("Send requires either draft_id or (to + subject + body).", true);
+          }
           const response = submitEmailSend(toolCtx, {
             draftId: args.draft_id,
             to: args.to,

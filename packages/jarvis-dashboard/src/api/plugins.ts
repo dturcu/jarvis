@@ -2,50 +2,28 @@ import { Router } from 'express'
 import fs from 'fs'
 import os from 'os'
 import { join } from 'path'
+import { DatabaseSync } from 'node:sqlite'
+import { writeAuditLog, getActor } from './middleware/audit.js'
+import type { AuthenticatedRequest } from './middleware/auth.js'
+import {
+  loadPlugins,
+  installPlugin,
+  uninstallPlugin,
+  validateManifest,
+  deriveRequiredPermissions,
+} from '@jarvis/runtime'
 
-const PLUGINS_DIR = join(os.homedir(), '.jarvis', 'plugins')
 const CONFIG_PATH = join(os.homedir(), '.jarvis', 'config.json')
 
-interface PluginManifest {
-  id: string
-  name: string
-  version: string
-  description: string
-  agent: Record<string, unknown>
-  knowledge_seeds?: Array<{
-    collection: string
-    title: string
-    content: string
-    tags: string[]
-  }>
-  config_requirements?: string[]
-  installed_at: string
-}
-
-function loadPlugins(): PluginManifest[] {
-  if (!fs.existsSync(PLUGINS_DIR)) return []
-
-  const dirs = fs.readdirSync(PLUGINS_DIR).filter(d => {
-    try {
-      return fs.statSync(join(PLUGINS_DIR, d)).isDirectory()
-    } catch {
-      return false
-    }
-  })
-
-  const manifests: PluginManifest[] = []
-  for (const dir of dirs) {
-    const manifestPath = join(PLUGINS_DIR, dir, 'manifest.json')
-    if (!fs.existsSync(manifestPath)) continue
-    try {
-      const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as PluginManifest
-      manifests.push(manifest)
-    } catch {
-      // Skip malformed manifests
-    }
+function getDb(): DatabaseSync | undefined {
+  try {
+    const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'runtime.db'))
+    db.exec('PRAGMA journal_mode = WAL;')
+    db.exec('PRAGMA busy_timeout = 5000;')
+    return db
+  } catch {
+    return undefined
   }
-
-  return manifests
 }
 
 function getConfiguredIntegrations(): string[] {
@@ -63,51 +41,9 @@ function getConfiguredIntegrations(): string[] {
   }
 }
 
-function installPlugin(sourcePath: string): PluginManifest {
-  const manifestPath = join(sourcePath, 'manifest.json')
-  if (!fs.existsSync(manifestPath)) {
-    throw new Error(`No manifest.json found at ${sourcePath}`)
-  }
-
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as PluginManifest
-
-  if (!manifest.id || !manifest.name || !manifest.version) {
-    throw new Error('Plugin manifest must contain id, name, and version')
-  }
-
-  const targetDir = join(PLUGINS_DIR, manifest.id)
-  fs.mkdirSync(targetDir, { recursive: true })
-
-  // Write manifest with install timestamp
-  manifest.installed_at = new Date().toISOString()
-  fs.writeFileSync(join(targetDir, 'manifest.json'), JSON.stringify(manifest, null, 2))
-
-  // Copy prompt files if they exist
-  const promptsDir = join(sourcePath, 'prompts')
-  if (fs.existsSync(promptsDir)) {
-    const targetPrompts = join(targetDir, 'prompts')
-    fs.mkdirSync(targetPrompts, { recursive: true })
-    for (const f of fs.readdirSync(promptsDir)) {
-      const srcFile = join(promptsDir, f)
-      if (fs.statSync(srcFile).isFile()) {
-        fs.copyFileSync(srcFile, join(targetPrompts, f))
-      }
-    }
-  }
-
-  return manifest
-}
-
-function uninstallPlugin(pluginId: string): boolean {
-  const dir = join(PLUGINS_DIR, pluginId)
-  if (!fs.existsSync(dir)) return false
-  fs.rmSync(dir, { recursive: true })
-  return true
-}
-
 export const pluginsRouter = Router()
 
-// GET /api/plugins — list installed plugins with config status
+// GET /api/plugins — list installed plugins with config status and permissions
 pluginsRouter.get('/', (_req, res) => {
   const plugins = loadPlugins()
   const configured = getConfiguredIntegrations()
@@ -118,9 +54,17 @@ pluginsRouter.get('/', (_req, res) => {
       integration: req,
       configured: configured.includes(req),
     })),
+    required_permissions: deriveRequiredPermissions(plugin.agent.capabilities),
+    granted_permissions: plugin.permissions ?? [],
   }))
 
   res.json(enriched)
+})
+
+// POST /api/plugins/validate — validate a manifest without installing
+pluginsRouter.post('/validate', (req, res) => {
+  const result = validateManifest(req.body)
+  res.json(result)
 })
 
 // POST /api/plugins/install — install plugin from a local directory path
@@ -137,16 +81,38 @@ pluginsRouter.post('/install', (req, res) => {
     return
   }
 
+  const db = getDb()
   try {
-    const manifest = installPlugin(sourcePath)
-    res.json({ status: 'installed', plugin: manifest })
+    const actor = getActor(req as AuthenticatedRequest)
+    const result = installPlugin(sourcePath, { db, actor: actor.id })
+
+    writeAuditLog(actor.type, actor.id, 'plugin.installed', 'plugin', result.manifest.id, {
+      version: result.manifest.version,
+      status: result.status,
+      previous_version: result.previous_version,
+    })
+
+    res.json(result)
   } catch (e) {
     res.status(400).json({ error: (e as Error).message })
+  } finally {
+    try { db?.close() } catch { /* best-effort */ }
   }
 })
 
 // DELETE /api/plugins/:id — uninstall a plugin
 pluginsRouter.delete('/:id', (req, res) => {
-  const removed = uninstallPlugin(req.params.id)
-  res.json({ status: removed ? 'removed' : 'not_found' })
+  const db = getDb()
+  try {
+    const actor = getActor(req as AuthenticatedRequest)
+    const removed = uninstallPlugin(req.params.id!, { db, actor: actor.id })
+
+    if (removed) {
+      writeAuditLog(actor.type, actor.id, 'plugin.uninstalled', 'plugin', req.params.id!, {})
+    }
+
+    res.json({ status: removed ? 'removed' : 'not_found' })
+  } finally {
+    try { db?.close() } catch { /* best-effort */ }
+  }
 })

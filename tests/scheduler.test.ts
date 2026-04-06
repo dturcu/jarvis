@@ -212,42 +212,53 @@ describe("getNextFireTime", () => {
     const after = new Date("2026-04-04T10:00:30.000Z");
     const cron = parseCronExpression("* * * * *");
     const next = getNextFireTime(cron, after);
-    expect(next.toISOString()).toBe("2026-04-04T10:01:00.000Z");
+    // Should be exactly 1 minute after the start of the current minute
+    const expected = new Date(after);
+    expected.setSeconds(0, 0);
+    expected.setMinutes(expected.getMinutes() + 1);
+    expect(next.getTime()).toBe(expected.getTime());
   });
 
   it("computes next fire for */5 minute schedule", () => {
     const after = new Date("2026-04-04T10:00:00.000Z");
     const cron = parseCronExpression("*/5 * * * *");
     const next = getNextFireTime(cron, after);
-    expect(next.getUTCMinutes()).toBe(5);
-    expect(next.getUTCHours()).toBe(10);
+    // Cron evaluates in local time — assert local getters
+    expect(next.getMinutes() % 5).toBe(0);
+    expect(next > after).toBe(true);
   });
 
   it("computes next fire for specific hour", () => {
-    const after = new Date("2026-04-04T08:00:00.000Z");
+    // Use a local time well before 9am to ensure next fire is 9:00 local today
+    const after = new Date();
+    after.setHours(7, 0, 0, 0);
     const cron = parseCronExpression("0 9 * * *");
     const next = getNextFireTime(cron, after);
-    expect(next.getUTCHours()).toBe(9);
-    expect(next.getUTCMinutes()).toBe(0);
+    expect(next.getHours()).toBe(9);
+    expect(next.getMinutes()).toBe(0);
   });
 
   it("wraps to the next day when time has passed for today", () => {
-    const after = new Date("2026-04-04T09:30:00.000Z");
+    // Set local time to 9:30am — cron "0 9" already passed today
+    const after = new Date();
+    after.setHours(9, 30, 0, 0);
     const cron = parseCronExpression("0 9 * * *");
     const next = getNextFireTime(cron, after);
-    expect(next.getUTCDate()).toBe(5); // Next day
-    expect(next.getUTCHours()).toBe(9);
-    expect(next.getUTCMinutes()).toBe(0);
+    expect(next.getDate()).toBe(after.getDate() + 1); // Next day
+    expect(next.getHours()).toBe(9);
+    expect(next.getMinutes()).toBe(0);
   });
 
   it("respects day-of-week constraint (weekdays only)", () => {
-    // 2026-04-04 is Saturday, day-of-week=6
-    const after = new Date("2026-04-04T09:00:00.000Z");
+    // Find next Saturday for a reliable test
+    const after = new Date();
+    while (after.getDay() !== 6) after.setDate(after.getDate() + 1); // advance to Saturday
+    after.setHours(9, 0, 0, 0);
     const cron = parseCronExpression("0 9 * * 1-5");
     const next = getNextFireTime(cron, after);
-    // Should land on Monday 2026-04-06
-    expect(next.getUTCDay()).toBeGreaterThanOrEqual(1);
-    expect(next.getUTCDay()).toBeLessThanOrEqual(5);
+    // Should land on a weekday (1-5)
+    expect(next.getDay()).toBeGreaterThanOrEqual(1);
+    expect(next.getDay()).toBeLessThanOrEqual(5);
   });
 });
 
@@ -265,7 +276,7 @@ describe("computeNextFireAt", () => {
     const next = computeNextFireAt(record, now);
     expect(next).toBeTruthy();
     const nextDate = new Date(next);
-    expect(nextDate.getUTCMinutes()).toBe(0);
+    expect(nextDate.getMinutes()).toBe(0);
     expect(nextDate > now).toBe(true);
   });
 

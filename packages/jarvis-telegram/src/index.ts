@@ -34,4 +34,8 @@ async function main() {
   await bot.start()
 }
 
-main().catch(console.error)
+// Only run when invoked directly
+const isMainModule = process.argv[1]?.endsWith('index.ts') || process.argv[1]?.endsWith('index.js');
+if (isMainModule) {
+  main().catch(console.error)
+}

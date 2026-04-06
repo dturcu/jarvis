@@ -1,13 +1,7 @@
-import { join } from 'path'
+import { randomUUID } from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'
-import { configureJarvisStatePersistence, getJarvisState } from '@jarvis/shared'
-import { CRM_DB, JARVIS_DIR } from './config.js'
-import { loadApprovals, saveApprovals, setApprovalStatus } from './approvals.js'
-
-const RUNTIME_DB_PATH = join(JARVIS_DIR, 'runtime.sqlite')
-
-// Ensure JarvisState is configured for this process
-configureJarvisStatePersistence({ databasePath: RUNTIME_DB_PATH })
+import { CRM_DB, openRuntimeDb } from './config.js'
+import { loadApprovals, resolveApproval } from './approvals.js'
 
 const AGENTS = [
   'bd-pipeline', 'proposal-engine', 'evidence-auditor', 'contract-reviewer',
@@ -35,68 +29,40 @@ export async function handleCommand(text: string): Promise<string> {
 
 function getStatus(): string {
   const lines = ['JARVIS STATUS\n']
+  let db: DatabaseSync | undefined
 
-  // Last completed job per agent from JarvisState
   try {
-    const state = getJarvisState()
-    const db = (state as unknown as { db: DatabaseSync }).db
-    if (db) {
-      const rows = db.prepare(`
-        SELECT job_id, status, updated_at, record_json
-        FROM jobs
-        WHERE job_type = 'agent.start'
-          AND status IN ('completed', 'failed')
-        ORDER BY updated_at DESC
-      `).all() as Array<{ job_id: string; status: string; updated_at: string; record_json: string }>
+    db = openRuntimeDb()
 
-      const seen = new Set<string>()
-      for (const row of rows) {
-        try {
-          const record = JSON.parse(row.record_json) as { envelope: { input: { agent_id?: string } } }
-          const agentId = record.envelope?.input?.agent_id
-          if (typeof agentId === 'string' && !seen.has(agentId)) {
-            seen.add(agentId)
-            const ts = new Date(row.updated_at).toLocaleDateString()
-            lines.push(`${agentId}: ${ts} (${row.status})`)
-          }
-        } catch { /* skip */ }
-      }
-
-      // Show agents with no runs
-      for (const id of AGENTS) {
-        if (!seen.has(id)) {
-          lines.push(`${id}: never`)
-        }
-      }
+    // Last run per agent from runtime.db runs table
+    for (const agentId of AGENTS) {
+      const row = db.prepare(
+        'SELECT started_at, status FROM runs WHERE agent_id = ? ORDER BY started_at DESC LIMIT 1'
+      ).get(agentId) as { started_at: string; status: string } | undefined
+      const ts = row ? new Date(row.started_at).toLocaleDateString() : 'never'
+      const status = row?.status ?? ''
+      lines.push(`${agentId}: ${ts}${status ? ` (${status})` : ''}`)
     }
-  } catch {
-    lines.push('(could not read runtime DB)')
-  }
 
-  // Pending approvals from JarvisState
-  try {
-    const state = getJarvisState()
-    const db = (state as unknown as { db: DatabaseSync }).db
-    if (db) {
-      const row = db.prepare("SELECT COUNT(*) AS count FROM approvals WHERE state = 'pending'").get() as { count: number }
-      lines.push(`\nPending approvals: ${row.count}`)
-    }
+    // Pending approvals from runtime.db
+    const pending = loadApprovals(db, 'pending')
+    lines.push(`\nPending approvals: ${pending.length}`)
   } catch {
-    // Fall back to legacy
-    const approvals = loadApprovals().filter(a => a.status === 'pending')
-    lines.push(`\nPending approvals: ${approvals.length}`)
+    lines.push('(could not read runtime.db)')
+  } finally {
+    try { db?.close() } catch {}
   }
 
   return lines.join('\n')
 }
 
 function getCrmTop5(): string {
+  let db: DatabaseSync | undefined
   try {
-    const db = new DatabaseSync(CRM_DB)
+    db = new DatabaseSync(CRM_DB)
     const contacts = db.prepare(
       "SELECT name, company, stage, score FROM contacts WHERE stage NOT IN ('won','lost','parked') ORDER BY score DESC LIMIT 5"
     ).all() as Array<{ name: string; company: string; stage: string; score: number }>
-    db.close()
 
     if (contacts.length === 0) return 'CRM: No active contacts.'
     const lines = ['TOP CRM CONTACTS\n']
@@ -106,45 +72,61 @@ function getCrmTop5(): string {
     return lines.join('\n')
   } catch {
     return 'CRM: Could not read database.'
+  } finally {
+    db?.close()
   }
 }
 
+/**
+ * Trigger an agent by inserting a command into agent_commands in runtime.db.
+ * The daemon polls this table and claims queued commands.
+ */
 function triggerAgent(agentId: string): string {
+  let db: DatabaseSync | undefined
   try {
-    // Submit to JarvisState instead of writing trigger file
-    const result = getJarvisState().submitJob({
-      type: "agent.start",
-      input: {
-        agent_id: agentId,
-        trigger_kind: "manual",
-        triggered_by: "telegram",
-      },
-    })
-    return `Triggered ${agentId} (job: ${result.job_id ?? 'submitted'}). It will run within the next poll cycle.`
+    db = openRuntimeDb()
+    const commandId = randomUUID()
+    db.prepare(`
+      INSERT INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
+      VALUES (?, 'run_agent', ?, ?, 'queued', 0, ?, 'telegram', ?)
+    `).run(
+      commandId,
+      agentId,
+      JSON.stringify({ triggered_by: 'telegram' }),
+      new Date().toISOString(),
+      `telegram-${agentId}-${Date.now()}`
+    )
+    return `Triggered ${agentId}. It will run within the next scheduled cycle.`
   } catch (e) {
     return `Failed to trigger ${agentId}: ${String(e)}`
+  } finally {
+    try { db?.close() } catch {}
   }
 }
 
+/**
+ * Approve or reject a pending approval via runtime.db.
+ */
 function handleApproval(shortId: string, status: 'approved' | 'rejected'): string {
   if (!shortId) return `Usage: /approve <id> or /reject <id>`
+  if (shortId.length < 6) return 'Approval ID must be at least 6 characters for safety.'
 
-  // Try JarvisState first
+  let db: DatabaseSync | undefined
   try {
-    const result = getJarvisState().resolveApproval(shortId, status)
-    if (result) {
-      const emoji = status === 'approved' ? '✅' : '❌'
-      return `${emoji} Approval ${shortId} has been ${status}.`
-    }
-  } catch { /* fall through to legacy */ }
+    db = openRuntimeDb()
+    const pending = loadApprovals(db, 'pending')
+    const target = pending.find(a => a.id.startsWith(shortId))
+    if (!target) return `No pending approval found with ID starting: ${shortId}`
 
-  // Fall back to legacy approvals file
-  const approvals = loadApprovals()
-  const target = approvals.find(a => a.id.startsWith(shortId) && a.status === 'pending')
-  if (!target) return `No pending approval found with ID starting: ${shortId}`
-  const updated = setApprovalStatus(approvals, target.id, status)
-  saveApprovals(updated)
-  return `${status === 'approved' ? '✅' : '❌'} ${target.action} by ${target.agent} has been ${status}.`
+    const ok = resolveApproval(db, target.id, status)
+    if (!ok) return `Failed to ${status === 'approved' ? 'approve' : 'reject'} — may already be resolved.`
+
+    return `${status === 'approved' ? '✅' : '❌'} ${target.action} by ${target.agent} has been ${status}.`
+  } catch (e) {
+    return `Failed to process approval: ${String(e)}`
+  } finally {
+    try { db?.close() } catch {}
+  }
 }
 
 function getHelp(): string {

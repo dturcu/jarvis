@@ -21,6 +21,7 @@ export type RagResult = {
 
 const CHUNK_SIZE = 512;
 const CHUNK_OVERLAP = 64;
+const MAX_TOTAL_CHUNKS = 100000;
 
 function chunkText(text: string, source: string): RagChunk[] {
   const chunks: RagChunk[] = [];
@@ -54,6 +55,7 @@ const ragStore = new Map<
 export async function indexDocuments(
   paths: string[],
   collection: string,
+  { mode = "replace" }: { mode?: "replace" | "append" } = {},
 ): Promise<RagCollection> {
   const allChunks: RagChunk[] = [];
 
@@ -67,8 +69,36 @@ export async function indexDocuments(
     allChunks.push(...chunks);
   }
 
+  const existing = ragStore.get(collection);
+  let finalChunks: RagChunk[];
+
+  if (existing) {
+    if (mode === "append") {
+      finalChunks = [...existing.chunks, ...allChunks];
+    } else {
+      console.warn(`[rag] Overwriting existing collection "${collection}" (had ${existing.chunks.length} chunks)`);
+      finalChunks = allChunks;
+    }
+  } else {
+    finalChunks = allChunks;
+  }
+
+  // Enforce total chunk limit across all collections
+  let totalChunks = finalChunks.length;
+  for (const [name, stored] of ragStore) {
+    if (name !== collection) {
+      totalChunks += stored.chunks.length;
+    }
+  }
+  if (totalChunks > MAX_TOTAL_CHUNKS) {
+    throw new Error(
+      `RAG store limit exceeded: indexing would result in ${totalChunks} total chunks (max ${MAX_TOTAL_CHUNKS}). ` +
+      `Clear unused collections before indexing more documents.`
+    );
+  }
+
   const indexedAt = new Date().toISOString();
-  ragStore.set(collection, { chunks: allChunks, indexedAt });
+  ragStore.set(collection, { chunks: finalChunks, indexedAt });
 
   return {
     name: collection,

@@ -15,6 +15,20 @@ export class SqliteDecisionLog {
   constructor(dbPath: string) {
     this.db = new DatabaseSync(dbPath);
     this.db.exec("PRAGMA journal_mode = WAL;");
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS decisions (
+        decision_id TEXT PRIMARY KEY,
+        agent_id TEXT NOT NULL,
+        run_id TEXT NOT NULL,
+        step INTEGER NOT NULL,
+        action TEXT NOT NULL,
+        reasoning TEXT NOT NULL,
+        outcome TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `);
+    this.db.exec("CREATE INDEX IF NOT EXISTS idx_decisions_agent ON decisions(agent_id)");
+    this.db.exec("CREATE INDEX IF NOT EXISTS idx_decisions_run ON decisions(agent_id, run_id)");
   }
 
   close(): void {

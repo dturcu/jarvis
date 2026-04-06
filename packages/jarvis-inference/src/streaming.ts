@@ -36,6 +36,7 @@ export async function* streamChat(
   // We yield from inside the http callback, so bridge via an async queue
   const queue: StreamChunk[] = [];
   let done = false;
+  let doneSent = false;
   let resolveWait: (() => void) | null = null;
 
   function push(chunk: StreamChunk): void {
@@ -90,7 +91,10 @@ export async function* streamChat(
           if (!line.startsWith("data: ")) continue;
           const data = line.slice(6).trim();
           if (data === "[DONE]") {
-            push({ type: "done" });
+            if (!doneSent) {
+              doneSent = true;
+              push({ type: "done" });
+            }
             continue;
           }
           try {
@@ -114,7 +118,10 @@ export async function* streamChat(
 
       res.on("end", () => {
         // Ensure we always yield a done even if the server didn't send [DONE]
-        push({ type: "done" });
+        if (!doneSent) {
+          doneSent = true;
+          push({ type: "done" });
+        }
         done = true;
         if (resolveWait) resolveWait();
       });

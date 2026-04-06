@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "start": "node scripts/start.mjs",
     "build": "tsc -b",
     "test": "vitest run",
     "validate:contracts": "node ./scripts/validate-contracts.mjs",
@@ -20,8 +21,10 @@
     "dashboard:dev": "concurrently \"tsx packages/jarvis-dashboard/src/api/server.ts\" \"vite -c packages/jarvis-dashboard/vite.config.ts\"",
     "dashboard:build": "vite build -c packages/jarvis-dashboard/vite.config.ts",
     "telegram-bot": "tsx packages/jarvis-telegram/src/index.ts",
+    "jarvis": "node scripts/jarvis.mjs",
     "daemon": "tsx packages/jarvis-runtime/src/daemon.ts",
-    "setup": "tsx scripts/setup-jarvis.ts",
+    "setup": "node scripts/setup-wizard.mjs",
+    "setup:legacy": "tsx scripts/setup-jarvis.ts",
     "setup:status": "tsx scripts/setup-jarvis.ts status",
     "plugin:install": "tsx scripts/plugin-manager.ts install",
     "plugin:list": "tsx scripts/plugin-manager.ts list",
@@ -31,13 +34,18 @@
     "restore": "tsx scripts/restore.ts",
     "doctor": "tsx scripts/doctor.ts"
   },
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "devDependencies": {
     "@sinclair/typebox": "^0.34.49",
     "@types/node": "^24.12.2",
     "ajv": "^8.17.1",
     "ajv-formats": "^3.0.1",
+    "concurrently": "^9.1.2",
     "cross-env": "^10.1.0",
-    "openclaw": "^2026.4.2",
+    "openclaw": "^2026.4.5",
+    "tsx": "^4.19.4",
     "typescript": "^6.0.2",
     "vitest": "^4.1.2"
   }

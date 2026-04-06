@@ -14,32 +14,42 @@ import { analyticsRouter } from './analytics.js'
 import { settingsRouter } from './settings.js'
 import { portalRouter } from './portal.js'
 import { godmodeRouter } from './godmode.js'
+import { modelsRouter } from './models.js'
 import { policyRouter } from './policy.js'
 import { queueRouter } from './queue.js'
-import os from 'os'
-import { DatabaseSync } from 'node:sqlite'
 import fs from 'fs'
-import { configureJarvisStatePersistence, getJarvisState } from '@jarvis/shared'
-
-const RUNTIME_DB_PATH = join(os.homedir(), '.jarvis', 'runtime.sqlite')
-configureJarvisStatePersistence({ databasePath: RUNTIME_DB_PATH })
+import { getHealthReport, getReadinessReport } from '@jarvis/runtime'
+import { createAuthMiddleware } from './middleware/auth.js'
 
 const app = express()
 const PORT = Number(process.env.PORT ?? 4242)
+const ALLOWED_ORIGIN = process.env.JARVIS_CORS_ORIGIN ?? `http://localhost:${PORT}`
 const distPath = join(process.cwd(), 'packages', 'jarvis-dashboard', 'dist')
 const indexHtml = join(distPath, 'index.html')
 
-app.use(express.json())
+// Request size limit
+app.use(express.json({ limit: '1mb' }))
 app.use((req, _res, next) => {
   console.log(`[${req.method}] ${req.path}`)
   next()
 })
+
+// CORS — restricted to configured origin (defaults to localhost)
 app.use((_req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*')
-  res.header('Access-Control-Allow-Headers', 'Content-Type')
-  res.header('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE')
+  res.header('Access-Control-Allow-Origin', ALLOWED_ORIGIN)
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS')
+  res.header('Access-Control-Max-Age', '3600')
   next()
 })
+
+// Handle CORS preflight
+app.options('/{*splat}', (_req, res) => {
+  res.sendStatus(204)
+})
+
+// Auth middleware — protects all /api/* except /api/health and /api/ready
+app.use(createAuthMiddleware())
 
 app.use('/api/crm', crmRouter)
 app.use('/api/knowledge', knowledgeRouter)
@@ -55,74 +65,81 @@ app.use('/api/analytics', analyticsRouter)
 app.use('/api/settings', settingsRouter)
 app.use('/portal/api', portalRouter)
 app.use('/api/godmode', godmodeRouter)
+app.use('/api/models', modelsRouter)
 app.use('/api/policy', policyRouter)
 app.use('/api/queue', queueRouter)
 
 app.get('/api/health', (_req, res) => {
-  const jarvisDir = join(os.homedir(), '.jarvis')
-  let crmCount = 0, docsCount = 0, playbooksCount = 0, decisionsCount = 0
-  try {
-    const crm = new DatabaseSync(join(jarvisDir, 'crm.db'))
-    crmCount = (crm.prepare('SELECT COUNT(*) as n FROM contacts').get() as { n: number }).n
-    crm.close()
-  } catch {}
-  try {
-    const kb = new DatabaseSync(join(jarvisDir, 'knowledge.db'))
-    docsCount = (kb.prepare('SELECT COUNT(*) as n FROM documents').get() as { n: number }).n
-    playbooksCount = (kb.prepare('SELECT COUNT(*) as n FROM playbooks').get() as { n: number }).n
-    decisionsCount = (kb.prepare('SELECT COUNT(*) as n FROM decisions').get() as { n: number }).n
-    kb.close()
-  } catch {}
-  // JarvisState runtime stats
-  let runtimeStats = { jobs: 0, approvals: 0, dispatches: 0 }
-  let pendingApprovals = 0
-  try {
-    runtimeStats = getJarvisState().getStats()
-    const state = getJarvisState()
-    const db = (state as unknown as { db: DatabaseSync }).db
-    if (db) {
-      const row = db.prepare("SELECT COUNT(*) AS count FROM approvals WHERE state = 'pending'").get() as { count: number }
-      pendingApprovals = row.count
-    }
-  } catch {
-    // Legacy fallback
-    const approvalsPath = join(jarvisDir, 'approvals.json')
-    if (fs.existsSync(approvalsPath)) {
-      try {
-        const a = JSON.parse(fs.readFileSync(approvalsPath, 'utf8')) as Array<{ status: string }>
-        pendingApprovals = a.filter(x => x.status === 'pending').length
-      } catch {}
-    }
-  }
-  const telegramConfigured = fs.existsSync(join(jarvisDir, 'config.json'))
-
+  const report = getHealthReport()
   res.json({
-    ok: true,
-    distPath,
+    ok: report.status !== 'unhealthy',
+    status: report.status,
+    uptime_seconds: report.uptime_seconds,
+    crm: report.crm,
+    knowledge: report.knowledge,
+    runtime: report.runtime,
+    daemon: report.daemon,
+    disk_free_gb: report.disk_free_gb,
     distExists: fs.existsSync(indexHtml),
-    crm: { contacts: crmCount },
-    knowledge: { documents: docsCount, playbooks: playbooksCount },
-    decisions: { total: decisionsCount },
-    runtime: runtimeStats,
-    pendingApprovals,
-    telegramConfigured,
     dashboardUrl: `http://localhost:${PORT}`
   })
 })
 
+app.get('/api/ready', (_req, res) => {
+  const report = getReadinessReport()
+  res.status(report.ready ? 200 : 503).json(report)
+})
+
 // SPA: serve index.html for all non-API routes
-const serveIndex = (_req: express.Request, res: express.Response) => {
-  res.setHeader('Content-Type', 'text/html; charset=utf-8')
-  res.send(fs.readFileSync(indexHtml, 'utf8'))
+const hasUI = fs.existsSync(indexHtml)
+
+if (hasUI) {
+  const serveIndex = (_req: express.Request, res: express.Response) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.send(fs.readFileSync(indexHtml, 'utf8'))
+  }
+  app.get('/', serveIndex)
+  app.use(express.static(distPath))
+  app.get('/{*splat}', serveIndex)
+} else {
+  // Friendly error page when dashboard hasn't been built
+  const notBuiltHtml = `<!DOCTYPE html>
+<html><head><title>Jarvis - Dashboard Not Built</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 600px; margin: 80px auto; padding: 0 20px; color: #333; }
+  h1 { color: #1a56db; } code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
+  .cmd { background: #1e293b; color: #e2e8f0; padding: 12px 16px; border-radius: 8px; font-family: monospace; margin: 12px 0; }
+  .status { margin-top: 24px; padding: 12px; background: #ecfdf5; border-radius: 8px; border: 1px solid #a7f3d0; }
+  a { color: #1a56db; }
+</style></head>
+<body>
+  <h1>Jarvis Dashboard</h1>
+  <p>The dashboard UI hasn't been built yet. The API is running and healthy.</p>
+  <p><strong>To build the dashboard:</strong></p>
+  <div class="cmd">npm run dashboard:build</div>
+  <p>Then refresh this page.</p>
+  <div class="status">
+    <strong>API Status:</strong> <a href="/api/health">/api/health</a> |
+    <a href="/api/ready">/api/ready</a>
+  </div>
+</body></html>`
+
+  app.get('/', (_req, res) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.send(notBuiltHtml)
+  })
+  app.get('/{*splat}', (_req, res) => {
+    if (_req.path.startsWith('/api/')) return res.status(404).json({ error: 'Not found' })
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    res.send(notBuiltHtml)
+  })
 }
-app.get('/', serveIndex)
-// Static assets (JS, CSS) must come after explicit routes
-app.use(express.static(distPath))
-// Catch-all SPA fallback
-app.get('/{*splat}', serveIndex)
 
 app.listen(PORT, () => {
-  const hasUI = fs.existsSync(indexHtml)
-  console.log(`Jarvis Dashboard API: http://localhost:${PORT}/api/health`)
-  console.log(`Jarvis Dashboard UI:  http://localhost:${PORT}  (dist ${hasUI ? '✓' : '✗ — run npm run dashboard:build first'})`)
+  console.log('')
+  console.log(`  Jarvis Dashboard`)
+  console.log(`  ─────────────────────────────────────`)
+  console.log(`  API:        http://localhost:${PORT}/api/health`)
+  console.log(`  Dashboard:  http://localhost:${PORT}  ${hasUI ? '✓' : '(not built — run: npm run dashboard:build)'}`)
+  console.log('')
 })

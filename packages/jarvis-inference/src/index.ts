@@ -35,7 +35,6 @@ function asLiteralUnion<const Values extends readonly [string, ...string[]]>(
   return Type.Union(values.map((value) => Type.Literal(value)) as [any, any, ...any[]]);
 }
 
-const tierSchema = asLiteralUnion(["haiku", "sonnet", "opus"] as const);
 const runtimeSchema = asLiteralUnion(["ollama", "lmstudio", "all"] as const);
 
 const messageSchema = Type.Object({
@@ -66,11 +65,10 @@ export function createInferenceTools(ctx: OpenClawPluginToolContext): AnyAgentTo
       ctx,
       "inference_chat",
       "Inference Chat",
-      "Send a chat completion request to a local LLM runtime (Ollama or LM Studio) with intelligent tier-based routing.",
+      "Send a chat completion request to a local LLM runtime (Ollama or LM Studio) with intelligent profile-based routing.",
       Type.Object({
         messages: Type.Array(messageSchema, { minItems: 1 }),
         model: Type.Optional(Type.String({ minLength: 1 })),
-        tier: Type.Optional(tierSchema),
         temperature: Type.Optional(Type.Number({ minimum: 0, maximum: 2 })),
         maxTokens: Type.Optional(Type.Integer({ minimum: 1 }))
       }),
@@ -191,7 +189,6 @@ type InferenceCommandArgs = {
   operation: "chat" | "embed" | "list_models";
   messages?: InferenceChatParams["messages"];
   model?: string;
-  tier?: InferenceChatParams["tier"];
   temperature?: number;
   maxTokens?: number;
   texts?: string[];
@@ -228,7 +225,6 @@ export function createInferenceCommand() {
           const response = submitInferenceChat(toToolContext(ctx), {
             messages: args.messages,
             model: args.model,
-            tier: args.tier,
             temperature: args.temperature,
             maxTokens: args.maxTokens
           });
@@ -329,11 +325,14 @@ export function createRagCommand() {
 export const jarvisInferenceToolNames = [...INFERENCE_TOOL_NAMES];
 export const jarvisInferenceCommandNames = [...INFERENCE_COMMAND_NAMES];
 
-// Re-export runtime, router, rag, and streaming modules for worker consumption
+// Re-export runtime, router, rag, streaming, and task-profile modules for worker consumption
 export * from "./runtime.js";
 export * from "./router.js";
 export * from "./rag.js";
 export * from "./streaming.js";
+export * from "./task-profile.js";
+export * from "./registry.js";
+export * from "./benchmark.js";
 
 export default definePluginEntry({
   id: "jarvis-inference",

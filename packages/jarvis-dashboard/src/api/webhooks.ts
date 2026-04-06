@@ -1,15 +1,12 @@
 import { Router } from 'express'
 import crypto from 'node:crypto'
-import fs from 'node:fs'
+import { randomUUID } from 'node:crypto'
+import { DatabaseSync } from 'node:sqlite'
 import os from 'node:os'
+import fs from 'node:fs'
 import { join } from 'node:path'
-import { configureJarvisStatePersistence, getJarvisState } from '@jarvis/shared'
 
 const JARVIS_DIR = join(os.homedir(), '.jarvis')
-const RUNTIME_DB_PATH = join(JARVIS_DIR, 'runtime.sqlite')
-
-// Ensure JarvisState is configured for this process
-configureJarvisStatePersistence({ databasePath: RUNTIME_DB_PATH })
 
 const GITHUB_EVENT_TO_AGENT: Record<string, string> = {
   push: 'evidence-auditor',
@@ -28,24 +25,45 @@ function loadWebhookSecret(): string | undefined {
   }
 }
 
-/** Submit an agent.start job to JarvisState */
-function submitTrigger(agentId: string, triggeredBy: string, context: Record<string, unknown>): { job_id?: string } {
-  const result = getJarvisState().submitJob({
-    type: "agent.start",
-    input: {
-      agent_id: agentId,
-      trigger_kind: "event",
-      triggered_by: triggeredBy,
-      context,
-    },
-  })
-  return { job_id: result.job_id }
+function getDb(): DatabaseSync {
+  const db = new DatabaseSync(join(JARVIS_DIR, 'runtime.db'))
+  db.exec("PRAGMA journal_mode = WAL;")
+  db.exec("PRAGMA busy_timeout = 5000;")
+  return db
+}
+
+/**
+ * Insert a command into agent_commands table.
+ * Replaces the old file-based trigger mechanism.
+ */
+function insertCommand(agentId: string, triggeredBy: string, context: Record<string, unknown>): string {
+  const db = getDb()
+  const commandId = randomUUID()
+  const now = new Date().toISOString()
+  // Use agent_id + timestamp as idempotency key to prevent rapid duplicate triggers
+  const idempotencyKey = `${agentId}:${triggeredBy}:${Math.floor(Date.now() / 10_000)}`
+
+  try {
+    db.prepare(`
+      INSERT OR IGNORE INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, created_at, created_by, idempotency_key)
+      VALUES (?, ?, ?, ?, 'queued', ?, ?, ?)
+    `).run(commandId, 'run_agent', agentId, JSON.stringify(context), now, triggeredBy, idempotencyKey)
+
+    // Write audit log entry
+    db.prepare(`
+      INSERT INTO audit_log (audit_id, actor_type, actor_id, action, target_type, target_id, payload_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(randomUUID(), 'webhook', triggeredBy, 'trigger.created', 'agent', agentId, JSON.stringify(context), now)
+  } finally {
+    try { db.close() } catch { /* best-effort */ }
+  }
+
+  return commandId
 }
 
 export const webhookRouter = Router()
 
 // POST /api/webhooks/github — GitHub webhook handler
-// Must be registered before the :agentId catch-all
 webhookRouter.post('/github', (req, res) => {
   const signature = req.headers['x-hub-signature-256'] as string | undefined
   const secret = loadWebhookSecret()
@@ -55,13 +73,21 @@ webhookRouter.post('/github', (req, res) => {
     hmac.update(JSON.stringify(req.body))
     const expected = 'sha256=' + hmac.digest('hex')
 
-    if (signature.length !== expected.length ||
-        !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+    const sigBuf = Buffer.from(signature)
+    const expBuf = Buffer.from(expected)
+    // Pad both buffers to the same length to avoid leaking length information
+    const maxLen = Math.max(sigBuf.length, expBuf.length)
+    const paddedSig = Buffer.alloc(maxLen)
+    const paddedExp = Buffer.alloc(maxLen)
+    sigBuf.copy(paddedSig)
+    expBuf.copy(paddedExp)
+
+    if (sigBuf.length !== expBuf.length ||
+        !crypto.timingSafeEqual(paddedSig, paddedExp)) {
       res.status(401).json({ error: 'Invalid signature' })
       return
     }
   } else if (secret && !signature) {
-    // Secret is configured but request has no signature — reject
     res.status(401).json({ error: 'Missing signature' })
     return
   }
@@ -80,25 +106,55 @@ webhookRouter.post('/github', (req, res) => {
     return
   }
 
-  const { job_id } = submitTrigger(agentId, `webhook:github:${event}`, {
+  insertCommand(agentId, `webhook:github:${event}`, {
     github_event: event,
     action: payload.action,
     repository: (payload.repository as Record<string, unknown>)?.full_name,
     sender: (payload.sender as Record<string, unknown>)?.login,
+    payload,
   })
 
   res.json({
     status: 'triggered',
     agentId,
-    job_id,
     event,
     triggeredAt: new Date().toISOString(),
   })
 })
 
+/**
+ * Validate HMAC signature for non-GitHub webhooks when webhook_secret is configured.
+ * Expects X-Jarvis-Signature header with format: sha256=<hex>
+ */
+function validateHmac(req: import('express').Request, secret: string | undefined): boolean {
+  if (!secret) return true; // no secret configured, skip validation
+
+  const signature = req.headers['x-jarvis-signature'] as string | undefined
+  if (!signature) return false
+
+  const hmac = crypto.createHmac('sha256', secret)
+  hmac.update(JSON.stringify(req.body))
+  const expected = 'sha256=' + hmac.digest('hex')
+
+  const sigBuf = Buffer.from(signature)
+  const expBuf = Buffer.from(expected)
+  const maxLen = Math.max(sigBuf.length, expBuf.length)
+  const paddedSig = Buffer.alloc(maxLen)
+  const paddedExp = Buffer.alloc(maxLen)
+  sigBuf.copy(paddedSig)
+  expBuf.copy(paddedExp)
+
+  return sigBuf.length === expBuf.length && crypto.timingSafeEqual(paddedSig, paddedExp)
+}
+
 // POST /api/webhooks/generic — generic JSON webhook
-// Must be registered before the :agentId catch-all
 webhookRouter.post('/generic', (req, res) => {
+  const secret = loadWebhookSecret()
+  if (secret && !validateHmac(req, secret)) {
+    res.status(401).json({ error: 'Invalid or missing X-Jarvis-Signature' })
+    return
+  }
+
   const body = req.body as Record<string, unknown>
   const agentId = body.agent_id as string | undefined
   const context = (body.context as Record<string, unknown>) ?? {}
@@ -108,27 +164,31 @@ webhookRouter.post('/generic', (req, res) => {
     return
   }
 
-  const { job_id } = submitTrigger(agentId, 'webhook:generic', context)
+  insertCommand(agentId, 'webhook:generic', context)
 
   res.json({
     status: 'triggered',
     agentId,
-    job_id,
     triggeredAt: new Date().toISOString(),
   })
 })
 
 // POST /api/webhooks/:agentId — trigger any agent with optional payload
 webhookRouter.post('/:agentId', (req, res) => {
+  const secret = loadWebhookSecret()
+  if (secret && !validateHmac(req, secret)) {
+    res.status(401).json({ error: 'Invalid or missing X-Jarvis-Signature' })
+    return
+  }
+
   const { agentId } = req.params
   const payload = req.body as Record<string, unknown>
 
-  const { job_id } = submitTrigger(agentId, 'webhook', payload)
+  insertCommand(agentId!, 'webhook', payload)
 
   res.json({
     status: 'triggered',
     agentId,
-    job_id,
     triggeredAt: new Date().toISOString(),
   })
 })

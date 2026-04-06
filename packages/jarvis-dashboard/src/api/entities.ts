@@ -20,10 +20,10 @@ entitiesRouter.get('/', (req, res) => {
     let sql = 'SELECT * FROM entities WHERE 1=1'
     const params: SQLInputValue[] = []
     if (type && type !== 'all') {
-      sql += ' AND type = ?'
+      sql += ' AND entity_type = ?'
       params.push(type)
     }
-    sql += ' ORDER BY type, name LIMIT ? OFFSET ?'
+    sql += ' ORDER BY entity_type, name LIMIT ? OFFSET ?'
     params.push(Number(limit), Number(offset))
     const rows = db.prepare(sql).all(...params) as Record<string, unknown>[]
     db.close()
@@ -105,14 +105,14 @@ entitiesRouter.get('/:id/neighborhood', (req, res) => {
     let connectedEntities: Record<string, unknown>[] = []
     try {
       relations = db.prepare(
-        'SELECT * FROM relations WHERE source_id = ? OR target_id = ?'
+        'SELECT * FROM relations WHERE from_entity_id = ? OR to_entity_id = ?'
       ).all(req.params.id, req.params.id) as Record<string, unknown>[]
 
       // Get connected entity IDs
       const connectedIds = new Set<string>()
       for (const rel of relations) {
-        if (rel.source_id !== req.params.id) connectedIds.add(rel.source_id as string)
-        if (rel.target_id !== req.params.id) connectedIds.add(rel.target_id as string)
+        if (rel.from_entity_id !== req.params.id) connectedIds.add(rel.from_entity_id as string)
+        if (rel.to_entity_id !== req.params.id) connectedIds.add(rel.to_entity_id as string)
       }
 
       if (connectedIds.size > 0) {

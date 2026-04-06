@@ -3,7 +3,6 @@
  *
  * Exposes model discovery results, benchmark summaries, and
  * per-model enable/disable controls.
- * Also provides LM Studio live model discovery and health check.
  */
 
 import { Router } from "express";
@@ -12,46 +11,6 @@ import os from "node:os";
 import { join } from "node:path";
 import { writeAuditLog, getActor } from "./middleware/audit.js";
 import type { AuthenticatedRequest } from "./middleware/auth.js";
-// Inline model classification to avoid heavy @jarvis/inference dependency.
-// Mirrors logic from packages/jarvis-inference/src/router.ts.
-
-type ModelTier = "opus" | "sonnet" | "haiku";
-
-function classifyTier(modelId: string): ModelTier {
-  const lower = modelId.toLowerCase();
-
-  // Large models (70B+): opus tier
-  if (/(?:^|[^0-9])(?:34b|40b|70b|72b|110b)(?:[^0-9]|$)|(?:^|[:-])(?:large|xl)(?:[:-]|$)/.test(lower)) {
-    return "opus";
-  }
-
-  // Small models (sub-7B): haiku tier
-  if (/(?:^|[^0-9])(?:1b|2b|3b|1\.5b)(?:[^0-9]|$)|(?:^|[:-])(?:small|tiny|mini)(?:[:-]|$)/.test(lower)) {
-    return "haiku";
-  }
-
-  // Default medium (7B-30B): sonnet tier
-  return "sonnet";
-}
-
-function inferCapabilities(modelId: string): string[] {
-  const lower = modelId.toLowerCase();
-  const caps: string[] = ["chat"];
-
-  if (/code|coder|starcoder|deepseek-coder|codellama/.test(lower)) {
-    caps.push("code");
-  }
-  if (/vision|llava|bakllava|minicpm-v|moondream/.test(lower)) {
-    caps.push("vision");
-  }
-  if (/embed|embedding|nomic-embed|bge/.test(lower)) {
-    const chatIdx = caps.indexOf("chat");
-    if (chatIdx !== -1) caps.splice(chatIdx, 1);
-    caps.push("embedding");
-  }
-
-  return caps;
-}
 
 function getDb(): DatabaseSync {
   const db = new DatabaseSync(join(os.homedir(), ".jarvis", "runtime.db"));
@@ -138,86 +97,6 @@ modelsRouter.patch("/:modelId", (req, res) => {
     res.json({ id: modelId, enabled });
   } finally {
     try { db.close(); } catch { /* best-effort */ }
-  }
-});
-
-// ─── LM Studio Discovery ────────────────────────────────────────────────────
-
-const LMSTUDIO_URL = process.env.LMS_URL ?? "http://localhost:1234";
-
-type LmStudioModel = {
-  id: string;
-  object?: string;
-  owned_by?: string;
-};
-
-type LmStudioModelsResponse = {
-  data: LmStudioModel[];
-  object?: string;
-};
-
-// GET /discovery — live model discovery from LM Studio
-modelsRouter.get("/discovery", async (_req, res) => {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5_000);
-
-    const response = await fetch(`${LMSTUDIO_URL}/v1/models`, {
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      res.json({ models: [], lmstudio_url: LMSTUDIO_URL, connected: false });
-      return;
-    }
-
-    const body = (await response.json()) as LmStudioModelsResponse;
-    const models = (body.data ?? []).map((m) => ({
-      id: m.id,
-      tier: classifyTier(m.id),
-      capabilities: inferCapabilities(m.id),
-      available: true,
-    }));
-
-    res.json({ models, lmstudio_url: LMSTUDIO_URL, connected: true });
-  } catch {
-    res.json({ models: [], lmstudio_url: LMSTUDIO_URL, connected: false });
-  }
-});
-
-// GET /health — LM Studio connectivity check
-modelsRouter.get("/health", async (_req, res) => {
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 3_000);
-
-    const response = await fetch(`${LMSTUDIO_URL}/v1/models`, {
-      signal: controller.signal,
-    });
-    clearTimeout(timeout);
-
-    if (response.ok) {
-      const body = (await response.json()) as LmStudioModelsResponse;
-      res.json({
-        connected: true,
-        lmstudio_url: LMSTUDIO_URL,
-        model_count: body.data?.length ?? 0,
-      });
-    } else {
-      res.json({
-        connected: false,
-        lmstudio_url: LMSTUDIO_URL,
-        model_count: 0,
-        status: response.status,
-      });
-    }
-  } catch {
-    res.json({
-      connected: false,
-      lmstudio_url: LMSTUDIO_URL,
-      model_count: 0,
-    });
   }
 });
 

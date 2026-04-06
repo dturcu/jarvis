@@ -44,8 +44,8 @@ describe("bdPipelineAgent", () => {
     expect(gate?.severity).toBe("warning");
   });
 
-  it("inference_tier === sonnet", () => {
-    expect(bdPipelineAgent.inference_tier).toBe("sonnet");
+  it("task_profile objective === plan", () => {
+    expect(bdPipelineAgent.task_profile.objective).toBe("plan");
   });
 
   it("capabilities includes email web crm", () => {
@@ -74,8 +74,9 @@ describe("proposalEngineAgent", () => {
     expect(proposalEngineAgent.agent_id).toBe("proposal-engine");
   });
 
-  it("inference_tier === opus", () => {
-    expect(proposalEngineAgent.inference_tier).toBe("opus");
+  it("task_profile objective === plan with prioritize_accuracy", () => {
+    expect(proposalEngineAgent.task_profile.objective).toBe("plan");
+    expect(proposalEngineAgent.task_profile.preferences?.prioritize_accuracy).toBe(true);
   });
 
   it("approval_gates email.send severity === critical", () => {
@@ -122,8 +123,8 @@ describe("evidenceAuditorAgent", () => {
     expect(st).toMatchObject({ kind: "schedule", cron: "0 9 * * 1" });
   });
 
-  it("uses sonnet inference tier", () => {
-    expect(evidenceAuditorAgent.inference_tier).toBe("sonnet");
+  it("uses plan task profile", () => {
+    expect(evidenceAuditorAgent.task_profile.objective).toBe("plan");
   });
 
   it("includes document and files in capabilities", () => {
@@ -143,12 +144,16 @@ describe("contractReviewerAgent", () => {
     expect(contractReviewerAgent.agent_id).toBe("contract-reviewer");
   });
 
-  it("uses opus inference tier", () => {
-    expect(contractReviewerAgent.inference_tier).toBe("opus");
+  it("uses plan task profile with prioritize_accuracy", () => {
+    expect(contractReviewerAgent.task_profile.objective).toBe("plan");
+    expect(contractReviewerAgent.task_profile.preferences?.prioritize_accuracy).toBe(true);
   });
 
-  it("has no approval gates (read-only agent)", () => {
-    expect(contractReviewerAgent.approval_gates).toHaveLength(0);
+  it("has document.generate_report approval gate", () => {
+    expect(contractReviewerAgent.approval_gates).toHaveLength(1);
+    const gate = contractReviewerAgent.approval_gates.find(g => g.action === "document.generate_report");
+    expect(gate).toBeDefined();
+    expect(gate?.severity).toBe("warning");
   });
 
   it("system_prompt includes JURISDICTION", () => {
@@ -171,10 +176,10 @@ describe("staffingMonitorAgent", () => {
     expect(t).toMatchObject({ kind: "schedule", cron: "0 9 * * 1" });
   });
 
-  it("has email.send warning gate", () => {
+  it("has email.send critical gate (per CLAUDE.md policy)", () => {
     const gate = staffingMonitorAgent.approval_gates.find(g => g.action === "email.send");
     expect(gate).toBeDefined();
-    expect(gate?.severity).toBe("warning");
+    expect(gate?.severity).toBe("critical");
   });
 
   it("capabilities includes files and calendar", () => {
@@ -198,8 +203,11 @@ describe("contentEngineAgent", () => {
     expect(contentEngineAgent.triggers).toHaveLength(3);
   });
 
-  it("has approval gate for publish_post", () => {
-    expect(contentEngineAgent.approval_gates.length).toBeGreaterThanOrEqual(1);
+  it("has publish_post critical approval gate (per CLAUDE.md policy)", () => {
+    expect(contentEngineAgent.approval_gates).toHaveLength(1);
+    const gate = contentEngineAgent.approval_gates.find(g => g.action === "publish_post");
+    expect(gate).toBeDefined();
+    expect(gate?.severity).toBe("critical");
   });
 
   it("system_prompt includes STYLE RULES", () => {
@@ -229,8 +237,9 @@ describe("portfolioMonitorAgent", () => {
     expect(gate?.severity).toBe("critical");
   });
 
-  it("is marked experimental", () => {
-    expect(portfolioMonitorAgent.experimental).toBe(true);
+  it("uses classify task profile with prioritize_speed", () => {
+    expect(portfolioMonitorAgent.task_profile.objective).toBe("classify");
+    expect(portfolioMonitorAgent.task_profile.preferences?.prioritize_speed).toBe(true);
   });
 });
 
@@ -294,7 +303,7 @@ describe("all agents structural invariants", () => {
   });
 
   it("every agent has at least one approval_gate except read-only and auto-mode agents", () => {
-    const exempt = ["contract-reviewer", "garden-calendar", "content-engine", "social-engagement", "security-monitor", "meeting-transcriber", "drive-watcher"];
+    const exempt = ["garden-calendar", "security-monitor", "meeting-transcriber", "drive-watcher"];
     const required = ALL_AGENTS.filter(a => !exempt.includes(a.agent_id));
     for (const agent of required) {
       expect(agent.approval_gates.length).toBeGreaterThanOrEqual(1);
@@ -325,12 +334,11 @@ describe("all agents structural invariants", () => {
     }
   });
 
-  it("every agent with inference_tier has a valid value", () => {
-    const valid = ["haiku", "sonnet", "opus"];
+  it("every agent has a valid task_profile with an objective", () => {
+    const validObjectives = ["plan", "execute", "critique", "summarize", "extract", "classify", "answer", "code", "rag_synthesis"];
     for (const agent of ALL_AGENTS) {
-      if (agent.inference_tier) {
-        expect(valid).toContain(agent.inference_tier);
-      }
+      expect(agent.task_profile).toBeDefined();
+      expect(validObjectives).toContain(agent.task_profile.objective);
     }
   });
 

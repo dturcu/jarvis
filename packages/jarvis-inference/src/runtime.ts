@@ -1,4 +1,5 @@
-import http from "http";
+import http from "node:http";
+import https from "node:https";
 
 // ---------------------------------------------------------------------------
 // Shared HTTP helper — replaces fetch() for Node.js 24 compatibility
@@ -12,10 +13,13 @@ function httpRequest(
 ): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const parsed = new URL(url);
-    const req = http.request(
+    const isHttps = parsed.protocol === "https:";
+    const transport = isHttps ? https : http;
+    let res: http.IncomingMessage | null = null;
+    const req = transport.request(
       {
         hostname: parsed.hostname,
-        port: Number(parsed.port) || 80,
+        port: Number(parsed.port) || (isHttps ? 443 : 80),
         path: parsed.pathname + parsed.search,
         method,
         headers: body
@@ -25,17 +29,19 @@ function httpRequest(
             }
           : undefined,
       },
-      (res) => {
+      (incomingRes) => {
+        res = incomingRes;
         let data = "";
         res.on("data", (chunk: Buffer) => (data += chunk.toString()));
         res.on("end", () =>
-          resolve({ status: res.statusCode ?? 500, body: data }),
+          resolve({ status: res!.statusCode ?? 500, body: data }),
         );
         res.on("error", reject);
       },
     );
     if (timeoutMs) {
       setTimeout(() => {
+        if (res) res.destroy();
         req.destroy(new Error("timeout"));
       }, timeoutMs);
     }

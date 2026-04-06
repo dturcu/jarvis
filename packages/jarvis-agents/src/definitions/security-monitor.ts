@@ -69,7 +69,7 @@ export const securityMonitorAgent: AgentDefinition = {
   task_profile: { objective: "classify", preferences: { prioritize_speed: true } },
   max_steps_per_run: 8,
   system_prompt: SECURITY_MONITOR_SYSTEM_PROMPT,
+  experimental: true,
   output_channels: ["telegram:daniel"],
   maturity: "operational",
-  experimental: true,
 };

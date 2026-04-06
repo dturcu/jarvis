@@ -3,11 +3,16 @@ import { DatabaseSync } from 'node:sqlite'
 import http from 'http'
 import https from 'https'
 import os from 'os'
-import fs from 'fs'
+import fs, { realpathSync } from 'fs'
 import { join, resolve, relative } from 'path'
 
 const LMS_URL = process.env.LMS_URL ?? 'http://localhost:1234'
 const DEFAULT_MODEL = process.env.LMS_MODEL ?? 'qwen/qwen3.5-35b-a3b'
+
+/** Project root for file_read/file_list tools. Configurable via env or config. */
+function getProjectRoot(): string {
+  return resolve(process.env.JARVIS_PROJECT_ROOT ?? join(os.homedir(), 'Documents', 'Playground'))
+}
 
 // ─── Intent Classification ───────────────────────────��──────────────────────
 
@@ -252,11 +257,14 @@ async function executeTool(name: string, params: Record<string, unknown>): Promi
       const filePath = params.path as string
       if (!filePath) return 'Error: path is required'
       try {
-        const PROJECT_ROOT = resolve(join(os.homedir(), 'Documents', 'Playground'))
+        const PROJECT_ROOT = realpathSync(getProjectRoot())
         const absPath = resolve(PROJECT_ROOT, filePath)
         // Security: prevent path traversal outside project
         if (!absPath.startsWith(PROJECT_ROOT)) return 'Error: path must be within the project directory'
         if (!fs.existsSync(absPath)) return `Error: file not found: ${filePath}`
+        // Resolve symlinks before final check to prevent symlink-based traversal
+        const realPath = realpathSync(absPath)
+        if (!realPath.startsWith(PROJECT_ROOT)) return 'Error: path must be within the project directory'
         const stat = fs.statSync(absPath)
         if (stat.isDirectory()) return `Error: ${filePath} is a directory, use file_list instead`
         if (stat.size > 100_000) return `Error: file too large (${Math.round(stat.size / 1024)}KB). Max 100KB.`
@@ -272,11 +280,14 @@ async function executeTool(name: string, params: Record<string, unknown>): Promi
       const dirPath = (params.path as string) ?? '.'
       const recursive = (params.recursive as boolean) ?? false
       try {
-        const PROJECT_ROOT = resolve(join(os.homedir(), 'Documents', 'Playground'))
+        const PROJECT_ROOT = realpathSync(getProjectRoot())
         const absPath = resolve(PROJECT_ROOT, dirPath)
         if (!absPath.startsWith(PROJECT_ROOT)) return 'Error: path must be within the project directory'
         if (!fs.existsSync(absPath)) return `Error: directory not found: ${dirPath}`
-        if (!fs.statSync(absPath).isDirectory()) return `Error: ${dirPath} is a file, use file_read instead`
+        // Resolve symlinks before final check to prevent symlink-based traversal
+        const realAbsPath = realpathSync(absPath)
+        if (!realAbsPath.startsWith(PROJECT_ROOT)) return 'Error: path must be within the project directory'
+        if (!fs.statSync(realAbsPath).isDirectory()) return `Error: ${dirPath} is a file, use file_read instead`
 
         const entries: string[] = []
         function walk(dir: string, depth: number) {
@@ -533,9 +544,12 @@ Today is ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long
       }
     })
 
-    // Step 4: Check for tool calls
+    // Step 4: Check for tool calls — execute ONCE, cache results
     const toolCalls = extractToolCalls(fullResponse)
     if (toolCalls.length > 0) {
+      // Execute each tool once and cache the result
+      const cachedResults: string[] = []
+
       for (const call of toolCalls) {
         const toolId = `t${Date.now()}`
         sendSSE(res, 'tool_start', { id: toolId, name: call.name, params: call.params })
@@ -558,6 +572,9 @@ Today is ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long
         const result = await executeTool(call.name, call.params)
         const duration = Date.now() - startTime
 
+        // Cache the result — do NOT re-execute during synthesis
+        cachedResults.push(result)
+
         sendSSE(res, 'tool_result', { id: toolId, name: call.name, result: result.slice(0, 2000), duration })
 
         if (intent.intent === 'cowork') {
@@ -571,19 +588,12 @@ Today is ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long
         sendSSE(res, 'research_step', { phase: 'synthesizing', detail: 'Combining findings...' })
       }
 
-      // Follow-up: feed tool results and get synthesis
-      const toolResultsText = toolCalls.map((call, i) => {
-        const result = `[Tool Result ${i + 1} for ${call.name}]:\n${extractToolCalls(fullResponse).length > 0 ? 'See above' : ''}`
-        return result
-      }).join('\n\n')
-
-      // Re-run with tool results for synthesis
+      // Build synthesis prompt using CACHED results (no re-execution)
       msgs.push({ role: 'assistant', content: fullResponse })
 
       const toolResults: string[] = []
-      for (const call of toolCalls) {
-        const result = await executeTool(call.name, call.params)
-        toolResults.push(`[Tool Result for ${call.name}]:\n${result}`)
+      for (let i = 0; i < toolCalls.length; i++) {
+        toolResults.push(`[Tool Result for ${toolCalls[i]!.name}]:\n${cachedResults[i]!}`)
       }
 
       msgs.push({

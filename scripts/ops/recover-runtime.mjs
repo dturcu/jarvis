@@ -1,4 +1,7 @@
 import path from "node:path";
+import os from "node:os";
+import { promises as fs } from "node:fs";
+import crypto from "node:crypto";
 import {
   DEFAULT_PROFILE,
   copyTree,
@@ -38,10 +41,52 @@ async function restoreBundle(bundleDir, profile, restoreWorkspace) {
     }
   }
 
+  // Restore Jarvis databases if backup contains them
+  const jarvisDir = path.join(os.homedir(), ".jarvis");
+  const bundleJarvisDir = path.join(bundleDir, "jarvis");
+  const restoredDatabases = [];
+  const checksumResults = {};
+
+  try {
+    await fs.access(bundleJarvisDir);
+    await ensureDir(jarvisDir);
+
+    for (const dbName of ["runtime.db", "crm.db", "knowledge.db", "config.json"]) {
+      const srcPath = path.join(bundleJarvisDir, dbName);
+      try {
+        await fs.access(srcPath);
+
+        // Validate checksum before restoring
+        if (manifest.checksums?.[dbName]) {
+          const content = await fs.readFile(srcPath);
+          const actual = crypto.createHash("sha256").update(content).digest("hex");
+          if (actual !== manifest.checksums[dbName]) {
+            checksumResults[dbName] = "MISMATCH";
+            continue; // Skip corrupted files
+          }
+          checksumResults[dbName] = "OK";
+        }
+
+        await fs.copyFile(srcPath, path.join(jarvisDir, dbName));
+        restoredDatabases.push(dbName);
+
+        // Restore WAL/SHM if present
+        for (const suffix of ["-wal", "-shm"]) {
+          try {
+            await fs.access(srcPath + suffix);
+            await fs.copyFile(srcPath + suffix, path.join(jarvisDir, dbName + suffix));
+          } catch { /* no WAL/SHM */ }
+        }
+      } catch { /* file not in backup */ }
+    }
+  } catch { /* no jarvis backup dir */ }
+
   return {
     manifest,
     activeProfileDir,
-    activeConfigPath
+    activeConfigPath,
+    restoredDatabases,
+    checksumResults
   };
 }
 

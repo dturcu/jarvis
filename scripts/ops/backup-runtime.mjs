@@ -1,4 +1,7 @@
 import path from "node:path";
+import os from "node:os";
+import { promises as fs } from "node:fs";
+import crypto from "node:crypto";
 import {
   DEFAULT_PROFILE,
   buildBackupManifest,
@@ -54,6 +57,42 @@ async function main() {
     copiedArtifacts.push(copiedReportPath);
   }
 
+  // Backup Jarvis runtime databases (~/.jarvis/*.db)
+  const jarvisDir = path.join(os.homedir(), ".jarvis");
+  const jarvisTarget = path.join(bundleDir, "jarvis");
+  const copiedDatabases = [];
+  for (const dbName of ["runtime.db", "crm.db", "knowledge.db"]) {
+    const dbPath = path.join(jarvisDir, dbName);
+    try {
+      await fs.access(dbPath);
+      await ensureDir(jarvisTarget);
+      await fs.copyFile(dbPath, path.join(jarvisTarget, dbName));
+      copiedDatabases.push(dbName);
+      // Also copy WAL/SHM files if they exist
+      for (const suffix of ["-wal", "-shm"]) {
+        try {
+          await fs.access(dbPath + suffix);
+          await fs.copyFile(dbPath + suffix, path.join(jarvisTarget, dbName + suffix));
+        } catch { /* no WAL/SHM file, fine */ }
+      }
+    } catch { /* db doesn't exist, skip */ }
+  }
+  // Copy config.json if it exists
+  try {
+    const configJsonPath = path.join(jarvisDir, "config.json");
+    await fs.access(configJsonPath);
+    await ensureDir(jarvisTarget);
+    await fs.copyFile(configJsonPath, path.join(jarvisTarget, "config.json"));
+  } catch { /* no config.json */ }
+
+  // Compute checksums for integrity verification
+  const checksums = {};
+  for (const dbName of copiedDatabases) {
+    const filePath = path.join(jarvisTarget, dbName);
+    const content = await fs.readFile(filePath);
+    checksums[dbName] = crypto.createHash("sha256").update(content).digest("hex");
+  }
+
   const manifest = buildBackupManifest({
     profile,
     bundleDir,
@@ -64,6 +103,8 @@ async function main() {
     copiedWorkspace,
     copiedArtifacts
   });
+  manifest.jarvisDatabases = copiedDatabases;
+  manifest.checksums = checksums;
 
   await writeJson(path.join(bundleDir, "manifest.json"), manifest);
 

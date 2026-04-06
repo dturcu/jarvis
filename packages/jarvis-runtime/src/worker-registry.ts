@@ -21,6 +21,7 @@ import { createDriveWorker, GoogleDriveAdapter, MockDriveAdapter } from "@jarvis
 import { createFilesWorkerBridge } from "./files-bridge.js";
 import { CRM_DB_PATH, type JarvisRuntimeConfig } from "./config.js";
 import type { Logger } from "./logger.js";
+import type { DatabaseSync } from "node:sqlite";
 
 type WorkerExecuteFn = (envelope: JobEnvelope) => Promise<JobResult>;
 
@@ -30,28 +31,49 @@ export type WorkerRegistry = {
   chat(userPrompt: string, systemPrompt?: string): Promise<string>;
 };
 
-export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger): WorkerRegistry {
+export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger, runtimeDb?: DatabaseSync): WorkerRegistry {
   const useReal = config.adapter_mode === "real";
 
   // ─── Inference ──────────────────────────────────────────────────────────
-  const inferenceAdapter = useReal ? new DefaultInferenceAdapter() : new MockInferenceAdapter();
+  const inferenceAdapter = useReal ? new DefaultInferenceAdapter(runtimeDb, config.lmstudio_url) : new MockInferenceAdapter();
   const inferenceWorker = createInferenceWorker({ adapter: inferenceAdapter });
 
-  // Model tier resolution — maps haiku/sonnet/opus to configured models
-  function resolveModel(tier?: "haiku" | "sonnet" | "opus"): string | undefined {
-    if (!tier || config.default_model === "auto") return undefined;
-    if (config.model_tiers) return config.model_tiers[tier];
-    return config.default_model; // single model for all tiers
-  }
-
-  // Chat helper for adapters that need LLM access
-  const chatFn = async (prompt: string, systemPrompt?: string, tier?: "haiku" | "sonnet" | "opus"): Promise<string> => {
+  // Chat helper for adapters that need LLM access.
+  // Uses evidence-backed model routing when runtimeDb is available.
+  const chatFn = async (prompt: string, systemPrompt?: string, profile?: { objective: string }): Promise<string> => {
     const messages: Array<{ role: string; content: string }> = [];
     if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
     messages.push({ role: "user", content: prompt });
+
+    let model = config.default_model === "auto" ? undefined : config.default_model;
+
+    // Evidence-backed routing: select model from registry + benchmarks
+    if (!model && runtimeDb) {
+      try {
+        const { loadRegisteredModels } = await import("@jarvis/inference");
+        const { loadAllBenchmarks } = await import("@jarvis/inference");
+        const { selectByProfileWithEvidence } = await import("@jarvis/inference");
+
+        const registered = loadRegisteredModels(runtimeDb);
+        if (registered.length > 0) {
+          const benchmarks = loadAllBenchmarks(runtimeDb);
+          const taskProfile = {
+            objective: (profile?.objective ?? "answer") as any,
+          };
+          const selected = selectByProfileWithEvidence(registered, taskProfile, benchmarks);
+          if (selected) {
+            model = selected.id;
+            logger.debug(`Evidence-based model selection: ${selected.id} (${selected.runtime})`);
+          }
+        }
+      } catch {
+        // Fall through to default — inference package may not have registry functions
+      }
+    }
+
     const envelope = buildEnvelope("inference.chat", {
       messages,
-      model: resolveModel(tier),
+      model,
       temperature: 0.3,
       max_tokens: 2048,
     });

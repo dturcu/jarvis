@@ -1,14 +1,15 @@
 import { Router } from 'express'
 import { DatabaseSync } from 'node:sqlite'
-import type { SQLInputValue } from 'node:sqlite'
+import { randomUUID } from 'node:crypto'
 import os from 'os'
 import { join } from 'path'
-import { configureJarvisStatePersistence, getJarvisState } from '@jarvis/shared'
 
-const RUNTIME_DB_PATH = join(os.homedir(), '.jarvis', 'runtime.sqlite')
-
-// Ensure JarvisState is configured for this process
-configureJarvisStatePersistence({ databasePath: RUNTIME_DB_PATH })
+function getRuntimeDb() {
+  const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'runtime.db'))
+  db.exec("PRAGMA journal_mode = WAL;")
+  db.exec("PRAGMA busy_timeout = 5000;")
+  return db
+}
 
 function getKnowledgeDb() {
   return new DatabaseSync(join(os.homedir(), '.jarvis', 'knowledge.db'))
@@ -61,84 +62,50 @@ const AGENT_IDS = Object.keys(AGENT_META)
 
 export const agentsRouter = Router()
 
-// GET / — list 8 agents with last run info from JarvisState + decisions from knowledge.db
+// GET / — list agents with last run from runtime.db runs table
 agentsRouter.get('/', (_req, res) => {
-  // Get last completed/failed job per agent from JarvisState
-  let lastJobs: Record<string, { status: string; finished_at: string | null; summary: string }> = {}
+  let lastRuns: Record<string, Record<string, unknown>> = {}
   try {
-    const state = getJarvisState()
-    const db = (state as unknown as { db: DatabaseSync }).db
-    if (db) {
-      const rows = db.prepare(`
-        SELECT job_id, job_type, status, updated_at, record_json
-        FROM jobs
-        WHERE job_type = 'agent.start'
-          AND status IN ('completed', 'failed')
-        ORDER BY updated_at DESC
-      `).all() as Array<{ job_id: string; status: string; updated_at: string; record_json: string }>
-      for (const row of rows) {
-        try {
-          const record = JSON.parse(row.record_json) as { envelope: { input: { agent_id?: string } }; result: { summary: string; metrics?: { finished_at?: string } } }
-          const agentId = record.envelope?.input?.agent_id
-          if (typeof agentId === 'string' && !lastJobs[agentId]) {
-            lastJobs[agentId] = {
-              status: row.status,
-              finished_at: record.result?.metrics?.finished_at ?? row.updated_at,
-              summary: record.result?.summary ?? '',
-            }
-          }
-        } catch { /* skip malformed records */ }
-      }
-    }
-  } catch {
-    // Fall back to decisions if JarvisState not available
-  }
-
-  // Fall back to knowledge.db decisions for agents not found in JarvisState
-  let lastDecisions: Record<string, Record<string, unknown>> = {}
-  try {
-    const db = getKnowledgeDb()
+    const db = getRuntimeDb()
     const rows = db.prepare(
-      `SELECT * FROM decisions d1
-       WHERE decision_id = (
-         SELECT MAX(decision_id) FROM decisions d2 WHERE d2.agent_id = d1.agent_id
+      `SELECT * FROM runs r1
+       WHERE started_at = (
+         SELECT MAX(started_at) FROM runs r2 WHERE r2.agent_id = r1.agent_id
        )`
     ).all() as Record<string, unknown>[]
     db.close()
     for (const row of rows) {
       if (typeof row.agent_id === 'string') {
-        lastDecisions[row.agent_id] = row
+        lastRuns[row.agent_id] = row
       }
     }
   } catch {
-    // DB may not exist yet
+    // runtime.db may not exist yet
   }
 
   const agents = AGENT_IDS.map(id => {
     const meta = AGENT_META[id]
-    const job = lastJobs[id]
-    const last = lastDecisions[id]
-
+    const last = lastRuns[id]
     return {
       agentId: id,
       label: meta.label,
       description: meta.description,
       schedule: meta.schedule,
-      lastRun: job?.finished_at ?? last?.decided_at ?? last?.created_at ?? null,
-      lastOutcome: job?.status ?? last?.outcome ?? null,
-      lastStep: last?.step ?? null
+      lastRun: last?.started_at ?? null,
+      lastOutcome: last?.status ?? null,
+      lastStep: last?.current_step ?? null
     }
   })
   res.json(agents)
 })
 
-// GET /decisions?agent=&limit=50&offset=0 — paginated decisions log
+// GET /decisions?agent=&limit=50&offset=0 — paginated decisions log (still from knowledge.db — decisions are knowledge artifacts)
 agentsRouter.get('/decisions', (req, res) => {
   const { agent, limit = '50', offset = '0' } = req.query as { agent?: string; limit?: string; offset?: string }
   try {
     const db = getKnowledgeDb()
     let sql = 'SELECT * FROM decisions WHERE 1=1'
-    const params: SQLInputValue[] = []
+    const params: (string | number)[] = []
     if (agent && agent !== 'all') {
       sql += ' AND agent_id = ?'
       params.push(agent)
@@ -153,24 +120,30 @@ agentsRouter.get('/decisions', (req, res) => {
   }
 })
 
-// POST /:agentId/trigger — submit agent.start job to JarvisState (replaces trigger-file)
+// POST /:agentId/trigger — insert command into agent_commands in runtime.db
 agentsRouter.post('/:agentId/trigger', (req, res) => {
   const { agentId } = req.params
   if (!AGENT_IDS.includes(agentId)) {
     res.status(400).json({ error: `Unknown agent: ${agentId}` })
     return
   }
+  const db = getRuntimeDb()
   try {
-    const result = getJarvisState().submitJob({
-      type: "agent.start",
-      input: {
-        agent_id: agentId,
-        trigger_kind: "manual",
-        triggered_by: "dashboard",
-      },
-    })
-    res.json({ ok: true, job_id: result.job_id, status: result.status })
-  } catch (e) {
-    res.status(500).json({ error: `Failed to submit job: ${e instanceof Error ? e.message : String(e)}` })
+    const commandId = randomUUID()
+    db.prepare(`
+      INSERT INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
+      VALUES (?, 'run_agent', ?, ?, 'queued', 0, ?, 'dashboard', ?)
+    `).run(
+      commandId,
+      agentId,
+      JSON.stringify({ triggered_by: 'dashboard' }),
+      new Date().toISOString(),
+      `dashboard-${agentId}-${Date.now()}`
+    )
+    res.json({ ok: true, command_id: commandId })
+  } catch {
+    res.status(500).json({ error: 'Failed to queue agent command' })
+  } finally {
+    try { db.close() } catch {}
   }
 })

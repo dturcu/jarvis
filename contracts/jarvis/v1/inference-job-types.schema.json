@@ -19,9 +19,9 @@
       },
       "additionalProperties": false
     },
-    "model_tier": {
+    "model_size_class": {
       "type": "string",
-      "enum": ["haiku", "sonnet", "opus"]
+      "enum": ["small", "medium", "large"]
     },
     "runtime_name": {
       "type": "string",
@@ -96,7 +96,6 @@
           "items": { "$ref": "#/$defs/chat_message" }
         },
         "model": { "type": "string", "minLength": 1 },
-        "tier": { "$ref": "#/$defs/model_tier" },
         "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
         "max_tokens": { "type": "integer", "minimum": 1 }
       },
@@ -155,11 +154,11 @@
     },
     "inference_model_entry": {
       "type": "object",
-      "required": ["id", "runtime", "tier", "capabilities"],
+      "required": ["id", "runtime", "size_class", "capabilities"],
       "properties": {
         "id": { "type": "string", "minLength": 1 },
         "runtime": { "$ref": "#/$defs/runtime_name" },
-        "tier": { "$ref": "#/$defs/model_tier" },
+        "size_class": { "$ref": "#/$defs/model_size_class" },
         "capabilities": {
           "type": "array",
           "items": { "$ref": "#/$defs/model_capability" }

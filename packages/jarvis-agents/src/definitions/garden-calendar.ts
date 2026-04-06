@@ -68,7 +68,7 @@ export const gardenCalendarAgent: AgentDefinition = {
   task_profile: { objective: "classify", preferences: { prioritize_speed: true } },
   max_steps_per_run: 5,
   system_prompt: GARDEN_CALENDAR_SYSTEM_PROMPT,
+  experimental: true,
   output_channels: ["telegram:daniel"],
   maturity: "operational",
-  experimental: true,
 };

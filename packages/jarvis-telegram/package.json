@@ -7,7 +7,7 @@
     "start": "tsx src/index.ts"
   },
   "dependencies": {
-    "@jarvis/shared": "file:../jarvis-shared"
+    "@jarvis/runtime": "file:../jarvis-runtime"
   },
   "devDependencies": {
     "@types/node": "^24.12.2",
