@@ -91,7 +91,8 @@ safemodeRouter.get('/', (_req, res) => {
     if (!reason) reason = 'Cannot check daemon — database unavailable'
   }
 
-  const safeMode = !checks.databases_ok || !checks.config_ok
+  // Safe mode triggers on any critical failure — including stale daemon
+  const safeMode = !checks.databases_ok || !checks.config_ok || !checks.daemon_running
 
   res.json({
     safe_mode: safeMode,

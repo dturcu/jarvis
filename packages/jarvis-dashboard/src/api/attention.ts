@@ -23,13 +23,17 @@ attentionRouter.get('/', (_req, res) => {
       "SELECT COUNT(*) as cnt FROM approvals WHERE status = 'pending'"
     ).get() as { cnt: number }).cnt
 
+    // Use ISO timestamps for comparison (completed_at and next_fire_at are stored as ISO strings)
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    const nowIso = new Date().toISOString()
+
     const failedRuns = (db.prepare(
-      "SELECT COUNT(*) as cnt FROM runs WHERE status = 'failed' AND completed_at > datetime('now', '-24 hours')"
-    ).get() as { cnt: number }).cnt
+      "SELECT COUNT(*) as cnt FROM runs WHERE status = 'failed' AND completed_at > ?"
+    ).get(twentyFourHoursAgo) as { cnt: number }).cnt
 
     const overdueSchedules = (db.prepare(
-      "SELECT COUNT(*) as cnt FROM schedules WHERE enabled = 1 AND next_fire_at < datetime('now')"
-    ).get() as { cnt: number }).cnt
+      "SELECT COUNT(*) as cnt FROM schedules WHERE enabled = 1 AND next_fire_at < ?"
+    ).get(nowIso) as { cnt: number }).cnt
 
     // Active work
     const activeWork = db.prepare(

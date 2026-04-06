@@ -267,27 +267,34 @@ modelsRouter.get("/:runtime/:modelId/benchmarks", (req, res) => {
   }
 });
 
-// POST /:runtime/:modelId/benchmark — trigger an on-demand benchmark
+// POST /:runtime/:modelId/benchmark — record a benchmark result directly
+// Note: actual inference benchmarking requires the daemon. This endpoint records
+// a latency measurement submitted by the client or a scheduled benchmark task.
 modelsRouter.post("/:runtime/:modelId/benchmark", (req, res) => {
   const { runtime, modelId } = req.params;
+  const { benchmark_type = "latency", latency_ms, tokens_per_sec, json_success, tool_call_success, notes } = req.body as {
+    benchmark_type?: string; latency_ms?: number; tokens_per_sec?: number;
+    json_success?: boolean; tool_call_success?: boolean; notes?: string;
+  };
+
   const db = getDb();
   try {
-    const commandId = randomUUID();
+    const benchmarkId = randomUUID();
     const now = new Date().toISOString();
     db.prepare(`
-      INSERT INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
-      VALUES (?, 'benchmark_model', 'system', ?, 'queued', 0, ?, 'dashboard', ?)
-    `).run(
-      commandId,
-      JSON.stringify({ runtime, model_id: modelId }),
-      now,
-      `benchmark-${runtime}-${modelId}-${Date.now()}`
-    );
+      INSERT INTO model_benchmarks (benchmark_id, runtime, model_id, benchmark_type, latency_ms, tokens_per_sec, json_success, tool_call_success, notes, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(benchmarkId, runtime, modelId, benchmark_type, latency_ms ?? null, tokens_per_sec ?? null,
+      json_success != null ? (json_success ? 1 : 0) : null,
+      tool_call_success != null ? (tool_call_success ? 1 : 0) : null,
+      notes ?? null, now);
 
     const actor = getActor(req as AuthenticatedRequest);
-    writeAuditLog(actor.type, actor.id, "model.benchmark_requested", "model", modelId!, { runtime });
+    writeAuditLog(actor.type, actor.id, "model.benchmark_recorded", "model", modelId!, { runtime, benchmark_type });
 
-    res.json({ ok: true, command_id: commandId, runtime, model_id: modelId });
+    res.json({ ok: true, benchmark_id: benchmarkId, runtime, model_id: modelId });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
   } finally {
     try { db.close(); } catch { /* best-effort */ }
   }

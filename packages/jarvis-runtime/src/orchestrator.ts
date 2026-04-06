@@ -267,6 +267,25 @@ export async function runAgent(
         continue; // Skip this step
       }
 
+      // ── Preview mode: skip outbound actions BEFORE approval gate ──
+      // This prevents preview runs from blocking on approval waits for actions
+      // that would be skipped anyway.
+      const outboundActions = new Set(['email.send', 'social.post', 'crm.move_stage']);
+      if (commandPayload?.preview === true && outboundActions.has(step.action)) {
+        stepLog.info(`Preview mode: would have executed ${step.action} — skipping`);
+        runStore?.emitEvent(run.run_id, agentId, "step_completed", {
+          step_no: step.step, action: step.action,
+          details: { preview: true, skipped: true },
+        });
+        decisionLog.logDecision({
+          agent_id: agentId, run_id: run.run_id, step: step.step,
+          action: step.action, reasoning: step.reasoning, outcome: "preview_skipped",
+        });
+        run.current_step = step.step;
+        run.updated_at = new Date().toISOString();
+        continue;
+      }
+
       // ── Maturity-based approval gates ──
       const gate = resolveApprovalGate(def, step.action);
 
@@ -331,23 +350,6 @@ export async function runAgent(
           step_no: step.step, action: step.action,
         });
         stepLog.info("Approved — executing");
-      }
-
-      // ── Preview mode: skip outbound actions ──
-      const outboundActions = new Set(['email.send', 'social.post', 'crm.move_stage', 'document.generate_report']);
-      if (commandPayload?.preview === true && outboundActions.has(step.action)) {
-        stepLog.info(`Preview mode: would have executed ${step.action} — skipping`);
-        runStore?.emitEvent(run.run_id, agentId, "step_completed", {
-          step_no: step.step, action: step.action,
-          details: { preview: true, skipped: true },
-        });
-        decisionLog.logDecision({
-          agent_id: agentId, run_id: run.run_id, step: step.step,
-          action: step.action, reasoning: step.reasoning, outcome: "preview_skipped",
-        });
-        run.current_step = step.step;
-        run.updated_at = new Date().toISOString();
-        continue;
       }
 
       // Execute the job

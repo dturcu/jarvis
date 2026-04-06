@@ -156,6 +156,56 @@ settingsRouter.patch('/agents/:id', (req, res) => {
   res.json({ id, enabled: enabled !== false })
 })
 
+// ─── Repair API ──────────────────────────────────────────────────────────────
+
+settingsRouter.post('/repair', (req, res) => {
+  const { check = 'all' } = req.body as { check?: 'lmstudio' | 'databases' | 'config' | 'all' }
+  const checks: Array<{ name: string; ok: boolean; message: string }> = []
+
+  if (check === 'config' || check === 'all') {
+    try {
+      const config = readConfig()
+      const hasLms = typeof config.lmstudio_url === 'string'
+      const hasMode = typeof config.adapter_mode === 'string'
+      checks.push({ name: 'config', ok: hasLms && hasMode, message: hasLms && hasMode ? 'Config valid' : 'Missing lmstudio_url or adapter_mode' })
+    } catch {
+      checks.push({ name: 'config', ok: false, message: 'Cannot read config.json' })
+    }
+  }
+
+  if (check === 'databases' || check === 'all') {
+    for (const dbName of ['runtime.db', 'crm.db', 'knowledge.db']) {
+      const dbPath = join(JARVIS_DIR, dbName)
+      if (!fs.existsSync(dbPath)) {
+        checks.push({ name: dbName, ok: false, message: `${dbName} not found` })
+      } else {
+        let db: DatabaseSync | undefined
+        try {
+          db = new DatabaseSync(dbPath)
+          db.prepare('SELECT 1').get()
+          checks.push({ name: dbName, ok: true, message: `${dbName} accessible` })
+        } catch {
+          checks.push({ name: dbName, ok: false, message: `${dbName} corrupted or locked` })
+        } finally {
+          try { db?.close() } catch {}
+        }
+      }
+    }
+  }
+
+  if (check === 'lmstudio' || check === 'all') {
+    // Sync check — just verify config has a URL
+    const config = readConfig()
+    const url = config.lmstudio_url as string | undefined
+    checks.push({ name: 'lmstudio', ok: !!url, message: url ? `LM Studio configured at ${url}` : 'No lmstudio_url in config' })
+  }
+
+  const allOk = checks.every(c => c.ok)
+  const actor = getActor(req as AuthenticatedRequest)
+  writeAuditLog(actor.type, actor.id, 'settings.repair', 'settings', check, { checks })
+  res.json({ repaired: allOk, checks, message: allOk ? 'All checks passed' : 'Some checks failed — see details' })
+})
+
 // ─── Expert Mode API ───────────────────────────────────────────────────────
 
 function getModeDb(): DatabaseSync {
