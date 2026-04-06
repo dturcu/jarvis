@@ -282,7 +282,13 @@ modelsRouter.post("/:runtime/:modelId/benchmark", (req, res) => {
     const actor = getActor(req as AuthenticatedRequest);
     writeAuditLog(actor.type, actor.id, "model.benchmark_recorded", "model", modelId!, { runtime, benchmark_type });
 
-    res.json({ ok: true, benchmark_id: benchmarkId, runtime, model_id: modelId });
+    res.json({
+      ok: true,
+      benchmark_id: benchmarkId,
+      runtime,
+      model_id: modelId,
+      note: 'Records benchmark data. To run a live benchmark, use the CLI benchmark tool.',
+    });
   } catch (e) {
     res.status(500).json({ error: e instanceof Error ? e.message : String(e) });
   } finally {
