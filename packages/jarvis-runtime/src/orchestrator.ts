@@ -237,6 +237,7 @@ export async function runAgent(
         const durableStatus = runStore.getStatus(run.run_id);
         if (durableStatus === "cancelled") {
           log.info("Run cancelled externally — stopping execution");
+          runStore.completeCommand(run.run_id, "cancelled");
           statusWriter?.completeRun("cancelled");
           runtime.completeRun(run.run_id, "Cancelled by operator");
           return runtime.getRun(run.run_id)!;
@@ -423,6 +424,7 @@ export async function runAgent(
             step_no: step.step, action: step.action,
             details: { reason: "operator_cancel", cancelled_after_step: step.step },
           });
+          runStore.completeCommand(run.run_id, "cancelled");
           statusWriter?.completeRun("cancelled");
           runtime.completeRun(run.run_id, "Cancelled by operator after step " + step.step);
           return runtime.getRun(run.run_id)!;
@@ -434,6 +436,7 @@ export async function runAgent(
     const finalStatus = runStore?.getStatus(run.run_id);
     if (finalStatus === "cancelled") {
       log.info("Run was cancelled externally during final step — respecting cancellation");
+      runStore?.completeCommand(run.run_id, "cancelled");
       statusWriter?.completeRun("cancelled");
       runtime.completeRun(run.run_id, "Cancelled by operator");
       return runtime.getRun(run.run_id)!;

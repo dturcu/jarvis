@@ -43,7 +43,10 @@ interface DaemonStatus {
   agents_registered: number
   schedules_active: number
   last_run: DaemonLastRun | null
+  /** @deprecated Use active_runs instead */
   current_run: DaemonCurrentRun | null
+  /** All currently executing agent runs (supports concurrent execution). */
+  active_runs?: DaemonCurrentRun[]
 }
 
 /* ── Attention API types ─────────────────────────────────── */
@@ -101,6 +104,41 @@ function timeAgo(iso: string | null): string {
 
 const POLL_INTERVAL = 5_000 // 5 seconds
 const ATTENTION_POLL_INTERVAL = 10_000 // 10 seconds
+
+/* ── Human-readable agent labels ────────────────────────── */
+
+const AGENT_LABELS: Record<string, string> = {
+  'bd-pipeline': 'BD Pipeline',
+  'proposal-engine': 'Proposal Engine',
+  'evidence-auditor': 'Evidence Auditor',
+  'contract-reviewer': 'Contract Reviewer',
+  'staffing-monitor': 'Staffing Monitor',
+  'content-engine': 'Content Engine',
+  'portfolio-monitor': 'Portfolio Monitor',
+  'garden-calendar': 'Garden Calendar',
+  'email-campaign': 'Email Campaign',
+  'social-engagement': 'Social Engagement',
+  'security-monitor': 'Security Monitor',
+  'drive-watcher': 'Drive Watcher',
+  'invoice-generator': 'Invoice Generator',
+  'meeting-transcriber': 'Meeting Transcriber',
+}
+
+function agentLabel(id: string): string {
+  return AGENT_LABELS[id] ?? id
+}
+
+/* ── Human-readable status labels ───────────────────────── */
+
+const STATUS_LABELS: Record<string, string> = {
+  planning: 'Planning',
+  executing: 'Running',
+  awaiting_approval: 'Awaiting Approval',
+  completed: 'Completed',
+  failed: 'Failed',
+  cancelled: 'Cancelled',
+  queued: 'Queued',
+}
 
 /* ── Stat Card Icons ─────────────────────────────────────── */
 
@@ -186,18 +224,23 @@ export default function Home() {
     setTimeout(fetchData, 500)
   }
 
-  /** Compute the effective status for an agent based on daemon state */
+  /** Compute the effective status for an agent based on daemon state.
+   *  Checks active_runs (concurrent) first, falls back to current_run (legacy). */
   function getAgentStatus(agentId: string): 'ready' | 'running' | 'awaiting_approval' | 'error' {
-    if (!daemon?.current_run) return 'ready'
-    if (daemon.current_run.agent_id !== agentId) return 'ready'
-    if (daemon.current_run.status === 'awaiting_approval') return 'awaiting_approval'
+    const runs = daemon?.active_runs?.length
+      ? daemon.active_runs
+      : daemon?.current_run ? [daemon.current_run] : []
+    const run = runs.find(r => r.agent_id === agentId)
+    if (!run) return 'ready'
+    if (run.status === 'awaiting_approval') return 'awaiting_approval'
     return 'running'
   }
 
   function getAgentCurrentRun(agentId: string): DaemonCurrentRun | null {
-    if (!daemon?.current_run) return null
-    if (daemon.current_run.agent_id !== agentId) return null
-    return daemon.current_run
+    const runs = daemon?.active_runs?.length
+      ? daemon.active_runs
+      : daemon?.current_run ? [daemon.current_run] : []
+    return runs.find(r => r.agent_id === agentId) ?? null
   }
 
   if (loading) {
@@ -395,9 +438,9 @@ export default function Home() {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
                   </span>
-                  <span className="text-sm text-slate-200 font-medium">{work.agent_id}</span>
+                  <span className="text-sm text-slate-200 font-medium">{agentLabel(work.agent_id)}</span>
                   <span className="text-xs text-amber-400/70 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
-                    {work.status}
+                    {STATUS_LABELS[work.status] ?? work.status}
                   </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -444,12 +487,17 @@ export default function Home() {
                     <span className={`inline-flex rounded-full h-2 w-2 ${
                       comp.status === 'completed' ? 'bg-emerald-500' : comp.status === 'failed' ? 'bg-red-500' : 'bg-slate-500'
                     }`} />
-                    <span className="text-sm text-slate-200 font-medium">{comp.agent_id}</span>
+                    <span className="text-sm text-slate-200 font-medium">{agentLabel(comp.agent_id)}</span>
                     <span className={`text-xs px-2 py-0.5 rounded-full border ${statusColor}`}>
-                      {comp.status}
+                      {STATUS_LABELS[comp.status] ?? comp.status}
                     </span>
                   </div>
-                  <span className="text-xs text-slate-500 font-mono">{timeAgo(comp.completed_at)}</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-slate-500">{timeAgo(comp.completed_at)}</span>
+                    {comp.status === 'failed' && (
+                      <Link to="/runs" className="text-xs text-red-400 hover:text-red-300 transition-colors duration-200">View</Link>
+                    )}
+                  </div>
                 </div>
               )
             })}
@@ -463,14 +511,32 @@ export default function Home() {
           <h2 className="text-lg font-semibold text-slate-200 tracking-tight mb-3">Recommended Actions</h2>
           <div className="bg-slate-800/50 backdrop-blur-sm border border-white/5 rounded-xl p-5">
             <ul className="space-y-2">
-              {attention.recommended_actions.map((action, i) => (
-                <li key={i} className="flex items-start gap-2.5 text-sm text-slate-300">
-                  <svg className="text-indigo-400 shrink-0 mt-0.5" width="14" height="14" viewBox="0 0 14 14" fill="none">
-                    <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  {action}
-                </li>
-              ))}
+              {attention.recommended_actions.map((action, i) => {
+                const lc = action.toLowerCase()
+                const link = lc.includes('approval')
+                  ? '/approvals'
+                  : lc.includes('failed') || lc.includes('retry')
+                    ? '/runs'
+                    : lc.includes('schedule') || lc.includes('overdue')
+                      ? '/schedule'
+                      : null
+                return (
+                  <li key={i} className="flex items-center gap-2.5 text-sm text-slate-300">
+                    <svg className="text-indigo-400 shrink-0" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                      <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    <span className="flex-1">{action}</span>
+                    {link && (
+                      <Link
+                        to={link}
+                        className="shrink-0 text-xs text-indigo-400 hover:text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full transition-colors duration-200"
+                      >
+                        Go
+                      </Link>
+                    )}
+                  </li>
+                )
+              })}
             </ul>
           </div>
         </div>

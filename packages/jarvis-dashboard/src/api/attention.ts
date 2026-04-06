@@ -43,9 +43,9 @@ attentionRouter.get('/', (_req, res) => {
       "SELECT run_id, agent_id, status, current_step, total_steps, started_at FROM runs WHERE status IN ('planning','executing','awaiting_approval') ORDER BY started_at DESC"
     ).all() as Record<string, unknown>[]
 
-    // Recent completions
+    // Recent completions (includes both completed and failed runs)
     const recentCompletions = db.prepare(
-      "SELECT run_id, agent_id, status, completed_at, current_step FROM runs WHERE status = 'completed' ORDER BY completed_at DESC LIMIT 5"
+      "SELECT run_id, agent_id, status, completed_at, current_step FROM runs WHERE status IN ('completed','failed') ORDER BY completed_at DESC LIMIT 5"
     ).all() as Record<string, unknown>[]
 
     // Recommended actions

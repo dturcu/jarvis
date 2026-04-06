@@ -4,6 +4,15 @@ import os from 'os'
 import { join } from 'path'
 import fs from 'fs'
 
+export interface DaemonActiveRun {
+  agent_id: string
+  status: string
+  step: number
+  total_steps: number
+  current_action: string
+  started_at: string
+}
+
 export interface DaemonStatus {
   running: boolean
   pid: number | null
@@ -15,14 +24,10 @@ export interface DaemonStatus {
     status: string
     completed_at: string
   } | null
-  current_run: {
-    agent_id: string
-    status: string
-    step: number
-    total_steps: number
-    current_action: string
-    started_at: string
-  } | null
+  /** @deprecated Use active_runs instead */
+  current_run: DaemonActiveRun | null
+  /** All currently executing agent runs (supports concurrent execution). */
+  active_runs: DaemonActiveRun[]
 }
 
 function readDaemonStatus(): DaemonStatus {
@@ -34,6 +39,7 @@ function readDaemonStatus(): DaemonStatus {
     schedules_active: 0,
     last_run: null,
     current_run: null,
+    active_runs: [],
   }
 
   const dbPath = join(os.homedir(), '.jarvis', 'runtime.db')
@@ -82,6 +88,7 @@ function readDaemonStatus(): DaemonStatus {
       schedules_active: (details.schedules_active as number) ?? 0,
       last_run: (details.last_run as DaemonStatus['last_run']) ?? null,
       current_run: (details.current_run as DaemonStatus['current_run']) ?? null,
+      active_runs: (details.active_runs as DaemonActiveRun[]) ?? [],
     }
   } catch {
     return disconnected

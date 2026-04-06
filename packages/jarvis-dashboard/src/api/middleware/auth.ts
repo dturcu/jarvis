@@ -97,6 +97,9 @@ const ROUTE_PERMISSIONS: Record<string, Record<string, UserRole>> = {
   // Safe mode
   "/api/safemode": { GET: "viewer", POST: "admin" },
 
+  // Repair assessment
+  "/api/repair": { GET: "operator", POST: "admin" },
+
   // Read-only routes
   "/api/agents": { GET: "viewer" },
   "/api/daemon": { GET: "viewer" },

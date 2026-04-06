@@ -184,4 +184,34 @@ describe("Cancel: orchestrator observes external cancellation", () => {
       "run_cancelled",    // transition to cancelled
     ]);
   });
+
+  it("completeCommand accepts 'cancelled' status", () => {
+    // 1. Insert a command into agent_commands
+    const commandId = `cmd-cancel-test-${Date.now()}`;
+    db.prepare(`
+      INSERT INTO agent_commands (command_id, command_type, target_agent_id, status, priority, created_at)
+      VALUES (?, 'run_agent', 'test-agent', 'claimed', 0, ?)
+    `).run(commandId, new Date().toISOString());
+
+    // 2. Start a run linked to that command
+    const runId = store.startRun("test-agent", "manual", commandId, "Test completeCommand cancelled");
+    store.transition(runId, "test-agent", "executing", "step_started", {
+      step_no: 1, action: "web.search",
+    });
+
+    // 3. Cancel the run
+    store.transition(runId, "test-agent", "cancelled", "run_cancelled", {
+      details: { reason: "operator_cancel" },
+    });
+
+    // 4. Call completeCommand with 'cancelled' — this should not throw
+    store.completeCommand(runId, "cancelled");
+
+    // 5. Verify command status is 'cancelled'
+    const cmd = db.prepare("SELECT status, completed_at FROM agent_commands WHERE command_id = ?").get(commandId) as {
+      status: string; completed_at: string | null;
+    };
+    expect(cmd.status).toBe("cancelled");
+    expect(cmd.completed_at).toBeTruthy();
+  });
 });
