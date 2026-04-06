@@ -10,6 +10,8 @@ import { requestApproval, waitForApproval } from "./approval-bridge.js";
 import { buildEnvelope, type WorkerRegistry } from "./worker-registry.js";
 import { writeTelegramQueue } from "./notify.js";
 import { RunStore } from "./run-store.js";
+import { isReadOnlyAction } from "./action-classifier.js";
+import { isActionPermitted, type PluginPermission } from "./plugin-loader.js";
 import type { RagPipeline } from "./rag-pipeline.js";
 import type { Logger } from "./logger.js";
 import type { StatusWriter } from "./status-writer.js";
@@ -44,9 +46,27 @@ export async function runAgent(
   // Initialize durable run tracking if runtime DB is available
   const runStore = runtimeDb ? new RunStore(runtimeDb) : null;
 
+  // Look up pending command_id for this agent (set by daemon when processing commands)
+  let commandId: string | undefined;
+  if (runtimeDb) {
+    try {
+      const row = runtimeDb.prepare(
+        "SELECT value_json FROM settings WHERE key = ?",
+      ).get(`pending_command:${agentId}`) as { value_json: string } | undefined;
+      if (row) {
+        commandId = JSON.parse(row.value_json) as string;
+        // Clean up the pending command key
+        runtimeDb.prepare("DELETE FROM settings WHERE key = ?").run(`pending_command:${agentId}`);
+      }
+    } catch { /* best-effort */ }
+  }
+
+  // Load plugin permissions if this is a plugin agent
+  const pluginPermissions = loadPluginPermissions(agentId, runtimeDb);
+
   // 1. Start run
   const run = runtime.startRun(agentId, trigger);
-  runStore?.startRun(agentId); // Emits run_started event
+  const durableRunId = runStore?.startRun(agentId, trigger.kind, commandId, run.goal);
 
   // Create a context-aware logger for this run
   const log = logger.withContext({ run_id: run.run_id, agent_id: agentId });
@@ -120,7 +140,7 @@ export async function runAgent(
             .map((c, i) => `  Plan ${i + 1}: ${c.steps.map(s => s.action).join(" → ")}`),
         ].join("\n");
 
-        runStore?.transition(run.run_id, agentId, "awaiting_approval", "disagreement_escalation", {
+        runStore?.transition(run.run_id, agentId, "awaiting_approval", "approval_requested", {
           details: { reason: result.disagreement.reason },
         });
 
@@ -147,6 +167,7 @@ export async function runAgent(
           runStore?.transition(run.run_id, agentId, "cancelled", "run_cancelled", {
             details: { reason: "disagreement_rejected" },
           });
+          runStore?.completeCommand(run.run_id, "failed");
           statusWriter?.completeRun("disagreement_rejected");
           runtime.completeRun(run.run_id, "Plan rejected due to planner disagreement");
           return run;
@@ -157,6 +178,7 @@ export async function runAgent(
           runStore?.transition(run.run_id, agentId, "failed", "run_failed", {
             details: { reason: "disagreement_timeout" },
           });
+          runStore?.completeCommand(run.run_id, "failed");
           statusWriter?.completeRun("disagreement_timeout");
           runtime.completeRun(run.run_id, "Disagreement approval timeout");
           return run;
@@ -176,6 +198,9 @@ export async function runAgent(
     run.status = "executing";
     run.updated_at = new Date().toISOString();
 
+    // Update durable run metadata
+    runStore?.updateRunMeta(run.run_id, { goal: run.goal, total_steps: plan.steps.length });
+
     // Emit plan_built event
     runStore?.emitEvent(run.run_id, agentId, "plan_built", {
       details: { steps: plan.steps.length, goal: run.goal, planner_mode: plannerMode },
@@ -186,6 +211,7 @@ export async function runAgent(
       runStore?.transition(run.run_id, agentId, "completed", "run_completed", {
         details: { reason: "empty_plan" },
       });
+      runStore?.completeCommand(run.run_id, "completed");
       statusWriter?.completeRun("empty_plan");
       runtime.completeRun(run.run_id, "Empty plan — no steps generated");
       return run;
@@ -209,24 +235,31 @@ export async function runAgent(
       // Update status writer with current step progress
       statusWriter?.updateStep(step.step, step.action);
 
-      // Check approval gate (explicit gates + maturity-level enforcement)
-      const explicitGate = def.approval_gates.find(g => g.action === step.action);
+      // ── Plugin permission check ──
+      // Enforce permissions at runtime for plugin agents
+      if (pluginPermissions && !isActionPermitted(step.action, pluginPermissions)) {
+        stepLog.warn(`Action blocked by plugin permissions: ${step.action}`);
+        runStore?.emitEvent(run.run_id, agentId, "step_failed", {
+          step_no: step.step, action: step.action,
+          details: { error: "permission_denied", reason: `Plugin lacks permission for ${step.action}` },
+        });
+        decisionLog.logDecision({
+          agent_id: agentId, run_id: run.run_id, step: step.step,
+          action: step.action, reasoning: step.reasoning, outcome: "permission_denied",
+        });
+        continue; // Skip this step
+      }
 
-      // high_stakes_manual_gate: every mutating action requires approval
-      // (read-only prefixes like search, list, get are exempt)
-      const isReadOnly = /\.(search|list|get|check|scan|read|fetch|query)$/i.test(step.action);
-      const maturityGate = !explicitGate && def.maturity === "high_stakes_manual_gate" && !isReadOnly;
-
-      const gate = explicitGate ?? (maturityGate ? { action: step.action, severity: "warning" as const } : null);
+      // ── Maturity-based approval gates ──
+      const gate = resolveApprovalGate(def, step.action);
 
       if (gate && runtimeDb) {
-        const gateSource = explicitGate ? "explicit" : "maturity_enforced";
-        stepLog.info(`Approval required (${gate.severity}, ${gateSource})`);
+        stepLog.info(`Approval required (${gate.severity}, ${gate.source})`);
 
         // Emit approval_requested event
         runStore?.transition(run.run_id, agentId, "awaiting_approval", "approval_requested", {
           step_no: step.step, action: step.action,
-          details: { severity: gate.severity, source: gateSource },
+          details: { severity: gate.severity, source: gate.source },
         });
 
         const approvalId = requestApproval(runtimeDb, {
@@ -264,6 +297,7 @@ export async function runAgent(
             step_no: step.step, action: step.action,
             details: { reason: "approval_timeout" },
           });
+          runStore?.completeCommand(run.run_id, "failed");
           decisionLog.logDecision({
             agent_id: agentId, run_id: run.run_id, step: step.step,
             action: step.action, reasoning: step.reasoning, outcome: "approval_timeout",
@@ -344,6 +378,7 @@ export async function runAgent(
     runStore?.transition(run.run_id, agentId, "completed", "run_completed", {
       details: { steps_completed: run.current_step, total_steps: plan.steps.length },
     });
+    runStore?.completeCommand(run.run_id, "completed");
     statusWriter?.completeRun("completed");
     runtime.completeRun(run.run_id);
     log.info(`Completed (${run.current_step} steps)`);
@@ -356,6 +391,11 @@ export async function runAgent(
     const summary = `${def.label}: completed ${run.current_step}/${plan.steps.length} steps. Goal: ${run.goal}`;
     writeTelegramQueue(agentId, summary);
 
+    // 8. Post-hoc review notification for trusted_with_review agents
+    if (def.maturity === "trusted_with_review") {
+      writeTelegramQueue(agentId, `[REVIEW] ${def.label} completed autonomously. Run: ${run.run_id}. Review output and decisions.`);
+    }
+
     return runtime.getRun(run.run_id)!;
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
@@ -363,9 +403,77 @@ export async function runAgent(
     runStore?.transition(run.run_id, agentId, "failed", "run_failed", {
       details: { error: errMsg },
     });
+    runStore?.completeCommand(run.run_id, "failed");
     statusWriter?.completeRun(`error: ${errMsg}`);
     runtime.completeRun(run.run_id, errMsg);
     return runtime.getRun(run.run_id)!;
+  }
+}
+
+// ─── Maturity-based approval gate resolution ─────────────────────────────────
+
+type ResolvedGate = {
+  severity: "info" | "warning" | "critical";
+  source: "explicit" | "maturity_experimental" | "maturity_high_stakes";
+};
+
+/**
+ * Resolve the approval gate for a step action based on:
+ * 1. Explicit approval_gates defined on the agent
+ * 2. Maturity-level enforcement:
+ *    - experimental: every action requires approval (including read-only)
+ *    - high_stakes_manual_gate: every mutating action requires approval
+ *    - trusted_with_review / operational: explicit gates only (post-hoc for trusted)
+ */
+function resolveApprovalGate(def: AgentDefinition, action: string): ResolvedGate | null {
+  // 1. Explicit gate always takes precedence
+  const explicit = def.approval_gates.find(g => g.action === action);
+  if (explicit) {
+    return { severity: explicit.severity, source: "explicit" };
+  }
+
+  // 2. Maturity-level enforcement
+  const maturity = def.maturity;
+
+  if (maturity === "experimental") {
+    // Experimental agents: every action requires approval (human-in-the-loop for all)
+    return { severity: "warning", source: "maturity_experimental" };
+  }
+
+  if (maturity === "high_stakes_manual_gate") {
+    // High-stakes: every mutating action requires approval; read-only is exempt
+    if (!isReadOnlyAction(action)) {
+      return { severity: "warning", source: "maturity_high_stakes" };
+    }
+  }
+
+  // operational / trusted_with_review: explicit gates only
+  return null;
+}
+
+// ─── Plugin permission loading ───────────────────────────────────────────────
+
+/**
+ * Load plugin permissions for an agent from the plugin_installs table.
+ * Returns null for built-in agents (no permission restrictions).
+ */
+function loadPluginPermissions(agentId: string, runtimeDb?: DatabaseSync): PluginPermission[] | null {
+  if (!runtimeDb) return null;
+
+  // Plugin agents typically have IDs starting with "plugin-"
+  const pluginId = agentId.startsWith("plugin-") ? agentId.slice(7) : agentId;
+
+  try {
+    const row = runtimeDb.prepare(
+      "SELECT manifest_json FROM plugin_installs WHERE plugin_id = ? AND status = 'active'",
+    ).get(pluginId) as { manifest_json: string } | undefined;
+
+    if (!row?.manifest_json) return null;
+
+    const manifest = JSON.parse(row.manifest_json) as { permissions?: string[] };
+    return (manifest.permissions as PluginPermission[]) ?? null;
+  } catch {
+    return null;
   }
 }
 

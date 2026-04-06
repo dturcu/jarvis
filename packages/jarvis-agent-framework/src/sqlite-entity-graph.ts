@@ -15,26 +15,8 @@ export class SqliteEntityGraph {
   constructor(dbPath: string) {
     this.db = new DatabaseSync(dbPath);
     this.db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
-    this.ensureProvenanceTable();
-  }
-
-  private ensureProvenanceTable(): void {
-    try {
-      this.db.exec(`
-        CREATE TABLE IF NOT EXISTS entity_provenance (
-          provenance_id TEXT PRIMARY KEY,
-          entity_id TEXT NOT NULL,
-          change_type TEXT NOT NULL,
-          agent_id TEXT NOT NULL,
-          run_id TEXT,
-          step_no INTEGER,
-          action TEXT,
-          changed_at TEXT NOT NULL
-        )
-      `);
-      this.db.exec("CREATE INDEX IF NOT EXISTS idx_prov_entity ON entity_provenance(entity_id)");
-      this.db.exec("CREATE INDEX IF NOT EXISTS idx_prov_agent ON entity_provenance(agent_id)");
-    } catch { /* best-effort — may already exist */ }
+    // entity_provenance table is created by init-jarvis.ts during bootstrap.
+    // No CREATE TABLE IF NOT EXISTS here — schema lives in the init script.
   }
 
   close(): void {

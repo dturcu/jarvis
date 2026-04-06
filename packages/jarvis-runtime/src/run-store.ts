@@ -6,11 +6,14 @@ export type RunStatus = "queued" | "planning" | "awaiting_approval" | "executing
 export type RunEventType =
   | "run_started"
   | "plan_built"
+  | "plan_critique"
+  | "plan_multi_viewpoint"
   | "step_started"
   | "step_completed"
   | "step_failed"
   | "approval_requested"
   | "approval_resolved"
+  | "disagreement_resolved"
   | "run_completed"
   | "run_failed"
   | "run_cancelled";
@@ -27,20 +30,28 @@ const VALID_TRANSITIONS: Record<RunStatus, RunStatus[]> = {
 };
 
 /**
- * SQLite-backed run store. Tracks agent run lifecycle via run_events table.
+ * SQLite-backed run store. Tracks agent run lifecycle via the durable `runs`
+ * table (authoritative current state) and `run_events` table (audit trail).
  *
- * Each run has a current status. Every transition emits a run_event row for
- * auditability and replay.
+ * Current status is always read from DB, never from an in-memory cache.
  */
 export class RunStore {
-  private currentRuns = new Map<string, { status: RunStatus; agent_id: string }>();
-
   constructor(private db: DatabaseSync) {}
 
-  /** Start a new run. Emits run_started event. Returns run_id. */
-  startRun(agentId: string): string {
+  /** Start a new run. Inserts into runs table and emits run_started event. Returns run_id. */
+  startRun(agentId: string, triggerKind?: string, commandId?: string, goal?: string): string {
     const runId = randomUUID();
-    this.currentRuns.set(runId, { status: "queued", agent_id: agentId });
+    const now = new Date().toISOString();
+
+    try {
+      this.db.prepare(`
+        INSERT INTO runs (run_id, agent_id, status, trigger_kind, command_id, goal, started_at)
+        VALUES (?, ?, 'queued', ?, ?, ?, ?)
+      `).run(runId, agentId, triggerKind ?? null, commandId ?? null, goal ?? null, now);
+    } catch {
+      // Best-effort: runs table may not exist yet (pre-migration)
+    }
+
     this.transition(runId, agentId, "planning", "run_started");
     return runId;
   }
@@ -53,27 +64,61 @@ export class RunStore {
     eventType: RunEventType,
     payload?: { step_no?: number; action?: string; details?: Record<string, unknown> },
   ): void {
-    const current = this.currentRuns.get(runId);
-    if (current) {
-      const allowed = VALID_TRANSITIONS[current.status];
+    // Read current status from DB
+    const currentStatus = this.getStatus(runId);
+    if (currentStatus) {
+      const allowed = VALID_TRANSITIONS[currentStatus];
       if (allowed && !allowed.includes(newStatus)) {
         throw new Error(
-          `Invalid run transition: ${current.status} -> ${newStatus} (run ${runId})`,
+          `Invalid run transition: ${currentStatus} -> ${newStatus} (run ${runId})`,
         );
       }
-      current.status = newStatus;
-    } else {
-      this.currentRuns.set(runId, { status: newStatus, agent_id: agentId });
+    }
+
+    // Update runs table
+    try {
+      const completedAt = (newStatus === "completed" || newStatus === "failed" || newStatus === "cancelled")
+        ? new Date().toISOString()
+        : null;
+      const error = payload?.details?.error ?? payload?.details?.reason ?? null;
+
+      this.db.prepare(`
+        UPDATE runs SET status = ?, completed_at = COALESCE(?, completed_at),
+          error = COALESCE(?, error), current_step = COALESCE(?, current_step)
+        WHERE run_id = ?
+      `).run(
+        newStatus,
+        completedAt,
+        error ? String(error) : null,
+        payload?.step_no ?? null,
+        runId,
+      );
+    } catch {
+      // Best-effort: runs table may not exist yet
     }
 
     this.emitEvent(runId, agentId, eventType, payload);
+  }
+
+  /** Update run metadata (goal, total_steps) without changing status. */
+  updateRunMeta(runId: string, meta: { goal?: string; total_steps?: number }): void {
+    try {
+      if (meta.goal !== undefined) {
+        this.db.prepare("UPDATE runs SET goal = ? WHERE run_id = ?").run(meta.goal, runId);
+      }
+      if (meta.total_steps !== undefined) {
+        this.db.prepare("UPDATE runs SET total_steps = ? WHERE run_id = ?").run(meta.total_steps, runId);
+      }
+    } catch {
+      // Best-effort
+    }
   }
 
   /** Emit a run event without changing status (e.g., step_started within executing). */
   emitEvent(
     runId: string,
     agentId: string,
-    eventType: RunEventType,
+    eventType: RunEventType | string,
     payload?: { step_no?: number; action?: string; details?: Record<string, unknown> },
   ): void {
     try {
@@ -95,9 +140,31 @@ export class RunStore {
     }
   }
 
-  /** Get current status of a run. */
+  /** Get current status of a run from the durable runs table. */
   getStatus(runId: string): RunStatus | null {
-    return this.currentRuns.get(runId)?.status ?? null;
+    try {
+      const row = this.db.prepare(
+        "SELECT status FROM runs WHERE run_id = ?",
+      ).get(runId) as { status: string } | undefined;
+      return (row?.status as RunStatus) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Get a run record. */
+  getRun(runId: string): {
+    run_id: string; agent_id: string; status: RunStatus;
+    trigger_kind: string | null; command_id: string | null;
+    goal: string | null; total_steps: number | null;
+    current_step: number; error: string | null;
+    started_at: string; completed_at: string | null;
+  } | null {
+    try {
+      return this.db.prepare("SELECT * FROM runs WHERE run_id = ?").get(runId) as any ?? null;
+    } catch {
+      return null;
+    }
   }
 
   /** Get all events for a run, ordered chronologically. */
@@ -125,29 +192,39 @@ export class RunStore {
     }>;
   }
 
-  /** Get recent runs across all agents. */
+  /** Get recent runs across all agents from the durable runs table. */
   getRecentRuns(limit = 20): Array<{
     run_id: string;
     agent_id: string;
-    event_type: string;
-    created_at: string;
+    status: string;
+    started_at: string;
+    completed_at: string | null;
   }> {
-    return this.db.prepare(`
-      SELECT DISTINCT run_id, agent_id, event_type, created_at
-      FROM run_events
-      WHERE event_type IN ('run_started', 'run_completed', 'run_failed', 'run_cancelled')
-      ORDER BY created_at DESC
-      LIMIT ?
-    `).all(limit) as Array<{
-      run_id: string;
-      agent_id: string;
-      event_type: string;
-      created_at: string;
-    }>;
+    try {
+      return this.db.prepare(
+        "SELECT run_id, agent_id, status, started_at, completed_at FROM runs ORDER BY started_at DESC LIMIT ?",
+      ).all(limit) as any[];
+    } catch {
+      // Fallback to run_events if runs table doesn't exist
+      return this.db.prepare(`
+        SELECT DISTINCT run_id, agent_id, event_type as status, created_at as started_at, NULL as completed_at
+        FROM run_events
+        WHERE event_type IN ('run_started', 'run_completed', 'run_failed', 'run_cancelled')
+        ORDER BY created_at DESC
+        LIMIT ?
+      `).all(limit) as any[];
+    }
   }
 
-  /** Clean up in-memory tracking for completed/failed runs. */
-  cleanup(runId: string): void {
-    this.currentRuns.delete(runId);
+  /** Mark a run's associated command as completed or failed. */
+  completeCommand(runId: string, status: "completed" | "failed"): void {
+    try {
+      this.db.prepare(`
+        UPDATE agent_commands SET status = ?, completed_at = ?
+        WHERE command_id = (SELECT command_id FROM runs WHERE run_id = ? AND command_id IS NOT NULL)
+      `).run(status, new Date().toISOString(), runId);
+    } catch {
+      // Best-effort
+    }
   }
 }

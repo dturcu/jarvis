@@ -22,3 +22,5 @@ export {
   type PluginManifest, type PluginPermission, type ManifestValidationResult, type InstallResult,
 } from "./plugin-loader.js";
 export { getHealthReport, getReadinessReport, type HealthReport, type HealthStatus, type ReadinessReport } from "./health.js";
+export { DbSchedulerStore } from "./db-scheduler.js";
+export { isReadOnlyAction, getReadOnlySuffixes } from "./action-classifier.js";

@@ -95,17 +95,19 @@ export function syncModelRegistry(db: DatabaseSync, models: ModelInfo[]): { adde
   let added = 0;
   let updated = 0;
 
+  // Composite PK is (runtime, model_id) — same model name from different runtimes won't collide
   const upsert = db.prepare(`
     INSERT INTO model_registry (model_id, runtime, capabilities_json, limits_json, tags_json, discovered_at, last_seen_at, enabled)
     VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-    ON CONFLICT(model_id) DO UPDATE SET
+    ON CONFLICT(runtime, model_id) DO UPDATE SET
       capabilities_json = excluded.capabilities_json,
-      last_seen_at = excluded.last_seen_at,
-      runtime = excluded.runtime
+      last_seen_at = excluded.last_seen_at
   `);
 
   for (const model of models) {
-    const existing = db.prepare("SELECT model_id FROM model_registry WHERE model_id = ?").get(model.id) as { model_id: string } | undefined;
+    const existing = db.prepare(
+      "SELECT model_id FROM model_registry WHERE runtime = ? AND model_id = ?",
+    ).get(model.runtime, model.id) as { model_id: string } | undefined;
 
     upsert.run(
       model.id,
