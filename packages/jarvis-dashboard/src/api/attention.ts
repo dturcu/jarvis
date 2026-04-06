@@ -1,10 +1,13 @@
 import { Router } from 'express'
 import { DatabaseSync } from 'node:sqlite'
+import { existsSync } from 'node:fs'
 import os from 'os'
 import { join } from 'path'
 
-function getRuntimeDb() {
-  const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'runtime.db'))
+function getRuntimeDb(): DatabaseSync {
+  const dbPath = join(os.homedir(), '.jarvis', 'runtime.db')
+  if (!existsSync(dbPath)) throw new Error('runtime.db not found')
+  const db = new DatabaseSync(dbPath)
   db.exec("PRAGMA journal_mode = WAL;")
   db.exec("PRAGMA busy_timeout = 5000;")
   return db

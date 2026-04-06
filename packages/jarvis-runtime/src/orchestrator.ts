@@ -16,6 +16,10 @@ import type { RagPipeline } from "./rag-pipeline.js";
 import type { Logger } from "./logger.js";
 import type { StatusWriter } from "./status-writer.js";
 
+/** Outbound actions that are skipped in preview mode. Excludes document.generate_report
+ *  since that's typically the main deliverable and should still execute in preview. */
+const OUTBOUND_ACTIONS = new Set(['email.send', 'social.post', 'crm.move_stage']);
+
 export type OrchestratorDeps = {
   runtime: AgentRuntime;
   registry: WorkerRegistry;
@@ -270,8 +274,7 @@ export async function runAgent(
       // ── Preview mode: skip outbound actions BEFORE approval gate ──
       // This prevents preview runs from blocking on approval waits for actions
       // that would be skipped anyway.
-      const outboundActions = new Set(['email.send', 'social.post', 'crm.move_stage']);
-      if (commandPayload?.preview === true && outboundActions.has(step.action)) {
+      if (commandPayload?.preview === true && OUTBOUND_ACTIONS.has(step.action)) {
         stepLog.info(`Preview mode: would have executed ${step.action} — skipping`);
         runStore?.emitEvent(run.run_id, agentId, "step_completed", {
           step_no: step.step, action: step.action,

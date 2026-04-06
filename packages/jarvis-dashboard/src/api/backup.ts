@@ -9,8 +9,9 @@ const JARVIS_DIR = join(os.homedir(), '.jarvis')
 const BACKUPS_DIR = join(JARVIS_DIR, 'backups')
 const CONFIG_PATH = join(JARVIS_DIR, 'config.json')
 
-// Files to include in backup
+// Files to include in backup. Include WAL/SHM sidecars for SQLite consistency.
 const BACKUP_FILES = ['config.json', 'crm.db', 'knowledge.db', 'runtime.db']
+const WAL_SIDECARS = ['runtime.db-wal', 'runtime.db-shm', 'crm.db-wal', 'crm.db-shm', 'knowledge.db-wal', 'knowledge.db-shm']
 
 export const backupRouter = Router()
 
@@ -27,13 +28,20 @@ backupRouter.post('/', (req, res) => {
     fs.mkdirSync(backupDir, { recursive: true })
 
     const files: Array<{ name: string; size: number }> = []
+    // Copy main files
     for (const name of BACKUP_FILES) {
       const src = join(JARVIS_DIR, name)
       if (fs.existsSync(src)) {
-        const dest = join(backupDir, name)
-        fs.copyFileSync(src, dest)
-        const stat = fs.statSync(dest)
-        files.push({ name, size: stat.size })
+        fs.copyFileSync(src, join(backupDir, name))
+        files.push({ name, size: fs.statSync(join(backupDir, name)).size })
+      }
+    }
+    // Copy WAL/SHM sidecars (optional — only exist when DB is in WAL mode)
+    for (const name of WAL_SIDECARS) {
+      const src = join(JARVIS_DIR, name)
+      if (fs.existsSync(src)) {
+        fs.copyFileSync(src, join(backupDir, name))
+        files.push({ name, size: fs.statSync(join(backupDir, name)).size })
       }
     }
 
@@ -136,9 +144,18 @@ backupRouter.post('/restore', (req, res) => {
       files: Array<{ name: string; size: number }>
     }
 
-    // Validate all files exist in the backup before restoring
+    // Allowlist of files that can be restored (prevents path traversal)
+    const ALLOWED_RESTORE = new Set([...BACKUP_FILES, ...WAL_SIDECARS])
+
+    // Validate: only restore allowed filenames (no path separators, no ..)
+    const safeFiles = manifest.files.filter(f => {
+      const name = f.name
+      return ALLOWED_RESTORE.has(name) && !name.includes('/') && !name.includes('\\') && !name.includes('..')
+    })
+
+    // Validate all safe files exist in the backup
     const missing: string[] = []
-    for (const file of manifest.files) {
+    for (const file of safeFiles) {
       if (!fs.existsSync(join(resolvedPath, file.name))) {
         missing.push(file.name)
       }
@@ -152,9 +169,9 @@ backupRouter.post('/restore', (req, res) => {
       return
     }
 
-    // Copy each file back to ~/.jarvis/
+    // Copy each safe file back to ~/.jarvis/
     const restored: string[] = []
-    for (const file of manifest.files) {
+    for (const file of safeFiles) {
       const src = join(resolvedPath, file.name)
       const dest = join(JARVIS_DIR, file.name)
       fs.copyFileSync(src, dest)

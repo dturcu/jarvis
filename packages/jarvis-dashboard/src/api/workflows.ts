@@ -1,12 +1,15 @@
 import { Router } from 'express'
 import { DatabaseSync } from 'node:sqlite'
 import { randomUUID } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import os from 'os'
 import { join } from 'path'
 import { V1_WORKFLOWS } from '@jarvis/runtime'
 
-function getRuntimeDb() {
-  const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'runtime.db'))
+function getRuntimeDb(): DatabaseSync {
+  const dbPath = join(os.homedir(), '.jarvis', 'runtime.db')
+  if (!existsSync(dbPath)) throw new Error('runtime.db not found')
+  const db = new DatabaseSync(dbPath)
   db.exec("PRAGMA journal_mode = WAL;")
   db.exec("PRAGMA busy_timeout = 5000;")
   return db
@@ -34,15 +37,25 @@ workflowsRouter.post('/:workflowId/start', (req, res) => {
   let db: DatabaseSync | undefined
   try {
     db = getRuntimeDb()
-    const commands = []
-    for (const agentId of wf.agent_ids) {
-      const commandId = randomUUID()
-      db.prepare(`
-        INSERT INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
-        VALUES (?, 'run_agent', ?, ?, 'queued', 0, ?, 'workflow', ?)
-      `).run(commandId, agentId, JSON.stringify({ ...req.body, workflow_id: wf.workflow_id, preview: req.body?.preview ?? false }), new Date().toISOString(), `workflow-${wf.workflow_id}-${agentId}-${Date.now()}`)
-      commands.push({ command_id: commandId, agent_id: agentId })
+    const commands: Array<{ command_id: string; agent_id: string }> = []
+
+    // Wrap in transaction so workflow starts are all-or-nothing
+    db.exec("BEGIN IMMEDIATE")
+    try {
+      for (const agentId of wf.agent_ids) {
+        const commandId = randomUUID()
+        db.prepare(`
+          INSERT INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
+          VALUES (?, 'run_agent', ?, ?, 'queued', 0, ?, 'workflow', ?)
+        `).run(commandId, agentId, JSON.stringify({ ...req.body, workflow_id: wf.workflow_id, preview: req.body?.preview ?? false }), new Date().toISOString(), `workflow-${wf.workflow_id}-${agentId}-${Date.now()}`)
+        commands.push({ command_id: commandId, agent_id: agentId })
+      }
+      db.exec("COMMIT")
+    } catch (e) {
+      db.exec("ROLLBACK")
+      throw e
     }
+
     res.json({ ok: true, workflow_id: wf.workflow_id, commands })
   } catch {
     res.status(500).json({ error: 'Failed to start workflow' })

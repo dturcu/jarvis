@@ -59,7 +59,7 @@ function enrichApprovals(db: DatabaseSync, approvals: ApprovalEntry[]) {
       linked_run,
       timeout_at: timeoutAt.toISOString(),
       time_remaining_ms: timeRemaining,
-      what_happens_if_nothing: 'Will expire after 4 hours. The step will be skipped and the run will fail.',
+      what_happens_if_nothing: 'Will expire after 4 hours. The run will fail immediately.',
     };
   });
 }

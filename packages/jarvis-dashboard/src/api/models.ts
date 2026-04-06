@@ -29,14 +29,15 @@ const RUNTIME_ENDPOINTS: Array<{ name: string; url: string; probe: string }> = [
 
 /** Check if a runtime endpoint is reachable (3s timeout). */
 async function probeRuntime(probeUrl: string): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3000);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3000);
     const resp = await fetch(probeUrl, { signal: controller.signal });
-    clearTimeout(timer);
     return resp.ok;
   } catch {
     return false;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -47,6 +48,7 @@ async function probeRuntime(probeUrl: string): Promise<boolean> {
  *   - "plan" with accuracy preference or complex multi-step → opus
  *   - "plan" standard → sonnet
  */
+// Only V1 workflows — aligned with V1_WORKFLOWS from @jarvis/runtime
 const WORKFLOW_MAPPING: Array<{
   workflow_id: string;
   agent_id: string;
@@ -54,18 +56,12 @@ const WORKFLOW_MAPPING: Array<{
 }> = [
   { workflow_id: "contract-review", agent_id: "contract-reviewer", inference_tier: "opus" },
   { workflow_id: "rfq-analysis", agent_id: "evidence-auditor", inference_tier: "sonnet" },
+  { workflow_id: "rfq-analysis", agent_id: "proposal-engine", inference_tier: "opus" },
   { workflow_id: "bd-pipeline", agent_id: "bd-pipeline", inference_tier: "sonnet" },
   { workflow_id: "staffing-check", agent_id: "staffing-monitor", inference_tier: "sonnet" },
-  { workflow_id: "proposal-generation", agent_id: "proposal-engine", inference_tier: "opus" },
-  { workflow_id: "content-creation", agent_id: "content-engine", inference_tier: "sonnet" },
-  { workflow_id: "portfolio-check", agent_id: "portfolio-monitor", inference_tier: "haiku" },
-  { workflow_id: "garden-brief", agent_id: "garden-calendar", inference_tier: "haiku" },
-  { workflow_id: "social-engagement", agent_id: "social-engagement", inference_tier: "sonnet" },
-  { workflow_id: "security-scan", agent_id: "security-monitor", inference_tier: "sonnet" },
-  { workflow_id: "invoice-generation", agent_id: "invoice-generator", inference_tier: "sonnet" },
-  { workflow_id: "email-campaign", agent_id: "email-campaign", inference_tier: "sonnet" },
-  { workflow_id: "meeting-transcription", agent_id: "meeting-transcriber", inference_tier: "sonnet" },
-  { workflow_id: "drive-watch", agent_id: "drive-watcher", inference_tier: "haiku" },
+  { workflow_id: "weekly-report", agent_id: "evidence-auditor", inference_tier: "sonnet" },
+  { workflow_id: "weekly-report", agent_id: "staffing-monitor", inference_tier: "sonnet" },
+  { workflow_id: "weekly-report", agent_id: "bd-pipeline", inference_tier: "sonnet" },
 ];
 
 /** Seven-day staleness threshold in milliseconds. */
@@ -86,16 +82,15 @@ modelsRouter.get("/health", async (_req, res) => {
       }))
     );
 
-    // Query all models from registry
+    // Query all models with tags in one query (avoids N+1)
     const models = db.prepare(`
-      SELECT model_id, runtime, enabled, last_seen_at
+      SELECT model_id, runtime, enabled, last_seen_at, tags_json
       FROM model_registry
       ORDER BY enabled DESC, last_seen_at DESC
     `).all() as Array<{
-      model_id: string; runtime: string; enabled: number; last_seen_at: string;
+      model_id: string; runtime: string; enabled: number; last_seen_at: string; tags_json: string | null;
     }>;
 
-    // Find the latest discovery timestamp
     const latestDiscovery = db.prepare(
       "SELECT MAX(discovered_at) as latest FROM model_registry"
     ).get() as { latest: string | null } | undefined;
@@ -103,16 +98,11 @@ modelsRouter.get("/health", async (_req, res) => {
     const enabledCount = models.filter(m => m.enabled === 1).length;
     const degraded = enabledCount === 0;
 
-    // Map to a model tier based on tags or a simple heuristic
     const modelSummaries = models.map(m => {
-      // Try to read tags to infer tier; fall back to "sonnet" default
       let tier = "sonnet";
       try {
-        const full = db.prepare(
-          "SELECT tags_json FROM model_registry WHERE model_id = ? AND runtime = ?"
-        ).get(m.model_id, m.runtime) as { tags_json: string } | undefined;
-        if (full?.tags_json) {
-          const tags = JSON.parse(full.tags_json) as string[];
+        if (m.tags_json) {
+          const tags = JSON.parse(m.tags_json) as string[];
           if (tags.includes("opus")) tier = "opus";
           else if (tags.includes("haiku")) tier = "haiku";
         }
