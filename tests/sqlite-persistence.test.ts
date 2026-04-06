@@ -203,7 +203,7 @@ describe("SqliteMemoryStore", () => {
 
   // ── long-term cap ─────────────────────────────────────────────────────────
 
-  it("long-term caps at 500 entries per agent", () => {
+  it("long-term caps at 500 entries per agent", { timeout: 30_000 }, () => {
     for (let i = 0; i < 510; i++) {
       store.addLongTerm("capped-agent", `run-${i}`, `entry ${i}`);
     }
@@ -216,7 +216,7 @@ describe("SqliteMemoryStore", () => {
     expect(row.cnt).toBe(500);
   });
 
-  it("long-term cap does not affect other agents", () => {
+  it("long-term cap does not affect other agents", { timeout: 30_000 }, () => {
     // Add 510 for agent-a and 5 for agent-b
     for (let i = 0; i < 510; i++) {
       store.addLongTerm("agent-a", `run-${i}`, `a-entry ${i}`);

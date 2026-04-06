@@ -34,16 +34,16 @@ workflowsRouter.post('/:workflowId/start', (req, res) => {
   const wf = V1_WORKFLOWS.find(w => w.workflow_id === req.params.workflowId)
   if (!wf) { res.status(404).json({ error: 'Workflow not found' }); return }
 
-  // Validate inputs against workflow definition
-  const errors: string[] = []
+  // Validate inputs against workflow definition (field-level errors)
+  const errors: Array<{ field: string; message: string }> = []
   for (const input of wf.inputs) {
     const value = req.body?.[input.name]
     if (input.required && (value === undefined || value === null || value === '')) {
-      errors.push(`${input.label} is required`)
+      errors.push({ field: input.name, message: `${input.label} is required` })
     }
     if (value !== undefined && value !== null && value !== '') {
       if (input.type === 'select' && input.options && !input.options.includes(String(value))) {
-        errors.push(`${input.label} must be one of: ${input.options.join(', ')}`)
+        errors.push({ field: input.name, message: `${input.label} must be one of: ${input.options.join(', ')}` })
       }
     }
   }

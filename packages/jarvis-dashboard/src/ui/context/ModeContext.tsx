@@ -16,12 +16,17 @@ export function ModeProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setMode = (m: Mode) => {
+    const previous = mode
     setModeState(m)
     fetch('/api/mode', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mode: m }),
-    }).catch(() => {})
+    }).then(r => {
+      if (!r.ok) setModeState(previous)
+    }).catch(() => {
+      setModeState(previous)
+    })
   }
 
   return <ModeContext.Provider value={{ mode, setMode }}>{children}</ModeContext.Provider>
