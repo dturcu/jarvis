@@ -213,6 +213,28 @@ async function main() {
     // Drain: wait for running agents to complete (30s timeout)
     await agentQueue.drain(30_000);
 
+    // Mark any still-running runs as failed (shouldn't happen after drain, but defensive)
+    try {
+      const staleRuns = runtimeDb.prepare(
+        "UPDATE runs SET status = 'failed', completed_at = ?, error = 'daemon_shutdown' WHERE status IN ('queued','planning','executing','awaiting_approval')",
+      ).run(new Date().toISOString());
+      const changes = (staleRuns as { changes: number }).changes;
+      if (changes > 0) {
+        logger.warn(`Marked ${changes} in-flight run(s) as failed on shutdown`);
+      }
+    } catch { /* best-effort */ }
+
+    // Release any claimed commands back to queued
+    try {
+      const staleCmds = runtimeDb.prepare(
+        "UPDATE agent_commands SET status = 'queued', claimed_at = NULL WHERE status = 'claimed'",
+      ).run();
+      const changes = (staleCmds as { changes: number }).changes;
+      if (changes > 0) {
+        logger.warn(`Released ${changes} claimed command(s) back to queue on shutdown`);
+      }
+    } catch { /* best-effort */ }
+
     // Stop heartbeat writer
     statusWriter.stop();
 
