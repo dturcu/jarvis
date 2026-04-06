@@ -9,10 +9,14 @@ import {
   inferCapabilities,
   selectEmbeddingModel,
   selectModel,
+  selectByProfileWithEvidence,
+  loadAllBenchmarks,
   indexDocuments,
   queryRag,
-  type LlmRuntime
+  type LlmRuntime,
+  type TaskProfile,
 } from "@jarvis/inference";
+import type { DatabaseSync } from "node:sqlite";
 import type { InferenceAdapter, ExecutionOutcome } from "./adapter.js";
 import { InferenceWorkerError } from "./adapter.js";
 import type {
@@ -46,6 +50,12 @@ async function getAvailableRuntimes(): Promise<LlmRuntime[]> {
 }
 
 export class DefaultInferenceAdapter implements InferenceAdapter {
+  private runtimeDb?: DatabaseSync;
+
+  constructor(runtimeDb?: DatabaseSync) {
+    this.runtimeDb = runtimeDb;
+  }
+
   async chat(input: InferenceChatInput): Promise<ExecutionOutcome<InferenceChatOutput>> {
     const available = await getAvailableRuntimes();
     if (available.length === 0) {
@@ -85,7 +95,21 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
       targetRuntime = rt;
       modelId = match.id;
     } else {
-      const selected = selectModel(flatModels, "balanced_local");
+      // Evidence-backed selection: use benchmarks from DB when available,
+      // fall back to heuristic-only selection when no DB or no benchmarks.
+      let selected = null;
+      if (this.runtimeDb) {
+        try {
+          const benchmarks = loadAllBenchmarks(this.runtimeDb);
+          const profile: TaskProfile = { objective: "answer" };
+          selected = selectByProfileWithEvidence(flatModels, profile, benchmarks);
+        } catch {
+          // Fall through to heuristic
+        }
+      }
+      if (!selected) {
+        selected = selectModel(flatModels, "balanced_local");
+      }
       if (!selected) {
         throw new InferenceWorkerError(
           "NO_SUITABLE_MODEL",

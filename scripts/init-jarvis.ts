@@ -29,15 +29,13 @@ function now(): string {
 // ─── CRM Database ───────────────────────────────────────────────────────────
 
 function initCrmDatabase(): boolean {
-  if (existsSync(CRM_DB_PATH)) {
-    console.log(`  [skip] CRM database already exists: ${CRM_DB_PATH}`);
-    return false;
-  }
+  const isNew = !existsSync(CRM_DB_PATH);
 
   const db = new DatabaseSync(CRM_DB_PATH);
   try {
     db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
 
+    // Schema creation runs on every init (idempotent).
     db.exec(`
       CREATE TABLE IF NOT EXISTS contacts (
         id TEXT PRIMARY KEY,
@@ -72,7 +70,12 @@ function initCrmDatabase(): boolean {
       );
     `);
 
-    // ── Seed contacts ───────────────────────────────────────────────────────
+    if (!isNew) {
+      console.log(`  [schema] CRM database schema updated: ${CRM_DB_PATH}`);
+      return false;
+    }
+
+    // ── Seed contacts (only on first creation) ────────────────────────────
 
     const ts = now();
     const contacts = [
@@ -161,15 +164,14 @@ function initCrmDatabase(): boolean {
 // ─── Knowledge Database ─────────────────────────────────────────────────────
 
 function initKnowledgeDatabase(): boolean {
-  if (existsSync(KNOWLEDGE_DB_PATH)) {
-    console.log(`  [skip] Knowledge database already exists: ${KNOWLEDGE_DB_PATH}`);
-    return false;
-  }
+  const isNew = !existsSync(KNOWLEDGE_DB_PATH);
 
   const db = new DatabaseSync(KNOWLEDGE_DB_PATH);
   try {
     db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
 
+    // Schema creation runs on every init (CREATE TABLE IF NOT EXISTS is idempotent).
+    // This ensures schema additions (e.g. entity_provenance) are applied to existing DBs.
     db.exec(`
       CREATE TABLE IF NOT EXISTS documents (
         doc_id TEXT PRIMARY KEY,
@@ -239,7 +241,12 @@ function initKnowledgeDatabase(): boolean {
       CREATE INDEX IF NOT EXISTS idx_prov_agent ON entity_provenance(agent_id);
     `);
 
-    // ── Seed documents (mirrors KnowledgeStore._seed()) ─────────────────────
+    if (!isNew) {
+      console.log(`  [schema] Knowledge database schema updated: ${KNOWLEDGE_DB_PATH}`);
+      return false;
+    }
+
+    // ── Seed documents (only on first creation) ───────────────────────────
 
     const ts = now();
 
