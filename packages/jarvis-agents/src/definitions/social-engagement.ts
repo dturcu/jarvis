@@ -68,7 +68,7 @@ export const socialEngagementAgent: AgentDefinition = {
     { action: "post_comment", severity: "critical" },
   ],
   knowledge_collections: ["playbooks", "lessons"],
-  inference_tier: "haiku",
+  task_profile: { objective: "classify", preferences: { prioritize_speed: true } },
   max_steps_per_run: 15,
   system_prompt: SOCIAL_ENGAGEMENT_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],

@@ -10,14 +10,14 @@ WORKFLOW (run in order):
 2. voice.transcribe — transcribe the audio file using speech-to-text
    - Identify speaker segments where possible
    - Handle technical automotive terminology (AUTOSAR, ASIL, FMEA, HARA, etc.)
-3. inference.chat (sonnet) — analyze the transcript to extract:
+3. inference.chat — analyze the transcript to extract:
    - Meeting summary (2-3 sentences)
    - Key decisions made (numbered list)
    - Action items with owners and deadlines
    - Open questions or unresolved topics
    - Technical topics discussed (ISO standards, safety levels, etc.)
    - Sentiment and engagement level
-4. inference.chat (sonnet) — identify attendees:
+4. inference.chat — identify attendees:
    - Match speaker names/mentions against CRM contacts
    - Note any new contacts mentioned
    - Identify company affiliations
@@ -29,7 +29,7 @@ WORKFLOW (run in order):
    - Tag with meeting date, attendees, topics
    - Link to relevant CRM contacts and opportunities
    - Categorize by engagement/project
-7. inference.chat (haiku) — generate a concise meeting brief:
+7. inference.chat — generate a concise meeting brief:
    - Format suitable for Telegram notification
    - Include only the most critical decisions and action items
 8. device.notify — send meeting brief to Daniel
@@ -67,7 +67,7 @@ export const meetingTranscriberAgent: AgentDefinition = {
   capabilities: ["voice", "inference", "crm", "document"],
   approval_gates: [],
   knowledge_collections: ["meetings", "transcripts"],
-  inference_tier: "sonnet",
+  task_profile: { objective: "plan" },
   max_steps_per_run: 8,
   system_prompt: MEETING_TRANSCRIBER_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],

@@ -10,7 +10,6 @@ export type InferenceChatMessage = {
 export type InferenceChatParams = {
   messages: InferenceChatMessage[];
   model?: string;
-  tier?: "haiku" | "sonnet" | "opus";
   temperature?: number;
   maxTokens?: number;
 };
@@ -58,7 +57,6 @@ export function submitInferenceChat(
     input: {
       messages: params.messages,
       model: params.model,
-      tier: params.tier ?? "sonnet",
       temperature: params.temperature,
       max_tokens: params.maxTokens
     }

@@ -22,23 +22,9 @@ const OAuthCredentials = Type.Object({
   refresh_token: Type.String(),
 });
 
-/** @deprecated Will be removed in R1-014 (clean break). */
-export type ModelTierConfig = {
-  haiku: string;
-  sonnet: string;
-  opus: string;
-};
-
-const ModelTierSchema = Type.Object({
-  haiku: Type.String(),
-  sonnet: Type.String(),
-  opus: Type.String(),
-});
-
 const ConfigSchema = Type.Object({
   lmstudio_url: Type.String(),
   default_model: Type.String(),
-  model_tiers: Type.Optional(ModelTierSchema),
   adapter_mode: Type.Union([Type.Literal("mock"), Type.Literal("real")]),
   poll_interval_ms: Type.Number({ minimum: 1000 }),
   trigger_poll_ms: Type.Number({ minimum: 1000 }),
@@ -153,7 +139,6 @@ export function loadConfig(): JarvisRuntimeConfig {
     project_root: typeof raw.project_root === "string" ? raw.project_root : (process.env.JARVIS_PROJECT_ROOT ?? undefined),
     gmail: raw.gmail as JarvisRuntimeConfig["gmail"],
     calendar: raw.calendar as JarvisRuntimeConfig["calendar"],
-    model_tiers: raw.model_tiers as JarvisRuntimeConfig["model_tiers"],
     chrome: raw.chrome as JarvisRuntimeConfig["chrome"],
     telegram: raw.telegram as JarvisRuntimeConfig["telegram"],
     toggl: raw.toggl as JarvisRuntimeConfig["toggl"],

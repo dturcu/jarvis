@@ -1,4 +1,4 @@
-export { loadConfig, validateConfig, type JarvisRuntimeConfig, type ModelTierConfig, type ConfigCheckResult } from "./config.js";
+export { loadConfig, validateConfig, type JarvisRuntimeConfig, type ConfigCheckResult } from "./config.js";
 export { openRuntimeDb } from "./runtime-db.js";
 export { runMigrations } from "./migrations/runner.js";
 export { Logger } from "./logger.js";

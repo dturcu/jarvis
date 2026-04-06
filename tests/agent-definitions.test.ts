@@ -44,8 +44,8 @@ describe("bdPipelineAgent", () => {
     expect(gate?.severity).toBe("warning");
   });
 
-  it("inference_tier === sonnet", () => {
-    expect(bdPipelineAgent.inference_tier).toBe("sonnet");
+  it("task_profile objective === plan", () => {
+    expect(bdPipelineAgent.task_profile.objective).toBe("plan");
   });
 
   it("capabilities includes email web crm", () => {
@@ -74,8 +74,9 @@ describe("proposalEngineAgent", () => {
     expect(proposalEngineAgent.agent_id).toBe("proposal-engine");
   });
 
-  it("inference_tier === opus", () => {
-    expect(proposalEngineAgent.inference_tier).toBe("opus");
+  it("task_profile objective === plan with prioritize_accuracy", () => {
+    expect(proposalEngineAgent.task_profile.objective).toBe("plan");
+    expect(proposalEngineAgent.task_profile.preferences?.prioritize_accuracy).toBe(true);
   });
 
   it("approval_gates email.send severity === critical", () => {
@@ -122,8 +123,8 @@ describe("evidenceAuditorAgent", () => {
     expect(st).toMatchObject({ kind: "schedule", cron: "0 9 * * 1" });
   });
 
-  it("uses sonnet inference tier", () => {
-    expect(evidenceAuditorAgent.inference_tier).toBe("sonnet");
+  it("uses plan task profile", () => {
+    expect(evidenceAuditorAgent.task_profile.objective).toBe("plan");
   });
 
   it("includes document and files in capabilities", () => {
@@ -143,8 +144,9 @@ describe("contractReviewerAgent", () => {
     expect(contractReviewerAgent.agent_id).toBe("contract-reviewer");
   });
 
-  it("uses opus inference tier", () => {
-    expect(contractReviewerAgent.inference_tier).toBe("opus");
+  it("uses plan task profile with prioritize_accuracy", () => {
+    expect(contractReviewerAgent.task_profile.objective).toBe("plan");
+    expect(contractReviewerAgent.task_profile.preferences?.prioritize_accuracy).toBe(true);
   });
 
   it("has document.generate_report approval gate", () => {
@@ -235,8 +237,9 @@ describe("portfolioMonitorAgent", () => {
     expect(gate?.severity).toBe("critical");
   });
 
-  it("uses haiku inference tier", () => {
-    expect(portfolioMonitorAgent.inference_tier).toBe("haiku");
+  it("uses classify task profile with prioritize_speed", () => {
+    expect(portfolioMonitorAgent.task_profile.objective).toBe("classify");
+    expect(portfolioMonitorAgent.task_profile.preferences?.prioritize_speed).toBe(true);
   });
 });
 
@@ -331,10 +334,11 @@ describe("all agents structural invariants", () => {
     }
   });
 
-  it("every agent has a valid inference_tier", () => {
-    const valid = ["haiku", "sonnet", "opus"];
+  it("every agent has a valid task_profile with an objective", () => {
+    const validObjectives = ["plan", "execute", "critique", "summarize", "extract", "classify", "answer", "code", "rag_synthesis"];
     for (const agent of ALL_AGENTS) {
-      expect(valid).toContain(agent.inference_tier);
+      expect(agent.task_profile).toBeDefined();
+      expect(validObjectives).toContain(agent.task_profile.objective);
     }
   });
 

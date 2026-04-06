@@ -34,7 +34,7 @@ export type AgentConfigureParams = {
   agentId: string;
   label?: string;
   systemPrompt?: string;
-  inferenceTier?: "haiku" | "sonnet" | "opus";
+  taskProfile?: { objective: string; constraints?: Record<string, unknown>; preferences?: Record<string, unknown> };
   maxStepsPerRun?: number;
   capabilities?: string[];
   outputChannels?: string[];
@@ -124,7 +124,7 @@ export function submitAgentConfigure(
       agent_id: params.agentId,
       label: params.label,
       system_prompt: params.systemPrompt,
-      inference_tier: params.inferenceTier,
+      task_profile: params.taskProfile,
       max_steps_per_run: params.maxStepsPerRun,
       capabilities: params.capabilities,
       output_channels: params.outputChannels,

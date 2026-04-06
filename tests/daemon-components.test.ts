@@ -621,16 +621,9 @@ describe("Config", () => {
     expect(typeof config.trigger_poll_ms).toBe("number");
   });
 
-  it("ModelTierConfig resolves haiku/sonnet/opus structure", () => {
-    // Verify the type structure is correct
-    const tiers = {
-      haiku: "claude-3-haiku",
-      sonnet: "claude-3-sonnet",
-      opus: "claude-3-opus",
-    };
-    expect(tiers.haiku).toBe("claude-3-haiku");
-    expect(tiers.sonnet).toBe("claude-3-sonnet");
-    expect(tiers.opus).toBe("claude-3-opus");
+  it("config structure no longer has model tiers", () => {
+    const config = loadConfig();
+    expect(config).not.toHaveProperty("model_tiers");
   });
 
   it("config defaults include expected fields", () => {

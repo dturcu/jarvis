@@ -37,21 +37,15 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
   const inferenceAdapter = useReal ? new DefaultInferenceAdapter() : new MockInferenceAdapter();
   const inferenceWorker = createInferenceWorker({ adapter: inferenceAdapter });
 
-  // Model tier resolution — maps haiku/sonnet/opus to configured models
-  function resolveModel(tier?: "haiku" | "sonnet" | "opus"): string | undefined {
-    if (!tier || config.default_model === "auto") return undefined;
-    if (config.model_tiers) return config.model_tiers[tier];
-    return config.default_model; // single model for all tiers
-  }
-
   // Chat helper for adapters that need LLM access
-  const chatFn = async (prompt: string, systemPrompt?: string, tier?: "haiku" | "sonnet" | "opus"): Promise<string> => {
+  const chatFn = async (prompt: string, systemPrompt?: string, profile?: { objective: string }): Promise<string> => {
     const messages: Array<{ role: string; content: string }> = [];
     if (systemPrompt) messages.push({ role: "system", content: systemPrompt });
     messages.push({ role: "user", content: prompt });
+    const model = config.default_model === "auto" ? undefined : config.default_model;
     const envelope = buildEnvelope("inference.chat", {
       messages,
-      model: resolveModel(tier),
+      model,
       temperature: 0.3,
       max_tokens: 2048,
     });

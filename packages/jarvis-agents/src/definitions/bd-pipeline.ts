@@ -42,7 +42,7 @@ WORKFLOW (run in order):
 2. web.track_jobs — check hiring pages for safety/AUTOSAR/cyber roles
 3. email.search — scan inbox for replies or new threads from prospects
 4. crm.list_pipeline — get current pipeline state
-5. inference.chat (sonnet) — analyze signals, score leads, decide who to contact
+5. inference.chat — analyze signals, score leads, decide who to contact
 6. web.enrich_contact — enrich top new leads
 7. crm.add_contact or crm.update_contact — update CRM
 8. email.draft — draft personalized outreach for top 3 scored leads
@@ -71,7 +71,7 @@ export const bdPipelineAgent: AgentDefinition = {
     { action: "crm.move_stage", severity: "warning" },
   ],
   knowledge_collections: ["proposals", "case-studies", "playbooks"],
-  inference_tier: "sonnet",
+  task_profile: { objective: "plan" },
   max_steps_per_run: 10,
   system_prompt: BD_PIPELINE_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel", "email:daniel@thinking-in-code.com"],

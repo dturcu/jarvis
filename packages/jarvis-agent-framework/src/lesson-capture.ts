@@ -61,7 +61,7 @@ function resolveCollection(agentId: string): KnowledgeCollection {
  * After each agent run completes, this module synthesises lessons from the
  * decision log and run outcome, then stores them in the knowledge store.
  *
- * In production the extraction would call inference.chat (haiku tier) with
+ * In production the extraction would call inference.chat (classify profile) with
  * the decision log as context. Here we produce deterministic lessons from the
  * decision log structure so the system is testable without inference calls.
  */
