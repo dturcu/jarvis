@@ -20,6 +20,10 @@ export interface DaemonStatusData {
   updated_at: string;
   agents_registered: number;
   schedules_active: number;
+  /** Whether the daemon is running in safe mode (autonomous execution disabled). */
+  safe_mode: boolean;
+  /** Reason the daemon entered safe mode, or null if not in safe mode. */
+  safe_mode_reason: string | null;
   last_run: {
     agent_id: string;
     status: string;
@@ -54,6 +58,8 @@ export class StatusWriter {
       updated_at: new Date().toISOString(),
       agents_registered: agentsRegistered,
       schedules_active: schedulesActive,
+      safe_mode: false,
+      safe_mode_reason: null,
       last_run: null,
       current_run: null,
       active_runs: [],
@@ -68,6 +74,13 @@ export class StatusWriter {
       this.timer.unref();
     }
     this.logger.info(`Status writer started (interval: ${WRITE_INTERVAL_MS / 1000}s)`);
+  }
+
+  /** Update safe mode status. Called by the daemon on startup and when exiting safe mode. */
+  setSafeMode(enabled: boolean, reason: string | null): void {
+    this.state.safe_mode = enabled;
+    this.state.safe_mode_reason = reason;
+    this.flush();
   }
 
   /** Stop periodic writes. */

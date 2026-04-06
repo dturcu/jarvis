@@ -139,6 +139,44 @@ async function main() {
   const statusWriter = new StatusWriter(allAgentDefs.length, totalSchedules, logger, runtimeDb);
   statusWriter.start();
 
+  // ─── Safe mode check ──────────────────────────────────────────────────────
+  // Check system health before starting autonomous execution.
+  // If critical issues detected, start in safe mode (no autonomous execution).
+  let safeMode = false;
+  let safeModeReason: string | null = null;
+
+  try {
+    // Check runtime DB tables
+    const tableCheck = runtimeDb.prepare(
+      "SELECT COUNT(*) as n FROM sqlite_master WHERE type='table' AND name IN ('runs','approvals','agent_commands','daemon_heartbeats')",
+    ).get() as { n: number };
+    if (tableCheck.n < 4) {
+      safeMode = true;
+      safeModeReason = `Missing required tables (found ${tableCheck.n}/4)`;
+    }
+
+    // Check config validity
+    if (!safeMode) {
+      const configValid = config.lmstudio_url && config.adapter_mode;
+      if (!configValid) {
+        safeMode = true;
+        safeModeReason = "Invalid configuration (missing lmstudio_url or adapter_mode)";
+      }
+    }
+  } catch (e) {
+    safeMode = true;
+    safeModeReason = `Health check failed: ${e instanceof Error ? e.message : String(e)}`;
+  }
+
+  if (safeMode) {
+    logger.warn(`SAFE MODE: ${safeModeReason}`);
+    logger.warn("Autonomous execution disabled. Dashboard and health endpoints still available.");
+    logger.warn("Fix the issue and Jarvis will exit safe mode automatically.");
+  }
+
+  // Record safe mode status in heartbeat
+  statusWriter.setSafeMode(safeMode, safeModeReason);
+
   // Recover stale command claims from previous crash
   try {
     const staleThreshold = new Date(Date.now() - 10 * 60 * 1000).toISOString(); // 10 min
@@ -188,94 +226,144 @@ async function main() {
 
   // ─── Phase 2: Run ──────────────────────────────────────────────────────────
 
-  // Single unified polling loop — checks both scheduled agents and queued commands
-  const pollInterval = setInterval(async () => {
-    if (agentQueue.isDraining) return;
+  // Track active intervals so shutdown can clean them all up
+  const activeIntervals: ReturnType<typeof setInterval>[] = [];
 
-    // Check scheduled agents (from DB-backed scheduler)
-    const now = new Date();
-    const due = scheduler.getDueSchedules(now);
-    for (const schedule of due) {
-      const agentId = (schedule.input as { agent_id: string }).agent_id;
-      const cronTrigger: AgentTrigger = { kind: "schedule", cron: schedule.cron_expression! };
-      agentQueue.enqueue(agentId, cronTrigger);
-      scheduler.markFired(schedule.schedule_id);
-      const nextFire = computeNextFireAt(schedule, now);
-      scheduler.updateNextFireAt(schedule.schedule_id, nextFire);
-    }
+  /**
+   * Start the autonomous polling intervals (schedule, command, model rediscovery).
+   * Extracted into a function so it can be called on normal startup or deferred
+   * until safe mode conditions clear.
+   */
+  function startPollingIntervals(): void {
+    logger.info("Starting polling intervals (autonomous execution enabled)");
 
-    // Check queued commands in runtime.db
-    try {
-      const commands = runtimeDb.prepare(
-        "SELECT command_id, command_type, target_agent_id, payload_json FROM agent_commands WHERE status = 'queued' ORDER BY priority DESC, created_at ASC LIMIT 10",
-      ).all() as Array<{ command_id: string; command_type: string; target_agent_id: string; payload_json: string | null }>;
+    // Single unified polling loop — checks both scheduled agents and queued commands
+    const pollInterval = setInterval(async () => {
+      if (agentQueue.isDraining) return;
 
-      for (const cmd of commands) {
-        // Claim the command
-        const claimResult = runtimeDb.prepare(
-          "UPDATE agent_commands SET status = 'claimed', claimed_at = ? WHERE command_id = ? AND status = 'queued'",
-        ).run(new Date().toISOString(), cmd.command_id);
+      // Check scheduled agents (from DB-backed scheduler)
+      const now = new Date();
+      const due = scheduler.getDueSchedules(now);
+      for (const schedule of due) {
+        const agentId = (schedule.input as { agent_id: string }).agent_id;
+        const cronTrigger: AgentTrigger = { kind: "schedule", cron: schedule.cron_expression! };
+        agentQueue.enqueue(agentId, cronTrigger);
+        scheduler.markFired(schedule.schedule_id);
+        const nextFire = computeNextFireAt(schedule, now);
+        scheduler.updateNextFireAt(schedule.schedule_id, nextFire);
+      }
 
-        if ((claimResult as { changes: number }).changes === 0) continue; // Already claimed by another
+      // Check queued commands in runtime.db
+      try {
+        const commands = runtimeDb.prepare(
+          "SELECT command_id, command_type, target_agent_id, payload_json FROM agent_commands WHERE status = 'queued' ORDER BY priority DESC, created_at ASC LIMIT 10",
+        ).all() as Array<{ command_id: string; command_type: string; target_agent_id: string; payload_json: string | null }>;
 
-        if (cmd.command_type === "run_agent" && cmd.target_agent_id) {
-          logger.info(`Command ${cmd.command_id}: run_agent ${cmd.target_agent_id}`);
-
-          // Parse command payload (carries retry_of, etc.) for the orchestrator
-          let commandPayload: Record<string, unknown> | undefined;
-          if (cmd.payload_json) {
-            try { commandPayload = JSON.parse(cmd.payload_json) as Record<string, unknown>; } catch { /* ignore malformed */ }
-          }
-
-          // Enqueue the agent with command_id + payload for atomic linkage.
-          // If enqueue is a no-op (agent already running/queued), revert the claim.
-          const enqueued = agentQueue.enqueue(cmd.target_agent_id, { kind: "manual" }, 0, cmd.command_id, commandPayload);
-          if (!enqueued) {
-            runtimeDb.prepare(
-              "UPDATE agent_commands SET status = 'queued', claimed_at = NULL WHERE command_id = ?",
-            ).run(cmd.command_id);
-            logger.debug(`Reverted claim for command ${cmd.command_id} — agent ${cmd.target_agent_id} already running/queued`);
-          }
-        } else {
-          logger.warn(`Unknown command type: ${cmd.command_type}`);
-          runtimeDb.prepare(
-            "UPDATE agent_commands SET status = 'failed', completed_at = ? WHERE command_id = ?",
+        for (const cmd of commands) {
+          // Claim the command
+          const claimResult = runtimeDb.prepare(
+            "UPDATE agent_commands SET status = 'claimed', claimed_at = ? WHERE command_id = ? AND status = 'queued'",
           ).run(new Date().toISOString(), cmd.command_id);
-        }
-      }
-    } catch (e) {
-      logger.error(`Command poll error: ${e instanceof Error ? e.message : String(e)}`);
-    }
 
-    // Process any enqueued agents
-    if (due.length > 0 || !agentQueue.isDraining) {
-      await agentQueue.processQueue();
-    }
-  }, Math.min(config.poll_interval_ms, config.trigger_poll_ms));
+          if ((claimResult as { changes: number }).changes === 0) continue; // Already claimed by another
 
-  // ─── Periodic model re-discovery (every 5 min) ─────────────────────────────
-  const modelRediscoveryInterval = setInterval(async () => {
-    try {
-      const discovery = await discoverModels(config.lmstudio_url);
-      if (discovery.discovered.length > 0) {
-        const sync = syncModelRegistry(runtimeDb, discovery.discovered);
-        if (sync.added > 0 || sync.updated > 0) {
-          logger.info(`Model re-discovery: ${sync.added} new, ${sync.updated} updated`);
+          if (cmd.command_type === "run_agent" && cmd.target_agent_id) {
+            logger.info(`Command ${cmd.command_id}: run_agent ${cmd.target_agent_id}`);
+
+            // Parse command payload (carries retry_of, etc.) for the orchestrator
+            let commandPayload: Record<string, unknown> | undefined;
+            if (cmd.payload_json) {
+              try { commandPayload = JSON.parse(cmd.payload_json) as Record<string, unknown>; } catch { /* ignore malformed */ }
+            }
+
+            // Enqueue the agent with command_id + payload for atomic linkage.
+            // If enqueue is a no-op (agent already running/queued), revert the claim.
+            const enqueued = agentQueue.enqueue(cmd.target_agent_id, { kind: "manual" }, 0, cmd.command_id, commandPayload);
+            if (!enqueued) {
+              runtimeDb.prepare(
+                "UPDATE agent_commands SET status = 'queued', claimed_at = NULL WHERE command_id = ?",
+              ).run(cmd.command_id);
+              logger.debug(`Reverted claim for command ${cmd.command_id} — agent ${cmd.target_agent_id} already running/queued`);
+            }
+          } else {
+            logger.warn(`Unknown command type: ${cmd.command_type}`);
+            runtimeDb.prepare(
+              "UPDATE agent_commands SET status = 'failed', completed_at = ? WHERE command_id = ?",
+            ).run(new Date().toISOString(), cmd.command_id);
+          }
         }
+      } catch (e) {
+        logger.error(`Command poll error: ${e instanceof Error ? e.message : String(e)}`);
       }
-    } catch {
-      // Model runtime may be temporarily down — don't log noise on every 5min tick
-    }
-  }, 5 * 60 * 1000);
+
+      // Process any enqueued agents
+      if (due.length > 0 || !agentQueue.isDraining) {
+        await agentQueue.processQueue();
+      }
+    }, Math.min(config.poll_interval_ms, config.trigger_poll_ms));
+    activeIntervals.push(pollInterval);
+
+    // ─── Periodic model re-discovery (every 5 min) ───────────────────────────
+    const modelRediscoveryInterval = setInterval(async () => {
+      try {
+        const discovery = await discoverModels(config.lmstudio_url);
+        if (discovery.discovered.length > 0) {
+          const sync = syncModelRegistry(runtimeDb, discovery.discovered);
+          if (sync.added > 0 || sync.updated > 0) {
+            logger.info(`Model re-discovery: ${sync.added} new, ${sync.updated} updated`);
+          }
+        }
+      } catch {
+        // Model runtime may be temporarily down — don't log noise on every 5min tick
+      }
+    }, 5 * 60 * 1000);
+    activeIntervals.push(modelRediscoveryInterval);
+  }
+
+  // ─── Conditional interval startup ──────────────────────────────────────────
+  if (!safeMode) {
+    startPollingIntervals();
+  } else {
+    logger.info("Safe mode: skipping schedule, command, and model polling intervals");
+
+    // ─── Periodic safe mode re-check (every 60s) ────────────────────────────
+    // When conditions clear, automatically exit safe mode and start polling.
+    const safeModeCheckInterval = setInterval(() => {
+      try {
+        const tableCheck = runtimeDb.prepare(
+          "SELECT COUNT(*) as n FROM sqlite_master WHERE type='table' AND name IN ('runs','approvals','agent_commands','daemon_heartbeats')",
+        ).get() as { n: number };
+        const configValid = config.lmstudio_url && config.adapter_mode;
+
+        if (tableCheck.n >= 4 && configValid) {
+          logger.info("Safe mode conditions cleared — resuming normal operation");
+          safeMode = false;
+          safeModeReason = null;
+          statusWriter.setSafeMode(false, null);
+          clearInterval(safeModeCheckInterval);
+          const idx = activeIntervals.indexOf(safeModeCheckInterval);
+          if (idx >= 0) activeIntervals.splice(idx, 1);
+
+          // Start the polling intervals that were skipped
+          startPollingIntervals();
+        }
+      } catch {
+        // Still broken — stay in safe mode
+      }
+    }, 60_000);
+    activeIntervals.push(safeModeCheckInterval);
+  }
 
   // ─── Phase 3: Drain ────────────────────────────────────────────────────────
 
   async function shutdown(signal: string) {
     logger.info(`Shutting down (${signal})...`);
 
-    // Stop polling
-    clearInterval(pollInterval);
-    clearInterval(modelRediscoveryInterval);
+    // Stop all active intervals (polling, model rediscovery, safe mode re-check)
+    for (const interval of activeIntervals) {
+      clearInterval(interval);
+    }
+    activeIntervals.length = 0;
 
     // Drain: wait for running agents to complete (30s timeout)
     await agentQueue.drain(30_000);

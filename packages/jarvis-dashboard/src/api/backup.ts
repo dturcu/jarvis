@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { DatabaseSync } from 'node:sqlite'
 import os from 'os'
 import { join } from 'path'
 import fs from 'fs'
@@ -169,6 +170,38 @@ backupRouter.post('/restore', (req, res) => {
       return
     }
 
+    // Check if daemon is running — warn if so
+    const runtimeDbPath = join(JARVIS_DIR, 'runtime.db')
+    if (fs.existsSync(runtimeDbPath)) {
+      let checkDb: DatabaseSync | null = null
+      try {
+        checkDb = new DatabaseSync(runtimeDbPath)
+        checkDb.exec("PRAGMA journal_mode = WAL;")
+        checkDb.exec("PRAGMA busy_timeout = 5000;")
+        const heartbeat = checkDb.prepare(
+          'SELECT last_seen_at, pid FROM daemon_heartbeats ORDER BY last_seen_at DESC LIMIT 1'
+        ).get() as { last_seen_at: string; pid: number } | undefined
+        if (heartbeat) {
+          const staleness = Date.now() - new Date(heartbeat.last_seen_at).getTime()
+          if (staleness < 30_000) {
+            // Daemon appears to be running
+            if (!req.body.force) {
+              res.status(409).json({
+                ok: false,
+                error: 'Daemon is running. Stop it before restoring, or pass force: true to override.',
+                daemon_pid: heartbeat.pid,
+              })
+              return
+            }
+          }
+        }
+      } catch {
+        // If we can't read runtime.db, daemon is likely not running — proceed
+      } finally {
+        try { checkDb?.close() } catch { /* best-effort */ }
+      }
+    }
+
     // Copy each safe file back to ~/.jarvis/
     const restored: string[] = []
     for (const file of safeFiles) {
@@ -178,10 +211,36 @@ backupRouter.post('/restore', (req, res) => {
       restored.push(file.name)
     }
 
-    const actor = getActor(req as AuthenticatedRequest)
-    writeAuditLog(actor.type, actor.id, 'backup.restored', 'backup', resolvedPath, { restored })
+    // Post-restore health validation
+    const healthChecks: Array<{ name: string; ok: boolean; message: string }> = []
+    for (const dbName of ['runtime.db', 'crm.db', 'knowledge.db']) {
+      const dbPath = join(JARVIS_DIR, dbName)
+      if (!fs.existsSync(dbPath)) {
+        healthChecks.push({ name: dbName, ok: false, message: 'File missing after restore' })
+        continue
+      }
+      let healthDb: DatabaseSync | undefined
+      try {
+        healthDb = new DatabaseSync(dbPath)
+        const integrity = healthDb.prepare('PRAGMA integrity_check').get() as { integrity_check: string }
+        healthChecks.push({
+          name: dbName,
+          ok: integrity.integrity_check === 'ok',
+          message: integrity.integrity_check === 'ok' ? 'Integrity OK' : `Integrity failed: ${integrity.integrity_check}`,
+        })
+      } catch (e) {
+        healthChecks.push({ name: dbName, ok: false, message: e instanceof Error ? e.message : 'Cannot open' })
+      } finally {
+        try { healthDb?.close() } catch { /* best-effort */ }
+      }
+    }
 
-    res.json({ ok: true, restored })
+    const allHealthy = healthChecks.every(c => c.ok)
+
+    const actor = getActor(req as AuthenticatedRequest)
+    writeAuditLog(actor.type, actor.id, 'backup.restored', 'backup', resolvedPath, { restored, healthy: allHealthy })
+
+    res.json({ ok: true, restored, health_checks: healthChecks, healthy: allHealthy })
   } catch (err) {
     res.status(500).json({
       ok: false,

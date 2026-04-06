@@ -70,12 +70,54 @@ serviceRouter.get('/status', (_req, res) => {
   })
 })
 
-// POST /restart — placeholder restart signal
+// POST /restart — send shutdown signal to daemon
 serviceRouter.post('/restart', (req, res) => {
   const actor = getActor(req as AuthenticatedRequest)
-  writeAuditLog(actor.type, actor.id, 'service.restart_requested', 'service', 'daemon', {
-    note: 'Restart signal recorded. Real restart requires OS-level service management.',
-  })
+  const daemon = readDaemonHeartbeat()
 
-  res.json({ ok: true, message: 'Restart signal sent' })
+  if (!daemon.running || daemon.pid == null) {
+    writeAuditLog(actor.type, actor.id, 'service.restart_requested', 'service', 'daemon', {
+      note: 'Restart attempted but daemon is not running.',
+    })
+    res.json({ ok: false, error: 'Daemon is not running' })
+    return
+  }
+
+  try {
+    process.kill(daemon.pid, 'SIGTERM')
+    writeAuditLog(actor.type, actor.id, 'service.restart_requested', 'service', 'daemon', {
+      pid: daemon.pid,
+      note: `SIGTERM sent to daemon PID ${daemon.pid}.`,
+    })
+    res.json({
+      ok: true,
+      message: `Shutdown signal sent to daemon (PID ${daemon.pid}). Restart the daemon manually.`,
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    writeAuditLog(actor.type, actor.id, 'service.restart_failed', 'service', 'daemon', {
+      pid: daemon.pid,
+      error: message,
+    })
+    res.json({
+      ok: false,
+      error: `Failed to signal daemon (PID ${daemon.pid}): ${message}`,
+    })
+  }
+})
+
+// GET /restart-policy — document what happens to each run state on daemon restart
+serviceRouter.get('/restart-policy', (_req, res) => {
+  res.json({
+    states: {
+      queued: { on_restart: 'eligible for claim', action: 'none' },
+      claimed: { on_restart: 'released to queued after 10min stale threshold', action: 'automatic' },
+      planning: { on_restart: 'marked failed with daemon_shutdown', action: 'operator must retry' },
+      executing: { on_restart: 'marked failed with daemon_shutdown', action: 'operator must retry' },
+      awaiting_approval: { on_restart: 'pending approvals expired, run marked failed', action: 'operator must retry' },
+      completed: { on_restart: 'no change', action: 'none' },
+      failed: { on_restart: 'no change', action: 'none' },
+      cancelled: { on_restart: 'no change', action: 'none' },
+    },
+  })
 })
