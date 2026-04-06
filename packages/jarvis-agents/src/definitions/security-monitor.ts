@@ -70,4 +70,5 @@ export const securityMonitorAgent: AgentDefinition = {
   max_steps_per_run: 8,
   system_prompt: SECURITY_MONITOR_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
+  maturity: "operational",
 };

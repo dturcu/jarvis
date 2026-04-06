@@ -86,4 +86,5 @@ export const contentEngineAgent: AgentDefinition = {
   max_steps_per_run: 5,
   system_prompt: CONTENT_ENGINE_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
+  maturity: "operational",
 };

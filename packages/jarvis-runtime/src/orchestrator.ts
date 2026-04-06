@@ -209,15 +209,24 @@ export async function runAgent(
       // Update status writer with current step progress
       statusWriter?.updateStep(step.step, step.action);
 
-      // Check approval gate
-      const gate = def.approval_gates.find(g => g.action === step.action);
+      // Check approval gate (explicit gates + maturity-level enforcement)
+      const explicitGate = def.approval_gates.find(g => g.action === step.action);
+
+      // high_stakes_manual_gate: every mutating action requires approval
+      // (read-only prefixes like search, list, get are exempt)
+      const isReadOnly = /\.(search|list|get|check|scan|read|fetch|query)$/i.test(step.action);
+      const maturityGate = !explicitGate && def.maturity === "high_stakes_manual_gate" && !isReadOnly;
+
+      const gate = explicitGate ?? (maturityGate ? { action: step.action, severity: "warning" as const } : null);
+
       if (gate && runtimeDb) {
-        stepLog.info(`Approval required (${gate.severity})`);
+        const gateSource = explicitGate ? "explicit" : "maturity_enforced";
+        stepLog.info(`Approval required (${gate.severity}, ${gateSource})`);
 
         // Emit approval_requested event
         runStore?.transition(run.run_id, agentId, "awaiting_approval", "approval_requested", {
           step_no: step.step, action: step.action,
-          details: { severity: gate.severity },
+          details: { severity: gate.severity, source: gateSource },
         });
 
         const approvalId = requestApproval(runtimeDb, {

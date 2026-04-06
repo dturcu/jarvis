@@ -293,6 +293,11 @@
           "type": "string",
           "enum": ["single", "critic", "multi"],
           "description": "Controls multi-viewpoint planning: single (default), critic (plan+review), multi (N planners+evaluator)"
+        },
+        "maturity": {
+          "type": "string",
+          "enum": ["experimental", "operational", "trusted_with_review", "high_stakes_manual_gate"],
+          "description": "Agent maturity level controlling operational trust and review requirements"
         }
       },
       "additionalProperties": false

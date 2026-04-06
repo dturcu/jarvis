@@ -58,6 +58,15 @@ export type TaskProfile = {
  */
 export type PlannerMode = "single" | "critic" | "multi";
 
+/**
+ * Agent maturity levels control operational trust and review requirements.
+ * - "experimental": development/testing only, not scheduled
+ * - "operational": runs on schedule, standard approval gates
+ * - "trusted_with_review": runs autonomously but all outputs reviewed post-hoc
+ * - "high_stakes_manual_gate": every externally-visible action requires human approval
+ */
+export type AgentMaturity = "experimental" | "operational" | "trusted_with_review" | "high_stakes_manual_gate";
+
 export type AgentDefinition = {
   agent_id: string;
   label: string;
@@ -72,4 +81,5 @@ export type AgentDefinition = {
   system_prompt: string;
   output_channels: string[];
   planner_mode?: PlannerMode;
+  maturity?: AgentMaturity;
 };

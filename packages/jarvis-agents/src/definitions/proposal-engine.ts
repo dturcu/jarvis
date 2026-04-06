@@ -61,4 +61,5 @@ export const proposalEngineAgent: AgentDefinition = {
   system_prompt: PROPOSAL_ENGINE_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
   planner_mode: "multi",
+  maturity: "high_stakes_manual_gate",
 };

@@ -80,4 +80,5 @@ export const evidenceAuditorAgent: AgentDefinition = {
   system_prompt: EVIDENCE_AUDITOR_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
   planner_mode: "critic",
+  maturity: "trusted_with_review",
 };

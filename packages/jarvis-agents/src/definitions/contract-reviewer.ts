@@ -83,4 +83,5 @@ export const contractReviewerAgent: AgentDefinition = {
   system_prompt: CONTRACT_REVIEWER_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
   planner_mode: "multi",
+  maturity: "high_stakes_manual_gate",
 };

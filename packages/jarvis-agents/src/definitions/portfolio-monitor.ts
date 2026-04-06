@@ -67,4 +67,5 @@ export const portfolioMonitorAgent: AgentDefinition = {
   max_steps_per_run: 5,
   system_prompt: PORTFOLIO_MONITOR_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
+  maturity: "operational",
 };
