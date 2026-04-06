@@ -1,4 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
+import PageHeader from '../shared/PageHeader.tsx'
+import DataCard from '../shared/DataCard.tsx'
+import StatusBadge from '../shared/StatusBadge.tsx'
+import LoadingSpinner from '../shared/LoadingSpinner.tsx'
+import { useDashboardStore } from '../stores/dashboard-store.ts'
+import { timeAgo, agentLabel } from '../types/index.ts'
 
 interface ScheduledTask {
   id: string
@@ -6,242 +13,236 @@ interface ScheduledTask {
   label: string
   cron: string
   humanSchedule: string
-  nextFire: string
+  enabled: boolean
+  lastRun?: { status: string; completed_at: string } | null
 }
 
-interface DaemonCurrentRun {
-  agent_id: string
-  status: string
-  step: number
-  total_steps: number
-  current_action: string
-  started_at: string
-}
+// ── Cron helpers ────────────────────────────────────────────
 
-interface DaemonStatus {
-  running: boolean
-  pid: number | null
-  uptime_seconds: number | null
-  agents_registered: number
-  schedules_active: number
-  last_run: { agent_id: string; status: string; completed_at: string } | null
-  current_run: DaemonCurrentRun | null
-}
+function cronToHuman(cron: string): string {
+  const [minute, hour, , , dow] = cron.split(' ')
+  const h = parseInt(hour, 10)
+  const m = parseInt(minute, 10)
+  const time = `${h > 12 ? h - 12 : h}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`
 
-const POLL_INTERVAL = 30_000 // 30 seconds
+  if (dow === '*') return `Daily at ${time}`
+  if (dow === '1-5') return `Weekdays at ${time}`
+  const dayNames: Record<string, string> = { '0': 'Sun', '1': 'Mon', '2': 'Tue', '3': 'Wed', '4': 'Thu', '5': 'Fri', '6': 'Sat' }
+  const days = dow.split(',').map(d => dayNames[d] ?? d).join(', ')
+  return `${days} at ${time}`
+}
 
 function nextFireTime(cron: string): string {
   const now = new Date()
-  const [, , , , dayOfWeekField] = cron.split(' ')
-  const [hourField] = cron.split(' ')
-  const hour = parseInt(cron.split(' ')[1], 10)
-  const minute = parseInt(cron.split(' ')[0], 10)
+  const [minute, hour, , , dowField] = cron.split(' ')
+  const h = parseInt(hour, 10)
+  const m = parseInt(minute, 10)
 
-  const isDaily = dayOfWeekField === '*'
-  const isWeekdays = dayOfWeekField === '1-5'
-
-  if (isDaily) {
-    const candidate = new Date(now)
-    candidate.setHours(hour, minute, 0, 0)
-    if (candidate <= now) candidate.setDate(candidate.getDate() + 1)
-    return candidate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-  }
-
-  // Specific day(s)
-  const targetDays: number[] = isWeekdays
+  const targetDays: number[] = dowField === '*'
+    ? [0, 1, 2, 3, 4, 5, 6]
+    : dowField === '1-5'
     ? [1, 2, 3, 4, 5]
-    : cron.split(' ')[4].split(',').map(Number)
+    : dowField.split(',').map(Number)
 
   const candidate = new Date(now)
-  candidate.setHours(hour, minute, 0, 0)
+  candidate.setHours(h, m, 0, 0)
   for (let i = 0; i < 8; i++) {
     if (targetDays.includes(candidate.getDay()) && candidate > now) {
       return candidate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
     }
     candidate.setDate(candidate.getDate() + 1)
-    candidate.setHours(hour, minute, 0, 0)
+    candidate.setHours(h, m, 0, 0)
   }
   return 'Unknown'
 }
 
-// Static task list — cannot query Scheduled Tasks MCP from web context
-const TASKS: ScheduledTask[] = [
-  {
-    id: 'jarvis-bd-pipeline',
-    agentId: 'bd-pipeline',
-    label: 'BD Pipeline',
-    cron: '0 8 * * 1-5',
-    humanSchedule: 'Weekdays at 8:00 AM',
-    nextFire: nextFireTime('0 8 * * 1-5')
-  },
-  {
-    id: 'jarvis-evidence-auditor',
-    agentId: 'evidence-auditor',
-    label: 'Evidence Auditor',
-    cron: '0 9 * * 1',
-    humanSchedule: 'Mondays at 9:00 AM',
-    nextFire: nextFireTime('0 9 * * 1')
-  },
-  {
-    id: 'jarvis-staffing-monitor',
-    agentId: 'staffing-monitor',
-    label: 'Staffing Monitor',
-    cron: '0 9 * * 1',
-    humanSchedule: 'Mondays at 9:00 AM',
-    nextFire: nextFireTime('0 9 * * 1')
-  },
-  {
-    id: 'jarvis-content-monday',
-    agentId: 'content-engine',
-    label: 'Content Engine (Monday)',
-    cron: '0 7 * * 1',
-    humanSchedule: 'Mondays at 7:00 AM',
-    nextFire: nextFireTime('0 7 * * 1')
-  },
-  {
-    id: 'jarvis-content-wednesday',
-    agentId: 'content-engine',
-    label: 'Content Engine (Wednesday)',
-    cron: '0 7 * * 3',
-    humanSchedule: 'Wednesdays at 7:00 AM',
-    nextFire: nextFireTime('0 7 * * 3')
-  },
-  {
-    id: 'jarvis-content-thursday',
-    agentId: 'content-engine',
-    label: 'Content Engine (Thursday)',
-    cron: '0 7 * * 4',
-    humanSchedule: 'Thursdays at 7:00 AM',
-    nextFire: nextFireTime('0 7 * * 4')
-  },
-  {
-    id: 'jarvis-portfolio-am',
-    agentId: 'portfolio-monitor',
-    label: 'Portfolio Monitor (AM)',
-    cron: '0 8 * * *',
-    humanSchedule: 'Daily at 8:00 AM',
-    nextFire: nextFireTime('0 8 * * *')
-  },
-  {
-    id: 'jarvis-portfolio-pm',
-    agentId: 'portfolio-monitor',
-    label: 'Portfolio Monitor (PM)',
-    cron: '0 20 * * *',
-    humanSchedule: 'Daily at 8:00 PM',
-    nextFire: nextFireTime('0 20 * * *')
-  },
-  {
-    id: 'jarvis-garden-calendar',
-    agentId: 'garden-calendar',
-    label: 'Garden Calendar',
-    cron: '0 7 * * 1',
-    humanSchedule: 'Mondays at 7:00 AM',
-    nextFire: nextFireTime('0 7 * * 1')
-  }
+// ── Static task definitions ─────────────────────────────────
+
+const TASK_DEFS = [
+  { id: 'jarvis-bd-pipeline', agentId: 'bd-pipeline', label: 'BD Pipeline', cron: '0 8 * * 1-5', description: 'Scan for BD signals, enrich leads, draft outreach' },
+  { id: 'jarvis-evidence-auditor', agentId: 'evidence-auditor', label: 'Evidence Auditor', cron: '0 9 * * 1', description: 'Scan project for ISO 26262 work products' },
+  { id: 'jarvis-staffing-monitor', agentId: 'staffing-monitor', label: 'Staffing Monitor', cron: '0 9 * * 1', description: 'Calculate team utilization, forecast gaps' },
+  { id: 'jarvis-content-monday', agentId: 'content-engine', label: 'Content Engine (Mon)', cron: '0 7 * * 1', description: 'Draft LinkedIn post for Monday pillar' },
+  { id: 'jarvis-content-wednesday', agentId: 'content-engine', label: 'Content Engine (Wed)', cron: '0 7 * * 3', description: 'Draft LinkedIn post for Wednesday pillar' },
+  { id: 'jarvis-content-thursday', agentId: 'content-engine', label: 'Content Engine (Thu)', cron: '0 7 * * 4', description: 'Draft LinkedIn post for Thursday pillar' },
+  { id: 'jarvis-portfolio-am', agentId: 'portfolio-monitor', label: 'Portfolio Monitor (AM)', cron: '0 8 * * *', description: 'Check crypto prices, calculate drift' },
+  { id: 'jarvis-portfolio-pm', agentId: 'portfolio-monitor', label: 'Portfolio Monitor (PM)', cron: '0 20 * * *', description: 'Evening portfolio check and summary' },
+  { id: 'jarvis-garden-calendar', agentId: 'garden-calendar', label: 'Garden Calendar', cron: '0 7 * * 1', description: 'Generate weekly garden brief' },
 ]
 
 export default function Schedule() {
+  const { daemon } = useDashboardStore()
+  const [agents, setAgents] = useState<Array<{ id: string; enabled: boolean }>>([])
   const [triggering, setTriggering] = useState<string | null>(null)
   const [triggered, setTriggered] = useState<Set<string>>(new Set())
-  const [daemon, setDaemon] = useState<DaemonStatus | null>(null)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [lastRuns, setLastRuns] = useState<Record<string, { status: string; completed_at: string }>>({})
+  const [loading, setLoading] = useState(true)
 
-  const fetchDaemonStatus = useCallback(() => {
-    fetch('/api/daemon/status')
-      .then(r => r.json())
-      .then((d: DaemonStatus) => setDaemon(d))
-      .catch(() => {})
+  const fetchData = useCallback(() => {
+    Promise.all([
+      fetch('/api/settings/agents').then(r => r.ok ? r.json() : []).catch(() => []),
+      fetch('/api/runs?limit=50').then(r => r.ok ? r.json() : []).catch(() => []),
+    ]).then(([agentList, runs]) => {
+      setAgents(agentList)
+      // Build last-run map per agent
+      const runMap: Record<string, { status: string; completed_at: string }> = {}
+      for (const run of (runs as Array<{ agent_id: string; status: string; completed_at?: string; started_at: string }>)) {
+        if (!runMap[run.agent_id] && (run.status === 'completed' || run.status === 'failed')) {
+          runMap[run.agent_id] = { status: run.status, completed_at: run.completed_at ?? run.started_at }
+        }
+      }
+      setLastRuns(runMap)
+      setLoading(false)
+    })
   }, [])
 
-  useEffect(() => {
-    fetchDaemonStatus()
-    intervalRef.current = setInterval(fetchDaemonStatus, POLL_INTERVAL)
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
-  }, [fetchDaemonStatus])
+  useEffect(() => { fetchData() }, [fetchData])
 
-  const handleRunNow = async (task: ScheduledTask) => {
+  const handleToggle = async (agentId: string, enabled: boolean) => {
+    await fetch(`/api/settings/agents/${agentId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    })
+    setAgents(prev => prev.map(a => a.id === agentId ? { ...a, enabled } : a))
+  }
+
+  const handleRunNow = async (task: typeof TASK_DEFS[0]) => {
     setTriggering(task.id)
     try {
       await fetch(`/api/agents/${task.agentId}/trigger`, { method: 'POST' })
       setTriggered(prev => new Set([...prev, task.id]))
       setTimeout(() => {
-        setTriggered(prev => {
-          const next = new Set(prev)
-          next.delete(task.id)
-          return next
-        })
+        setTriggered(prev => { const n = new Set(prev); n.delete(task.id); return n })
       }, 3000)
     } finally {
       setTriggering(null)
     }
   }
 
+  if (loading) return <LoadingSpinner message="Loading schedules..." />
+
+  const activeRuns = daemon?.active_runs ?? (daemon?.current_run ? [daemon.current_run] : [])
+  const enabledCount = TASK_DEFS.filter(t => agents.find(a => a.id === t.agentId)?.enabled !== false).length
+
   return (
-    <div className="p-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-white mb-2">Scheduled Tasks</h1>
-      <p className="text-sm text-gray-500 mb-6">
-        9 automated tasks. "Run Now" writes a trigger file that the agent picks up on its next poll cycle.
-      </p>
+    <div className="p-6 max-w-5xl mx-auto">
+      <PageHeader
+        title="Scheduled Tasks"
+        subtitle={`${enabledCount} of ${TASK_DEFS.length} tasks active`}
+        actions={
+          <div className="flex items-center gap-2">
+            <StatusBadge
+              status={daemon?.running ? 'healthy' : 'offline'}
+              label={daemon?.running ? 'Daemon running' : 'Daemon offline'}
+              variant="dot"
+              pulse={daemon?.running}
+            />
+          </div>
+        }
+      />
 
-      {/* Daemon connection indicator */}
-      {daemon && (
-        <div className="mb-4 flex items-center gap-2 text-xs text-gray-500">
-          <span className={`inline-flex rounded-full h-2 w-2 ${daemon.running ? 'bg-green-500' : 'bg-gray-600'}`} />
-          <span>{daemon.running ? 'Daemon connected' : 'Daemon offline'}</span>
-          {daemon.current_run && (
-            <span className="text-yellow-400 ml-2">
-              Running: {daemon.current_run.agent_id} (step {daemon.current_run.step}/{daemon.current_run.total_steps})
-            </span>
-          )}
-        </div>
-      )}
-
-      <div className="space-y-2">
-        {TASKS.map(task => {
+      <div className="space-y-3">
+        {TASK_DEFS.map(task => {
+          const agentEnabled = agents.find(a => a.id === task.agentId)?.enabled !== false
           const isTriggering = triggering === task.id
           const wasTriggered = triggered.has(task.id)
-          const isRunning = daemon?.current_run?.agent_id === task.agentId
+          const isRunning = activeRuns.some(r => r.agent_id === task.agentId)
+          const lastRun = lastRuns[task.agentId]
+
           return (
-            <div
+            <DataCard
               key={task.id}
-              className={`bg-gray-900 border ${isRunning ? 'border-yellow-700/50' : 'border-gray-800'} rounded-xl px-5 py-4 flex items-center gap-4`}
+              variant={isRunning ? 'warning' : !agentEnabled ? 'default' : 'default'}
             >
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <h3 className="text-sm font-medium text-white">{task.label}</h3>
-                  <span className="text-xs text-gray-600 font-mono">{task.id}</span>
-                  {isRunning && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-900 text-yellow-400 font-medium flex items-center gap-1">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-400" />
-                      </span>
-                      Running
+              <div className="flex items-start gap-4">
+                {/* Left: info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`inline-flex rounded-full h-2 w-2 shrink-0 ${
+                      isRunning ? 'bg-amber-400' : agentEnabled ? 'bg-emerald-500' : 'bg-slate-600'
+                    }`} />
+                    <h3 className={`text-sm font-medium ${agentEnabled ? 'text-white' : 'text-slate-500'}`}>
+                      {task.label}
+                    </h3>
+                    {isRunning && <StatusBadge status="running" label="Running" size="sm" />}
+                    {!agentEnabled && <StatusBadge status="cancelled" label="Paused" size="sm" />}
+                  </div>
+
+                  <p className="text-xs text-slate-500 mb-2">{task.description}</p>
+
+                  {/* Schedule + next fire */}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+                    <span className="text-slate-500">
+                      <span className="text-slate-400">Schedule:</span> {cronToHuman(task.cron)}
                     </span>
+                    {agentEnabled && (
+                      <span className="text-slate-600">
+                        Next: <span className="text-slate-400">{nextFireTime(task.cron)}</span>
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Last run */}
+                  {lastRun && (
+                    <div className="flex items-center gap-2 mt-2 text-[11px]">
+                      <span className="text-slate-600">Last run:</span>
+                      <StatusBadge status={lastRun.status} size="sm" />
+                      <span className="text-slate-600">{timeAgo(lastRun.completed_at)}</span>
+                    </div>
                   )}
+
+                  {/* Links */}
+                  <div className="flex items-center gap-3 mt-2.5 pt-2.5 border-t border-white/5">
+                    <Link
+                      to={`/history?agent=${task.agentId}`}
+                      className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors"
+                    >
+                      View history
+                    </Link>
+                    <Link
+                      to={`/runs?agent=${task.agentId}`}
+                      className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors"
+                    >
+                      View runs
+                    </Link>
+                  </div>
                 </div>
-                <div className="flex items-center gap-4 text-xs text-gray-500">
-                  <span>{task.humanSchedule}</span>
-                  <span className="text-gray-700">·</span>
-                  <span>Next: <span className="text-gray-400">{task.nextFire}</span></span>
+
+                {/* Right: controls */}
+                <div className="shrink-0 flex flex-col items-end gap-3">
+                  {/* Enable/disable toggle */}
+                  <button
+                    onClick={() => handleToggle(task.agentId, !agentEnabled)}
+                    className={`w-11 h-6 rounded-full p-0.5 transition-colors cursor-pointer ${
+                      agentEnabled ? 'bg-indigo-600' : 'bg-slate-700'
+                    }`}
+                    title={agentEnabled ? 'Pause this task' : 'Enable this task'}
+                  >
+                    <div className={`w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
+                      agentEnabled ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                  </button>
+
+                  {/* Run Now button */}
+                  <button
+                    onClick={() => handleRunNow(task)}
+                    disabled={isTriggering || wasTriggered || isRunning || !agentEnabled}
+                    className={`text-xs px-3.5 py-1.5 rounded-lg font-medium transition-colors cursor-pointer ${
+                      wasTriggered
+                        ? 'bg-emerald-900/50 text-emerald-400'
+                        : isRunning
+                        ? 'bg-amber-900/50 text-amber-400 cursor-not-allowed'
+                        : !agentEnabled
+                        ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                        : 'bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50'
+                    }`}
+                  >
+                    {isTriggering ? 'Triggering...' : wasTriggered ? 'Triggered' : isRunning ? 'Running...' : 'Run Now'}
+                  </button>
                 </div>
               </div>
-              <button
-                onClick={() => handleRunNow(task)}
-                disabled={isTriggering || wasTriggered || isRunning}
-                className={`shrink-0 text-xs px-4 py-2 rounded-lg font-medium transition-colors ${
-                  wasTriggered
-                    ? 'bg-green-900 text-green-400 cursor-default'
-                    : isRunning
-                      ? 'bg-yellow-900 text-yellow-400 cursor-not-allowed'
-                      : 'bg-indigo-700 hover:bg-indigo-600 text-white disabled:opacity-50 disabled:cursor-not-allowed'
-                }`}
-              >
-                {isTriggering ? 'Triggering...' : wasTriggered ? 'Triggered!' : isRunning ? 'Running...' : 'Run Now'}
-              </button>
-            </div>
+            </DataCard>
           )
         })}
       </div>

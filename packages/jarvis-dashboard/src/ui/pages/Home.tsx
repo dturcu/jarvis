@@ -1,257 +1,27 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import AgentCard from '../components/AgentCard.tsx'
 import JarvisChat from '../components/JarvisChat.tsx'
-
-interface HealthData {
-  ok: boolean
-  crm: { contacts: number }
-  knowledge: { documents: number; playbooks: number }
-  decisions: { total: number }
-  pendingApprovals: number
-  telegramConfigured: boolean
-}
-
-interface AgentData {
-  agentId: string
-  label: string
-  description: string
-  schedule: string
-  lastRun: string | null
-  lastOutcome: string | null
-}
-
-interface DaemonCurrentRun {
-  agent_id: string
-  status: string
-  step: number
-  total_steps: number
-  current_action: string
-  started_at: string
-}
-
-interface DaemonLastRun {
-  agent_id: string
-  status: string
-  completed_at: string
-}
-
-interface DaemonStatus {
-  running: boolean
-  pid: number | null
-  uptime_seconds: number | null
-  agents_registered: number
-  schedules_active: number
-  last_run: DaemonLastRun | null
-  /** @deprecated Use active_runs instead */
-  current_run: DaemonCurrentRun | null
-  /** All currently executing agent runs (supports concurrent execution). */
-  active_runs?: DaemonCurrentRun[]
-}
-
-/* ── Attention API types ─────────────────────────────────── */
-
-interface AttentionNeedsAttention {
-  pending_approvals: number
-  failed_runs: number
-  overdue_schedules: number
-}
-
-interface AttentionActiveWork {
-  agent_id: string
-  status: string
-  current_step: number
-  total_steps: number
-}
-
-interface AttentionRecentCompletion {
-  agent_id: string
-  status: string
-  completed_at: string
-}
-
-interface AttentionData {
-  needs_attention: AttentionNeedsAttention
-  active_work: AttentionActiveWork[]
-  recent_completions: AttentionRecentCompletion[]
-  recommended_actions: string[]
-  system_status: string // "healthy" | "needs_attention" | "unknown"
-}
-
-function formatUptime(seconds: number | null): string {
-  if (seconds === null || seconds < 0) return '--'
-  if (seconds < 60) return `${seconds}s`
-  const mins = Math.floor(seconds / 60)
-  if (mins < 60) return `${mins}m`
-  const hours = Math.floor(mins / 60)
-  const remMins = mins % 60
-  if (hours < 24) return `${hours}h ${remMins}m`
-  const days = Math.floor(hours / 24)
-  return `${days}d ${hours % 24}h`
-}
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return 'Never'
-  const diff = Date.now() - new Date(iso).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'Just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
-
-const POLL_INTERVAL = 5_000 // 5 seconds
-const ATTENTION_POLL_INTERVAL = 10_000 // 10 seconds
-
-/* ── Human-readable agent labels ────────────────────────── */
-
-const AGENT_LABELS: Record<string, string> = {
-  'bd-pipeline': 'BD Pipeline',
-  'proposal-engine': 'Proposal Engine',
-  'evidence-auditor': 'Evidence Auditor',
-  'contract-reviewer': 'Contract Reviewer',
-  'staffing-monitor': 'Staffing Monitor',
-  'content-engine': 'Content Engine',
-  'portfolio-monitor': 'Portfolio Monitor',
-  'garden-calendar': 'Garden Calendar',
-  'email-campaign': 'Email Campaign',
-  'social-engagement': 'Social Engagement',
-  'security-monitor': 'Security Monitor',
-  'drive-watcher': 'Drive Watcher',
-  'invoice-generator': 'Invoice Generator',
-  'meeting-transcriber': 'Meeting Transcriber',
-}
-
-function agentLabel(id: string): string {
-  return AGENT_LABELS[id] ?? id
-}
-
-/* ── Human-readable status labels ───────────────────────── */
-
-const STATUS_LABELS: Record<string, string> = {
-  planning: 'Planning',
-  executing: 'Running',
-  awaiting_approval: 'Awaiting Approval',
-  completed: 'Completed',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
-  queued: 'Queued',
-}
-
-/* ── Stat Card Icons ─────────────────────────────────────── */
-
-function IconContacts() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="8" r="3.5" />
-      <path d="M4 19c0-3.3 3.1-6 7-6s7 2.7 7 6" />
-    </svg>
-  )
-}
-
-function IconDocuments() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 3h7l5 5v10a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2z" />
-      <path d="M13 3v5h5" />
-    </svg>
-  )
-}
-
-function IconPlaybooks() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 5a2 2 0 012-2h10a2 2 0 012 2v14l-7-3-7 3V5z" />
-    </svg>
-  )
-}
-
-function IconApprovals() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8" />
-      <path d="M8 11l2 2 4-4" />
-    </svg>
-  )
-}
+import { useDashboardStore } from '../stores/dashboard-store.ts'
+import { useApi } from '../hooks/useApi.ts'
+import StatusBadge from '../shared/StatusBadge.tsx'
+import DataCard from '../shared/DataCard.tsx'
+import LoadingSpinner from '../shared/LoadingSpinner.tsx'
+import { IconWarning, IconError, IconClock, IconArrowRight } from '../shared/icons.tsx'
+import type { WorkflowDefinition, AttentionActiveWork } from '../types/index.ts'
+import { agentLabel, STATUS_LABELS, formatUptime, timeAgo } from '../types/index.ts'
 
 export default function Home() {
-  const [health, setHealth] = useState<HealthData | null>(null)
-  const [agents, setAgents] = useState<AgentData[]>([])
-  const [daemon, setDaemon] = useState<DaemonStatus | null>(null)
-  const [attention, setAttention] = useState<AttentionData | null>(null)
+  const { attention, daemon, safeMode, health } = useDashboardStore()
+  const { data: workflows } = useApi<WorkflowDefinition[]>('/api/workflows')
   const [loading, setLoading] = useState(true)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const attentionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const fetchData = useCallback(() => {
-    Promise.all([
-      fetch('/api/health').then(r => r.json()),
-      fetch('/api/agents').then(r => r.json()),
-      fetch('/api/daemon/status').then(r => r.json()),
-    ]).then(([h, a, d]: [HealthData, AgentData[], DaemonStatus]) => {
-      setHealth(h)
-      setAgents(a)
-      setDaemon(d)
-      setLoading(false)
-    }).catch(() => setLoading(false))
-  }, [])
-
-  const fetchAttention = useCallback(() => {
-    fetch('/api/attention')
-      .then(r => r.json())
-      .then((data: AttentionData) => setAttention(data))
-      .catch(() => {})
-  }, [])
-
+  // Wait for first dashboard-store fetch
   useEffect(() => {
-    // Initial fetch
-    fetchData()
-    fetchAttention()
-    // Poll every 5 seconds for daemon/agents, every 10 seconds for attention
-    intervalRef.current = setInterval(fetchData, POLL_INTERVAL)
-    attentionIntervalRef.current = setInterval(fetchAttention, ATTENTION_POLL_INTERVAL)
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-      if (attentionIntervalRef.current) clearInterval(attentionIntervalRef.current)
-    }
-  }, [fetchData, fetchAttention])
+    if (attention !== null || daemon !== null) setLoading(false)
+  }, [attention, daemon])
 
-  const handleTrigger = async (agentId: string) => {
-    await fetch(`/api/agents/${agentId}/trigger`, { method: 'POST' })
-    setTimeout(fetchData, 500)
-  }
-
-  /** Compute the effective status for an agent based on daemon state.
-   *  Checks active_runs (concurrent) first, falls back to current_run (legacy). */
-  function getAgentStatus(agentId: string): 'ready' | 'running' | 'awaiting_approval' | 'error' {
-    const runs = daemon?.active_runs?.length
-      ? daemon.active_runs
-      : daemon?.current_run ? [daemon.current_run] : []
-    const run = runs.find(r => r.agent_id === agentId)
-    if (!run) return 'ready'
-    if (run.status === 'awaiting_approval') return 'awaiting_approval'
-    return 'running'
-  }
-
-  function getAgentCurrentRun(agentId: string): DaemonCurrentRun | null {
-    const runs = daemon?.active_runs?.length
-      ? daemon.active_runs
-      : daemon?.current_run ? [daemon.current_run] : []
-    return runs.find(r => r.agent_id === agentId) ?? null
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-          <span className="text-sm text-slate-500 font-medium">Loading dashboard...</span>
-        </div>
-      </div>
-    )
+  if (loading && !attention && !daemon) {
+    return <LoadingSpinner message="Loading dashboard..." />
   }
 
   const greeting = (() => {
@@ -262,23 +32,42 @@ export default function Home() {
   })()
 
   const today = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
 
-  const needsAttention = attention?.needs_attention
-  const hasAttentionItems = needsAttention &&
-    (needsAttention.pending_approvals > 0 ||
-     needsAttention.failed_runs > 0 ||
-     needsAttention.overdue_schedules > 0)
+  const needs = attention?.needs_attention
+  const hasAttention = needs && (needs.pending_approvals > 0 || needs.failed_runs > 0 || needs.overdue_schedules > 0)
+  const activeWork = attention?.active_work ?? []
+  const completions = attention?.recent_completions ?? []
+  const actions = attention?.recommended_actions ?? []
+  const isSafeMode = safeMode?.safe_mode_recommended
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      {/* -- Daemon status banner -- */}
+      {/* ── System banner ──────────────────────────────── */}
       <div className="mb-6">
-        {daemon?.running ? (
+        {isSafeMode ? (
+          <Link
+            to="/recovery"
+            className="block bg-red-500/5 border border-red-500/15 rounded-xl px-5 py-3 backdrop-blur-sm hover:border-red-500/30 transition-colors"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+                </span>
+                <span className="text-sm text-red-300 font-medium">Safe mode recommended</span>
+              </div>
+              <span className="text-xs text-red-400/60">Open Recovery</span>
+            </div>
+            {safeMode?.reasons?.length ? (
+              <p className="text-xs text-red-400/50 mt-1 ml-6">
+                {safeMode.reasons.slice(0, 2).join(' · ')}
+              </p>
+            ) : null}
+          </Link>
+        ) : daemon?.running ? (
           <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl px-5 py-3 flex items-center justify-between backdrop-blur-sm">
             <div className="flex items-center gap-3">
               <span className="relative flex h-2.5 w-2.5">
@@ -303,62 +92,53 @@ export default function Home() {
         )}
       </div>
 
-      {/* -- Header -- */}
+      {/* ── Header ─────────────────────────────────────── */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-100 tracking-tight">{greeting}</h1>
         <p className="text-sm text-slate-500 mt-1">{today}</p>
       </div>
 
-      {/* -- Needs Attention section -- */}
-      {hasAttentionItems && (
+      {/* ── Needs Attention ────────────────────────────── */}
+      {hasAttention && (
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-slate-200 tracking-tight mb-3">Needs Attention</h2>
           <div className="flex flex-wrap gap-3">
-            {needsAttention.pending_approvals > 0 && (
+            {needs.pending_approvals > 0 && (
               <Link
-                to="/approvals"
+                to="/inbox"
                 className="inline-flex items-center gap-2 bg-amber-500/5 border border-amber-500/15 rounded-xl px-4 py-2.5 backdrop-blur-sm hover:border-amber-500/30 transition-colors duration-200"
               >
-                <svg className="text-amber-400 shrink-0" width="16" height="16" viewBox="0 0 18 18" fill="none">
-                  <path d="M9 2L16.5 15H1.5L9 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-                  <path d="M9 7v3M9 12v.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
+                <span className="text-amber-400 shrink-0"><IconWarning /></span>
                 <span className="text-amber-300/90 text-sm font-medium">
-                  {needsAttention.pending_approvals} pending approval{needsAttention.pending_approvals !== 1 ? 's' : ''}
+                  {needs.pending_approvals} pending approval{needs.pending_approvals !== 1 ? 's' : ''}
                 </span>
                 <span className="bg-amber-500/90 text-black text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-                  {needsAttention.pending_approvals}
+                  {needs.pending_approvals}
                 </span>
               </Link>
             )}
-            {needsAttention.failed_runs > 0 && (
+            {needs.failed_runs > 0 && (
               <Link
-                to="/runs"
+                to="/inbox?tab=Failures"
                 className="inline-flex items-center gap-2 bg-red-500/5 border border-red-500/15 rounded-xl px-4 py-2.5 backdrop-blur-sm hover:border-red-500/30 transition-colors duration-200"
               >
-                <svg className="text-red-400 shrink-0" width="16" height="16" viewBox="0 0 18 18" fill="none">
-                  <circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M6.5 6.5l5 5M11.5 6.5l-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
+                <span className="text-red-400 shrink-0"><IconError /></span>
                 <span className="text-red-300/90 text-sm font-medium">
-                  {needsAttention.failed_runs} failed run{needsAttention.failed_runs !== 1 ? 's' : ''}
+                  {needs.failed_runs} failed run{needs.failed_runs !== 1 ? 's' : ''}
                 </span>
                 <span className="bg-red-500/90 text-white text-xs font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center">
-                  {needsAttention.failed_runs}
+                  {needs.failed_runs}
                 </span>
               </Link>
             )}
-            {needsAttention.overdue_schedules > 0 && (
+            {needs.overdue_schedules > 0 && (
               <Link
-                to="/schedule"
+                to="/system"
                 className="inline-flex items-center gap-2 bg-amber-500/5 border border-amber-500/15 rounded-xl px-4 py-2.5 backdrop-blur-sm hover:border-amber-500/30 transition-colors duration-200"
               >
-                <svg className="text-amber-400 shrink-0" width="16" height="16" viewBox="0 0 18 18" fill="none">
-                  <circle cx="9" cy="9" r="7" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M9 5v4l3 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                <span className="text-amber-400 shrink-0"><IconClock /></span>
                 <span className="text-amber-300/90 text-sm font-medium">
-                  {needsAttention.overdue_schedules} overdue schedule{needsAttention.overdue_schedules !== 1 ? 's' : ''}
+                  {needs.overdue_schedules} overdue schedule{needs.overdue_schedules !== 1 ? 's' : ''}
                 </span>
               </Link>
             )}
@@ -366,99 +146,74 @@ export default function Home() {
         </div>
       )}
 
-      {/* -- Stats cards row -- */}
-      {health && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {/* Contacts */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all duration-200 group">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-slate-500 group-hover:text-slate-400 transition-colors duration-200">
-                <IconContacts />
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-slate-100 font-mono tabular-nums">{health.crm.contacts}</p>
-            <p className="text-xs text-slate-500 mt-1 font-medium">Contacts</p>
-          </div>
-
-          {/* Documents */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all duration-200 group">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-slate-500 group-hover:text-slate-400 transition-colors duration-200">
-                <IconDocuments />
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-slate-100 font-mono tabular-nums">{health.knowledge.documents}</p>
-            <p className="text-xs text-slate-500 mt-1 font-medium">Documents</p>
-          </div>
-
-          {/* Playbooks */}
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-white/5 rounded-xl p-5 hover:border-white/10 transition-all duration-200 group">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-slate-500 group-hover:text-slate-400 transition-colors duration-200">
-                <IconPlaybooks />
-              </span>
-            </div>
-            <p className="text-2xl font-bold text-slate-100 font-mono tabular-nums">{health.knowledge.playbooks}</p>
-            <p className="text-xs text-slate-500 mt-1 font-medium">Playbooks</p>
-          </div>
-
-          {/* Approvals */}
-          <div className={`bg-slate-800/50 backdrop-blur-sm border rounded-xl p-5 transition-all duration-200 group ${
-            health.pendingApprovals > 0
-              ? 'border-amber-500/20 hover:border-amber-500/30'
-              : 'border-white/5 hover:border-white/10'
-          }`}>
-            <div className="flex items-center justify-between mb-3">
-              <span className={`transition-colors duration-200 ${
-                health.pendingApprovals > 0 ? 'text-amber-400' : 'text-slate-500 group-hover:text-slate-400'
-              }`}>
-                <IconApprovals />
-              </span>
-            </div>
-            <p className={`text-2xl font-bold font-mono tabular-nums ${
-              health.pendingApprovals > 0 ? 'text-amber-400' : 'text-slate-100'
-            }`}>{health.pendingApprovals}</p>
-            <p className="text-xs text-slate-500 mt-1 font-medium">Pending Approvals</p>
-          </div>
-        </div>
-      )}
-
-      {/* -- Active Work section -- */}
-      {attention && attention.active_work.length > 0 && (
+      {/* ── Active Work ────────────────────────────────── */}
+      {activeWork.length > 0 && (
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-slate-200 tracking-tight mb-3">Active Work</h2>
           <div className="space-y-2">
-            {attention.active_work.map((work, i) => (
+            {activeWork.map((work: AttentionActiveWork, i: number) => (
+              <ActiveWorkRow key={`${work.agent_id}-${i}`} work={work} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Quick-Start Workflows ──────────────────────── */}
+      {workflows && workflows.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-slate-200 tracking-tight">Quick Start</h2>
+            <Link to="/workflows" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+              All workflows
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {workflows.slice(0, 5).map(wf => (
+              <Link key={wf.workflow_id} to={`/workflows?start=${wf.workflow_id}`}>
+                <DataCard className="h-full">
+                  <h3 className="text-sm font-medium text-slate-200 mb-1">{wf.name}</h3>
+                  <p className="text-xs text-slate-500 line-clamp-2">{wf.expected_output}</p>
+                  <div className="flex items-center gap-2 mt-3">
+                    <SafetyPostureBadge rules={wf.safety_rules} />
+                    {wf.safety_rules.preview_available && (
+                      <span className="text-[10px] text-blue-400/60 bg-blue-500/10 border border-blue-500/15 px-1.5 py-0.5 rounded">
+                        Preview
+                      </span>
+                    )}
+                  </div>
+                </DataCard>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Recent Completions ─────────────────────────── */}
+      {completions.length > 0 && (
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold text-slate-200 tracking-tight">Recent Completions</h2>
+            <Link to="/history" className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors">
+              View all
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {completions.slice(0, 5).map((comp, i) => (
               <div
-                key={`${work.agent_id}-${i}`}
-                className="bg-slate-800/50 backdrop-blur-sm border border-amber-500/10 rounded-xl px-5 py-3 flex items-center justify-between"
+                key={`${comp.agent_id}-${i}`}
+                className="bg-slate-800/50 backdrop-blur-sm border border-white/5 rounded-xl px-5 py-3 flex items-center justify-between"
               >
                 <div className="flex items-center gap-3">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
-                  </span>
-                  <span className="text-sm text-slate-200 font-medium">{agentLabel(work.agent_id)}</span>
-                  <span className="text-xs text-amber-400/70 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
-                    {STATUS_LABELS[work.status] ?? work.status}
-                  </span>
+                  <StatusBadge status={comp.status} variant="dot" />
+                  <span className="text-sm text-slate-200 font-medium">{agentLabel(comp.agent_id)}</span>
+                  <StatusBadge status={comp.status} />
                 </div>
                 <div className="flex items-center gap-3">
-                  {work.total_steps > 0 && (
-                    <>
-                      <span className="text-xs text-slate-500 font-mono tabular-nums">
-                        Step {work.current_step}/{work.total_steps}
-                      </span>
-                      <div className="w-24 bg-slate-900/80 rounded-full h-1.5 overflow-hidden">
-                        <div
-                          className="bg-gradient-to-r from-amber-500 to-amber-400 h-1.5 rounded-full transition-all duration-500 ease-out"
-                          style={{ width: `${Math.max(5, (work.current_step / work.total_steps) * 100)}%` }}
-                        />
-                      </div>
-                      <span className="text-xs text-slate-600 font-mono tabular-nums">
-                        {Math.round((work.current_step / work.total_steps) * 100)}%
-                      </span>
-                    </>
+                  <span className="text-xs text-slate-500">{timeAgo(comp.completed_at)}</span>
+                  {comp.status === 'failed' && (
+                    <Link to="/inbox?tab=Failures" className="text-xs text-red-400 hover:text-red-300 transition-colors">
+                      View
+                    </Link>
                   )}
                 </div>
               </div>
@@ -467,64 +222,21 @@ export default function Home() {
         </div>
       )}
 
-      {/* -- Recent Completions section -- */}
-      {attention && attention.recent_completions.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-lg font-semibold text-slate-200 tracking-tight mb-3">Recent Completions</h2>
-          <div className="space-y-2">
-            {attention.recent_completions.slice(0, 5).map((comp, i) => {
-              const statusColor = comp.status === 'completed'
-                ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
-                : comp.status === 'failed'
-                  ? 'text-red-400 bg-red-500/10 border-red-500/20'
-                  : 'text-slate-400 bg-slate-500/10 border-slate-500/20'
-              return (
-                <div
-                  key={`${comp.agent_id}-${i}`}
-                  className="bg-slate-800/50 backdrop-blur-sm border border-white/5 rounded-xl px-5 py-3 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className={`inline-flex rounded-full h-2 w-2 ${
-                      comp.status === 'completed' ? 'bg-emerald-500' : comp.status === 'failed' ? 'bg-red-500' : 'bg-slate-500'
-                    }`} />
-                    <span className="text-sm text-slate-200 font-medium">{agentLabel(comp.agent_id)}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full border ${statusColor}`}>
-                      {STATUS_LABELS[comp.status] ?? comp.status}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-slate-500">{timeAgo(comp.completed_at)}</span>
-                    {comp.status === 'failed' && (
-                      <Link to="/runs" className="text-xs text-red-400 hover:text-red-300 transition-colors duration-200">View</Link>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* -- Recommended Actions section -- */}
-      {attention && attention.recommended_actions.length > 0 && (
+      {/* ── Recommended Actions ────────────────────────── */}
+      {actions.length > 0 && (
         <div className="mb-8">
           <h2 className="text-lg font-semibold text-slate-200 tracking-tight mb-3">Recommended Actions</h2>
-          <div className="bg-slate-800/50 backdrop-blur-sm border border-white/5 rounded-xl p-5">
+          <DataCard>
             <ul className="space-y-2">
-              {attention.recommended_actions.map((action, i) => {
+              {actions.map((action, i) => {
                 const lc = action.toLowerCase()
-                const link = lc.includes('approval')
-                  ? '/approvals'
-                  : lc.includes('failed') || lc.includes('retry')
-                    ? '/runs'
-                    : lc.includes('schedule') || lc.includes('overdue')
-                      ? '/schedule'
-                      : null
+                const link = lc.includes('approval') ? '/inbox'
+                  : lc.includes('failed') || lc.includes('retry') ? '/inbox?tab=Failures'
+                  : lc.includes('schedule') || lc.includes('overdue') ? '/system'
+                  : null
                 return (
                   <li key={i} className="flex items-center gap-2.5 text-sm text-slate-300">
-                    <svg className="text-indigo-400 shrink-0" width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
+                    <span className="text-indigo-400 shrink-0"><IconArrowRight /></span>
                     <span className="flex-1">{action}</span>
                     {link && (
                       <Link
@@ -538,36 +250,64 @@ export default function Home() {
                 )
               })}
             </ul>
-          </div>
+          </DataCard>
         </div>
       )}
 
-      {/* -- Ask Jarvis chat -- */}
+      {/* ── Ask Jarvis ─────────────────────────────────── */}
       <div className="mb-10">
         <JarvisChat />
       </div>
+    </div>
+  )
+}
 
-      {/* -- Agent grid -- */}
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold text-slate-200 tracking-tight">Agents</h2>
-        <p className="text-xs text-slate-500 mt-0.5">Manage and monitor your autonomous agents</p>
+/* ── Sub-components ──────────────────────────────────────── */
+
+function ActiveWorkRow({ work }: { work: AttentionActiveWork }) {
+  const progress = work.total_steps > 0 ? Math.round((work.current_step / work.total_steps) * 100) : 0
+
+  return (
+    <div className="bg-slate-800/50 backdrop-blur-sm border border-amber-500/10 rounded-xl px-5 py-3 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400" />
+        </span>
+        <span className="text-sm text-slate-200 font-medium">{agentLabel(work.agent_id)}</span>
+        <StatusBadge status={work.status} />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {agents.map(agent => (
-          <AgentCard
-            key={agent.agentId}
-            agentId={agent.agentId}
-            label={agent.label}
-            description={agent.description}
-            schedule={agent.schedule}
-            lastRun={agent.lastRun}
-            lastOutcome={agent.lastOutcome}
-            status={getAgentStatus(agent.agentId)}
-            currentRun={getAgentCurrentRun(agent.agentId)}
-            onTrigger={handleTrigger}
-          />
-        ))}
+      <div className="flex items-center gap-3">
+        {work.total_steps > 0 && (
+          <>
+            <span className="text-xs text-slate-500 font-mono tabular-nums">
+              Step {work.current_step}/{work.total_steps}
+            </span>
+            <div className="w-24 bg-slate-900/80 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-amber-500 to-amber-400 h-1.5 rounded-full transition-all duration-500 ease-out"
+                style={{ width: `${Math.max(5, progress)}%` }}
+              />
+            </div>
+            <span className="text-xs text-slate-600 font-mono tabular-nums">{progress}%</span>
+          </>
+        )}
       </div>
     </div>
+  )
+}
+
+function SafetyPostureBadge({ rules }: { rules: WorkflowDefinition['safety_rules'] }) {
+  const colors = {
+    draft: 'text-emerald-400/60 bg-emerald-500/10 border-emerald-500/15',
+    send: 'text-amber-400/60 bg-amber-500/10 border-amber-500/15',
+    blocked: 'text-red-400/60 bg-red-500/10 border-red-500/15',
+  }
+  const labels = { draft: 'Draft', send: 'Live', blocked: 'Blocked' }
+
+  return (
+    <span className={`text-[10px] border px-1.5 py-0.5 rounded ${colors[rules.outbound_default]}`}>
+      {labels[rules.outbound_default]}
+    </span>
   )
 }

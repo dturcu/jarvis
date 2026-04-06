@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "jarvis-dashboard",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "packages/jarvis-dashboard/dist", "-l", "4250", "-s"],
+      "port": 4250
+    }
+  ]
+}
