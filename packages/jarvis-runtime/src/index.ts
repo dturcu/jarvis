@@ -1,9 +1,11 @@
-export { loadConfig, type JarvisRuntimeConfig, type ModelTierConfig } from "./config.js";
+export { loadConfig, validateConfig, type JarvisRuntimeConfig, type ModelTierConfig, type ConfigCheckResult } from "./config.js";
+export { openRuntimeDb } from "./runtime-db.js";
+export { runMigrations } from "./migrations/runner.js";
 export { Logger } from "./logger.js";
 export { createWorkerRegistry, buildEnvelope, type WorkerRegistry } from "./worker-registry.js";
 export { buildPlanWithInference } from "./planner-real.js";
 export { runAgent, type OrchestratorDeps } from "./orchestrator.js";
-export { requestApproval, waitForApproval } from "./approval-bridge.js";
+export { requestApproval, waitForApproval, resolveApproval, listApprovals, type ApprovalEntry } from "./approval-bridge.js";
 export { writeTelegramQueue } from "./notify.js";
 export { createFilesWorkerBridge } from "./files-bridge.js";
 export { StatusWriter, type DaemonStatusData } from "./status-writer.js";

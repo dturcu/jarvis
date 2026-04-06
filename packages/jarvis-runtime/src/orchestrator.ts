@@ -1,3 +1,4 @@
+import type { DatabaseSync } from "node:sqlite";
 import type { AgentDefinition, AgentTrigger, AgentRun } from "@jarvis/agent-framework";
 import { AgentRuntime, SqliteKnowledgeStore, LessonCapture } from "@jarvis/agent-framework";
 import { SqliteEntityGraph } from "@jarvis/agent-framework";
@@ -20,6 +21,7 @@ export type OrchestratorDeps = {
   logger: Logger;
   statusWriter?: StatusWriter;
   ragPipeline?: RagPipeline;
+  runtimeDb?: DatabaseSync;
 };
 
 /**
@@ -31,7 +33,7 @@ export async function runAgent(
   trigger: AgentTrigger,
   deps: OrchestratorDeps,
 ): Promise<AgentRun> {
-  const { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, ragPipeline } = deps;
+  const { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, ragPipeline, runtimeDb } = deps;
 
   const def = runtime.getDefinition(agentId);
   if (!def) throw new Error(`Agent not registered: ${agentId}`);
@@ -86,9 +88,9 @@ export async function runAgent(
 
       // Check approval gate
       const gate = def.approval_gates.find(g => g.action === step.action);
-      if (gate) {
+      if (gate && runtimeDb) {
         logger.info(`  Approval required for ${step.action} (${gate.severity})`);
-        const approvalId = requestApproval({
+        const approvalId = requestApproval(runtimeDb, {
           agent_id: agentId,
           run_id: run.run_id,
           action: step.action,
@@ -100,7 +102,7 @@ export async function runAgent(
         run.updated_at = new Date().toISOString();
         statusWriter?.setAwaitingApproval(step.step, step.action);
 
-        const decision = await waitForApproval(approvalId, 4 * 60 * 60 * 1000); // 4h timeout
+        const decision = await waitForApproval(runtimeDb, approvalId, 4 * 60 * 60 * 1000); // 4h timeout
 
         if (decision === "rejected") {
           logger.info(`  Step ${step.step} rejected — skipping`);

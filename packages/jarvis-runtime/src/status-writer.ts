@@ -1,9 +1,8 @@
-import fs from "node:fs";
-import { join } from "node:path";
-import { JARVIS_DIR } from "./config.js";
+import { randomUUID } from "node:crypto";
+import os from "node:os";
+import type { DatabaseSync } from "node:sqlite";
 import type { Logger } from "./logger.js";
 
-const STATUS_FILE = join(JARVIS_DIR, "daemon-status.json");
 const WRITE_INTERVAL_MS = 10_000; // 10 seconds
 
 export interface DaemonStatusData {
@@ -28,16 +27,20 @@ export interface DaemonStatusData {
 }
 
 /**
- * StatusWriter: periodically writes daemon state to ~/.jarvis/daemon-status.json.
- * The dashboard reads this file to display live daemon info without IPC.
+ * StatusWriter: periodically writes daemon heartbeat to runtime.db.
+ * The dashboard reads from the daemon_heartbeats table to display live daemon info.
  */
 export class StatusWriter {
   private state: DaemonStatusData;
   private timer: ReturnType<typeof setInterval> | null = null;
   private logger: Logger;
+  private daemonId: string;
+  private db: DatabaseSync | null;
 
-  constructor(agentsRegistered: number, schedulesActive: number, logger: Logger) {
+  constructor(agentsRegistered: number, schedulesActive: number, logger: Logger, db?: DatabaseSync) {
     this.logger = logger;
+    this.daemonId = `daemon-${process.pid}`;
+    this.db = db ?? null;
     this.state = {
       pid: process.pid,
       started_at: new Date().toISOString(),
@@ -51,11 +54,8 @@ export class StatusWriter {
 
   /** Start periodic writes. Call once after initialization. */
   start(): void {
-    // Write immediately on start
     this.flush();
-    // Then write every WRITE_INTERVAL_MS
     this.timer = setInterval(() => this.flush(), WRITE_INTERVAL_MS);
-    // Unref so this timer doesn't keep the process alive
     if (this.timer && typeof this.timer.unref === "function") {
       this.timer.unref();
     }
@@ -68,7 +68,6 @@ export class StatusWriter {
       clearInterval(this.timer);
       this.timer = null;
     }
-    // Write one final status showing daemon is stopping
     this.flush();
     this.logger.info("Status writer stopped");
   }
@@ -126,13 +125,28 @@ export class StatusWriter {
     }
   }
 
-  /** Write state to disk. */
+  /** Write state to database (daemon_heartbeats table). */
   private flush(): void {
     this.state.updated_at = new Date().toISOString();
+    if (!this.db) return;
+
     try {
-      fs.writeFileSync(STATUS_FILE, JSON.stringify(this.state, null, 2), "utf8");
+      this.db.prepare(`
+        INSERT OR REPLACE INTO daemon_heartbeats (daemon_id, pid, host, version, status, last_seen_at, current_run_id, current_agent_id, details_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        this.daemonId,
+        this.state.pid,
+        os.hostname(),
+        "0.1.0",
+        this.state.current_run ? "busy" : "idle",
+        this.state.updated_at,
+        null,
+        this.state.current_run?.agent_id ?? null,
+        JSON.stringify(this.state),
+      );
     } catch (e) {
-      this.logger.error(`Failed to write daemon status: ${e instanceof Error ? e.message : String(e)}`);
+      this.logger.error(`Failed to write daemon heartbeat: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 }

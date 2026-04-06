@@ -1,7 +1,9 @@
 import { Router } from 'express'
 import crypto from 'node:crypto'
-import fs from 'node:fs'
+import { randomUUID } from 'node:crypto'
+import { DatabaseSync } from 'node:sqlite'
 import os from 'node:os'
+import fs from 'node:fs'
 import { join } from 'node:path'
 
 const JARVIS_DIR = join(os.homedir(), '.jarvis')
@@ -23,23 +25,45 @@ function loadWebhookSecret(): string | undefined {
   }
 }
 
-function writeTrigger(agentId: string, triggeredBy: string, context: Record<string, unknown>): void {
-  if (!fs.existsSync(JARVIS_DIR)) {
-    fs.mkdirSync(JARVIS_DIR, { recursive: true })
+function getDb(): DatabaseSync {
+  const db = new DatabaseSync(join(JARVIS_DIR, 'runtime.db'))
+  db.exec("PRAGMA journal_mode = WAL;")
+  db.exec("PRAGMA busy_timeout = 5000;")
+  return db
+}
+
+/**
+ * Insert a command into agent_commands table.
+ * Replaces the old file-based trigger mechanism.
+ */
+function insertCommand(agentId: string, triggeredBy: string, context: Record<string, unknown>): string {
+  const db = getDb()
+  const commandId = randomUUID()
+  const now = new Date().toISOString()
+  // Use agent_id + timestamp as idempotency key to prevent rapid duplicate triggers
+  const idempotencyKey = `${agentId}:${triggeredBy}:${Math.floor(Date.now() / 10_000)}`
+
+  try {
+    db.prepare(`
+      INSERT OR IGNORE INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, created_at, created_by, idempotency_key)
+      VALUES (?, ?, ?, ?, 'queued', ?, ?, ?)
+    `).run(commandId, 'run_agent', agentId, JSON.stringify(context), now, triggeredBy, idempotencyKey)
+
+    // Write audit log entry
+    db.prepare(`
+      INSERT INTO audit_log (audit_id, actor_type, actor_id, action, target_type, target_id, payload_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(randomUUID(), 'webhook', triggeredBy, 'trigger.created', 'agent', agentId, JSON.stringify(context), now)
+  } finally {
+    try { db.close() } catch { /* best-effort */ }
   }
-  const triggerPath = join(JARVIS_DIR, `trigger-${agentId}.json`)
-  fs.writeFileSync(triggerPath, JSON.stringify({
-    agentId,
-    triggeredAt: new Date().toISOString(),
-    triggeredBy,
-    context,
-  }, null, 2))
+
+  return commandId
 }
 
 export const webhookRouter = Router()
 
 // POST /api/webhooks/github — GitHub webhook handler
-// Must be registered before the :agentId catch-all
 webhookRouter.post('/github', (req, res) => {
   const signature = req.headers['x-hub-signature-256'] as string | undefined
   const secret = loadWebhookSecret()
@@ -64,7 +88,6 @@ webhookRouter.post('/github', (req, res) => {
       return
     }
   } else if (secret && !signature) {
-    // Secret is configured but request has no signature — reject
     res.status(401).json({ error: 'Missing signature' })
     return
   }
@@ -83,7 +106,7 @@ webhookRouter.post('/github', (req, res) => {
     return
   }
 
-  writeTrigger(agentId, `webhook:github:${event}`, {
+  insertCommand(agentId, `webhook:github:${event}`, {
     github_event: event,
     action: payload.action,
     repository: (payload.repository as Record<string, unknown>)?.full_name,
@@ -100,7 +123,6 @@ webhookRouter.post('/github', (req, res) => {
 })
 
 // POST /api/webhooks/generic — generic JSON webhook
-// Must be registered before the :agentId catch-all
 webhookRouter.post('/generic', (req, res) => {
   const body = req.body as Record<string, unknown>
   const agentId = body.agent_id as string | undefined
@@ -111,7 +133,7 @@ webhookRouter.post('/generic', (req, res) => {
     return
   }
 
-  writeTrigger(agentId, 'webhook:generic', context)
+  insertCommand(agentId, 'webhook:generic', context)
 
   res.json({
     status: 'triggered',
@@ -125,7 +147,7 @@ webhookRouter.post('/:agentId', (req, res) => {
   const { agentId } = req.params
   const payload = req.body as Record<string, unknown>
 
-  writeTrigger(agentId, 'webhook', payload)
+  insertCommand(agentId!, 'webhook', payload)
 
   res.json({
     status: 'triggered',
