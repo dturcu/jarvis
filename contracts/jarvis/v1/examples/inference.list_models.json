@@ -33,13 +33,13 @@
         {
           "id": "llama3.2:3b",
           "runtime": "ollama",
-          "tier": "haiku",
+          "size_class": "small",
           "capabilities": ["chat", "code"]
         },
         {
           "id": "nomic-embed-text",
           "runtime": "ollama",
-          "tier": "haiku",
+          "size_class": "small",
           "capabilities": ["embedding"]
         }
       ],

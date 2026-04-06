@@ -32,9 +32,9 @@ COMPANION PLANTING RULES (enforce these):
 
 WEEKLY WORKFLOW:
 1. web.search_news — get 7-day weather forecast for Iași (search "Iași meteo prognoză")
-2. inference.chat (haiku) — cross-reference with current date + frost calendar + bed assignments
+2. inference.chat — cross-reference with current date + frost calendar + bed assignments
 3. inference.rag_query — check companion planting for planned activities
-4. inference.chat (haiku) — generate "This week in the garden" brief
+4. inference.chat — generate "This week in the garden" brief
 5. device.notify or email.draft — push garden brief
 
 OUTPUT: "This Week in the Garden" brief:
@@ -65,7 +65,7 @@ export const gardenCalendarAgent: AgentDefinition = {
   capabilities: ["web", "inference", "scheduler", "email", "device"],
   approval_gates: [],
   knowledge_collections: ["garden"],
-  inference_tier: "haiku",
+  task_profile: { objective: "classify", preferences: { prioritize_speed: true } },
   max_steps_per_run: 5,
   system_prompt: GARDEN_CALENDAR_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],

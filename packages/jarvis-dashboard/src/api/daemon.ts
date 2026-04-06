@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { DatabaseSync } from 'node:sqlite'
 import os from 'os'
 import { join } from 'path'
 import fs from 'fs'
@@ -24,8 +25,6 @@ export interface DaemonStatus {
   } | null
 }
 
-const DAEMON_STATUS_PATH = join(os.homedir(), '.jarvis', 'daemon-status.json')
-
 function readDaemonStatus(): DaemonStatus {
   const disconnected: DaemonStatus = {
     running: false,
@@ -37,54 +36,63 @@ function readDaemonStatus(): DaemonStatus {
     current_run: null,
   }
 
-  if (!fs.existsSync(DAEMON_STATUS_PATH)) {
+  const dbPath = join(os.homedir(), '.jarvis', 'runtime.db')
+  if (!fs.existsSync(dbPath)) return disconnected
+
+  let db: DatabaseSync
+  try {
+    db = new DatabaseSync(dbPath)
+    db.exec("PRAGMA journal_mode = WAL;")
+    db.exec("PRAGMA busy_timeout = 5000;")
+  } catch {
     return disconnected
   }
 
   try {
-    const raw = JSON.parse(fs.readFileSync(DAEMON_STATUS_PATH, 'utf8')) as Record<string, unknown>
+    // Read latest heartbeat
+    const row = db.prepare(
+      "SELECT * FROM daemon_heartbeats ORDER BY last_seen_at DESC LIMIT 1"
+    ).get() as Record<string, unknown> | undefined
 
-    // Check if the status file is stale (not updated in the last 30 seconds)
-    const updatedAt = raw.updated_at as string | undefined
-    if (updatedAt) {
-      const age = Date.now() - new Date(updatedAt).getTime()
-      if (age > 30_000) {
-        return { ...disconnected, last_run: (raw.last_run as DaemonStatus['last_run']) ?? null }
-      }
+    if (!row) return disconnected
+
+    // Check if heartbeat is stale (not updated in the last 30 seconds)
+    const lastSeen = row.last_seen_at as string
+    const age = Date.now() - new Date(lastSeen).getTime()
+    if (age > 30_000) {
+      return disconnected
     }
 
-    // Check if the PID is still alive (best-effort)
-    const pid = raw.pid as number | undefined
-    if (pid) {
-      try {
-        process.kill(pid, 0) // signal 0 = check existence
-      } catch {
-        return { ...disconnected, last_run: (raw.last_run as DaemonStatus['last_run']) ?? null }
-      }
-    }
+    // Parse details from the stored JSON
+    let details: Record<string, unknown> = {}
+    try {
+      details = JSON.parse(row.details_json as string) as Record<string, unknown>
+    } catch { /* ok */ }
 
-    const startedAt = raw.started_at as string | undefined
+    const startedAt = details.started_at as string | undefined
     const uptimeSeconds = startedAt
       ? Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
       : null
 
     return {
       running: true,
-      pid: pid ?? null,
+      pid: row.pid as number | null,
       uptime_seconds: uptimeSeconds,
-      agents_registered: (raw.agents_registered as number) ?? 0,
-      schedules_active: (raw.schedules_active as number) ?? 0,
-      last_run: (raw.last_run as DaemonStatus['last_run']) ?? null,
-      current_run: (raw.current_run as DaemonStatus['current_run']) ?? null,
+      agents_registered: (details.agents_registered as number) ?? 0,
+      schedules_active: (details.schedules_active as number) ?? 0,
+      last_run: (details.last_run as DaemonStatus['last_run']) ?? null,
+      current_run: (details.current_run as DaemonStatus['current_run']) ?? null,
     }
   } catch {
     return disconnected
+  } finally {
+    try { db.close() } catch { /* best-effort */ }
   }
 }
 
 export const daemonRouter = Router()
 
-// GET / — daemon status (read from file)
+// GET / — daemon status (read from DB heartbeat)
 daemonRouter.get('/status', (_req, res) => {
   const status = readDaemonStatus()
   res.json(status)

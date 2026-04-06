@@ -1,5 +1,4 @@
 import { Type } from "@sinclair/typebox";
-import { createBrowserPluginService } from "openclaw/plugin-sdk/browser";
 import {
   definePluginEntry,
   type AnyAgentTool,
@@ -326,7 +325,6 @@ export default definePluginEntry({
   name: "Jarvis Browser",
   description: "Browser job broker for the managed OpenClaw browser profile",
   register(api) {
-    api.registerService(createBrowserPluginService());
     api.registerTool((ctx) => createBrowserTools(ctx));
     api.registerCommand(createBrowserCommand());
   }

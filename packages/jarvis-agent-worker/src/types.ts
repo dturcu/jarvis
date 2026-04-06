@@ -58,7 +58,7 @@ export type AgentResumeOutput = { run_id: string; status: string; resumed_at: st
 export type AgentConfigureInput = {
   agent_id: string;
   updates: {
-    inference_tier?: "haiku" | "sonnet" | "opus";
+    task_profile?: { objective: string; constraints?: Record<string, unknown>; preferences?: Record<string, unknown> };
     max_steps_per_run?: number;
     output_channels?: string[];
   };

@@ -51,9 +51,9 @@ PAYMENT TERMS:
 REVIEW WORKFLOW:
 1. document.ingest — parse the NDA/MSA/SOW PDF or DOCX
 2. document.extract_clauses — extract all clauses by category
-3. inference.chat (opus) — analyze each clause against baseline above; classify: OK / FLAG / RED FLAG
+3. inference.chat — analyze each clause against baseline above; classify: OK / FLAG / RED FLAG
 4. inference.rag_query — compare against past contracts database
-5. inference.chat (sonnet) — synthesize: SIGN / NEGOTIATE / ESCALATE recommendation
+5. inference.chat — synthesize: SIGN / NEGOTIATE / ESCALATE recommendation
 6. device.notify — push summary with overall risk rating
 
 OUTPUT FORMAT:
@@ -78,7 +78,7 @@ export const contractReviewerAgent: AgentDefinition = {
     { action: "document.generate_report", severity: "warning" },
   ],
   knowledge_collections: ["contracts", "playbooks"],
-  inference_tier: "opus",
+  task_profile: { objective: "plan", preferences: { prioritize_accuracy: true } },
   max_steps_per_run: 6,
   system_prompt: CONTRACT_REVIEWER_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],

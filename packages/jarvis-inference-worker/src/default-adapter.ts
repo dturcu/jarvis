@@ -5,7 +5,7 @@ import {
   embedTexts,
   listModels,
   buildModelInfo,
-  classifyModelTier,
+  classifyModelSize,
   inferCapabilities,
   selectEmbeddingModel,
   selectModel,
@@ -85,12 +85,11 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
       targetRuntime = rt;
       modelId = match.id;
     } else {
-      const tier = input.tier ?? "sonnet";
-      const selected = selectModel(flatModels, tier);
+      const selected = selectModel(flatModels, "balanced_local");
       if (!selected) {
         throw new InferenceWorkerError(
           "NO_SUITABLE_MODEL",
-          `No model available for tier '${tier}'.`,
+          "No suitable model available.",
           true
         );
       }
@@ -211,7 +210,7 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
         return ids.map<InferenceModelEntry>((id) => ({
           id,
           runtime: runtime.name,
-          tier: classifyModelTier(id),
+          size_class: classifyModelSize(id),
           capabilities: inferCapabilities(id)
         }));
       })
@@ -308,7 +307,6 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
         const result = await this.chat({
           messages: job.messages,
           model: job.model,
-          tier: "sonnet"
         });
         jobStatus.status = "completed";
         jobStatus.content = result.structured_output.content;

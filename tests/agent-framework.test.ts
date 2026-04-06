@@ -17,7 +17,7 @@ function makeDefinition(overrides: Partial<AgentDefinition> = {}): AgentDefiniti
     capabilities: ["files.read", "inference.chat"],
     approval_gates: [],
     knowledge_collections: [],
-    inference_tier: "haiku",
+    task_profile: { objective: "classify", preferences: { prioritize_speed: true } },
     max_steps_per_run: 5,
     system_prompt: "You are a test agent.",
     output_channels: ["chat"],

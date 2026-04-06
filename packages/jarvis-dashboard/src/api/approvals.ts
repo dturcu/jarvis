@@ -1,31 +1,14 @@
 import { Router } from 'express'
+import { DatabaseSync } from 'node:sqlite'
 import os from 'os'
 import { join } from 'path'
-import fs from 'fs'
+import { listApprovals, resolveApproval } from '@jarvis/runtime'
 
-const approvalsPath = join(os.homedir(), '.jarvis', 'approvals.json')
-
-interface Approval {
-  id: string
-  status: string
-  [key: string]: unknown
-}
-
-function readApprovals(): Approval[] {
-  if (!fs.existsSync(approvalsPath)) return []
-  try {
-    return JSON.parse(fs.readFileSync(approvalsPath, 'utf8')) as Approval[]
-  } catch {
-    return []
-  }
-}
-
-function writeApprovals(approvals: Approval[]): void {
-  const dir = join(os.homedir(), '.jarvis')
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true })
-  }
-  fs.writeFileSync(approvalsPath, JSON.stringify(approvals, null, 2))
+function getDb(): DatabaseSync {
+  const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'runtime.db'))
+  db.exec("PRAGMA journal_mode = WAL;")
+  db.exec("PRAGMA busy_timeout = 5000;")
+  return db
 }
 
 export const approvalsRouter = Router()
@@ -33,36 +16,48 @@ export const approvalsRouter = Router()
 // GET / — list approvals (optionally ?status=pending)
 approvalsRouter.get('/', (req, res) => {
   const { status } = req.query as { status?: string }
-  const approvals = readApprovals()
-  if (status) {
-    res.json(approvals.filter(a => a.status === status))
-  } else {
-    res.json(approvals)
+  const db = getDb()
+  try {
+    const validStatuses = ['pending', 'approved', 'rejected'] as const
+    const filter = validStatuses.includes(status as typeof validStatuses[number])
+      ? (status as 'pending' | 'approved' | 'rejected')
+      : undefined
+    res.json(listApprovals(db, filter))
+  } finally {
+    try { db.close() } catch { /* best-effort */ }
   }
 })
 
 // POST /:id/approve — set status=approved
 approvalsRouter.post('/:id/approve', (req, res) => {
-  const approvals = readApprovals()
-  const idx = approvals.findIndex(a => a.id === req.params.id)
-  if (idx === -1) {
-    res.status(404).json({ error: 'Approval not found' })
-    return
+  const db = getDb()
+  try {
+    const ok = resolveApproval(db, req.params.id!, 'approved', 'dashboard')
+    if (!ok) {
+      res.status(404).json({ error: 'Approval not found or already resolved' })
+      return
+    }
+    const approvals = listApprovals(db)
+    const entry = approvals.find(a => a.id === req.params.id)
+    res.json(entry)
+  } finally {
+    try { db.close() } catch { /* best-effort */ }
   }
-  approvals[idx] = { ...approvals[idx], status: 'approved', resolvedAt: new Date().toISOString() }
-  writeApprovals(approvals)
-  res.json(approvals[idx])
 })
 
 // POST /:id/reject — set status=rejected
 approvalsRouter.post('/:id/reject', (req, res) => {
-  const approvals = readApprovals()
-  const idx = approvals.findIndex(a => a.id === req.params.id)
-  if (idx === -1) {
-    res.status(404).json({ error: 'Approval not found' })
-    return
+  const db = getDb()
+  try {
+    const ok = resolveApproval(db, req.params.id!, 'rejected', 'dashboard')
+    if (!ok) {
+      res.status(404).json({ error: 'Approval not found or already resolved' })
+      return
+    }
+    const approvals = listApprovals(db)
+    const entry = approvals.find(a => a.id === req.params.id)
+    res.json(entry)
+  } finally {
+    try { db.close() } catch { /* best-effort */ }
   }
-  approvals[idx] = { ...approvals[idx], status: 'rejected', resolvedAt: new Date().toISOString() }
-  writeApprovals(approvals)
-  res.json(approvals[idx])
 })

@@ -39,7 +39,7 @@ type AgentCommandArgs = {
   alertId?: string;
   label?: string;
   systemPrompt?: string;
-  inferenceTier?: "haiku" | "sonnet" | "opus";
+  taskProfile?: { objective: string; constraints?: Record<string, unknown>; preferences?: Record<string, unknown> };
   maxStepsPerRun?: number;
   capabilities?: string[];
   outputChannels?: string[];
@@ -52,7 +52,7 @@ function asLiteralUnion<const Values extends readonly [string, ...string[]]>(
 }
 
 const triggerKindSchema = asLiteralUnion(["manual", "schedule", "event", "threshold"] as const);
-const inferenceTierSchema = asLiteralUnion(["haiku", "sonnet", "opus"] as const);
+const taskObjectiveSchema = asLiteralUnion(["plan", "execute", "critique", "summarize", "extract", "classify", "answer", "code", "rag_synthesis"] as const);
 
 function createAgentTool(
   ctx: OpenClawPluginToolContext,
@@ -156,22 +156,26 @@ export function createAgentTools(
       ctx,
       "agent_configure",
       "Agent Configure",
-      "Update the configuration of a registered agent including its system prompt, inference tier, capabilities, and output channels.",
+      "Update the configuration of a registered agent including its system prompt, task profile, capabilities, and output channels.",
       Type.Object({
         agent_id: Type.String({ minLength: 1, description: "ID of the agent to configure." }),
         label: Type.Optional(Type.String({ minLength: 1, description: "Human-readable label for the agent." })),
         system_prompt: Type.Optional(Type.String({ minLength: 1, description: "System prompt to use for the agent." })),
-        inference_tier: Type.Optional(inferenceTierSchema),
+        task_profile: Type.Optional(Type.Object({
+          objective: taskObjectiveSchema,
+          constraints: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+          preferences: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+        })),
         max_steps_per_run: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, description: "Maximum steps allowed per run." })),
         capabilities: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { description: "List of capability identifiers for this agent." })),
         output_channels: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { description: "Output channel identifiers for agent results." })),
       }),
-      (toolCtx, params: { agent_id: string; label?: string; system_prompt?: string; inference_tier?: AgentConfigureParams["inferenceTier"]; max_steps_per_run?: number; capabilities?: string[]; output_channels?: string[] }) =>
+      (toolCtx, params: { agent_id: string; label?: string; system_prompt?: string; task_profile?: AgentConfigureParams["taskProfile"]; max_steps_per_run?: number; capabilities?: string[]; output_channels?: string[] }) =>
         submitAgentConfigure(toolCtx, {
           agentId: params.agent_id,
           label: params.label,
           systemPrompt: params.system_prompt,
-          inferenceTier: params.inference_tier,
+          taskProfile: params.task_profile,
           maxStepsPerRun: params.max_steps_per_run,
           capabilities: params.capabilities,
           outputChannels: params.output_channels,
@@ -279,7 +283,7 @@ export function createAgentCommand() {
             agentId: args.agentId,
             label: args.label,
             systemPrompt: args.systemPrompt,
-            inferenceTier: args.inferenceTier,
+            taskProfile: args.taskProfile,
             maxStepsPerRun: args.maxStepsPerRun,
             capabilities: args.capabilities,
             outputChannels: args.outputChannels,

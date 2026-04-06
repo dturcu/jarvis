@@ -223,8 +223,8 @@
       "http_routes": [],
       "notes": [
         "Auto-detects Ollama and LM Studio runtimes at their default ports.",
-        "Routes requests to the optimal local model based on requested tier (haiku/sonnet/opus).",
-        "Falls back to adjacent tiers when exact match is unavailable.",
+        "Routes requests to the optimal local model based on task profile and selection policy.",
+        "Falls back across size classes when exact match is unavailable.",
         "Provides RAG indexing and querying backed by local embeddings.",
         "Supports async batch inference with status polling."
       ]

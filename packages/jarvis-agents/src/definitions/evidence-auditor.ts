@@ -47,7 +47,7 @@ ANALYSIS WORKFLOW:
 1. files.search — scan project directory for work products matching known patterns
 2. document.ingest — parse each found document
 3. document.analyze_compliance — check against ISO 26262 Part 6 checklist
-4. inference.chat (sonnet) — cross-reference: DIA coverage, TSR completeness, traceability gaps
+4. inference.chat — cross-reference: DIA coverage, TSR completeness, traceability gaps
 5. inference.rag_query — compare against ISO 26262 knowledge base
 6. document.generate_report — produce evidence gap matrix + gate-readiness summary
 7. device.notify — alert on critical gaps
@@ -75,7 +75,7 @@ export const evidenceAuditorAgent: AgentDefinition = {
     { action: "document.generate_report", severity: "warning" },
   ],
   knowledge_collections: ["iso26262", "playbooks", "case-studies"],
-  inference_tier: "sonnet",
+  task_profile: { objective: "plan" },
   max_steps_per_run: 7,
   system_prompt: EVIDENCE_AUDITOR_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],

@@ -263,7 +263,7 @@ describe("executeAgentJob — agent.status", () => {
     await executeAgentJob(
       makeEnvelope("agent.configure", {
         agent_id: "staffing-monitor",
-        updates: { inference_tier: "haiku" }
+        updates: { task_profile: { objective: "classify" } }
       }),
       adapter
     );
@@ -381,7 +381,7 @@ describe("executeAgentJob — agent.configure", () => {
     const result = await executeAgentJob(
       makeEnvelope("agent.configure", {
         agent_id: "bd-pipeline",
-        updates: { inference_tier: "sonnet" }
+        updates: { task_profile: { objective: "plan" } }
       }),
       adapter
     );
@@ -389,14 +389,14 @@ describe("executeAgentJob — agent.configure", () => {
     expect(result.status).toBe("completed");
     const out = result.structured_output as Record<string, unknown>;
     expect(Array.isArray(out.applied_updates)).toBe(true);
-    expect(out.applied_updates).toContain("inference_tier");
+    expect(out.applied_updates).toContain("task_profile");
   });
 
   it("configure returns applied_updates array with correct keys", async () => {
     const result = await executeAgentJob(
       makeEnvelope("agent.configure", {
         agent_id: "proposal-engine",
-        updates: { inference_tier: "opus", max_steps_per_run: 10 }
+        updates: { task_profile: { objective: "plan", preferences: { prioritize_accuracy: true } }, max_steps_per_run: 10 }
       }),
       adapter
     );
@@ -404,16 +404,16 @@ describe("executeAgentJob — agent.configure", () => {
     expect(result.status).toBe("completed");
     const out = result.structured_output as Record<string, unknown>;
     const applied = out.applied_updates as string[];
-    expect(applied).toContain("inference_tier");
+    expect(applied).toContain("task_profile");
     expect(applied).toContain("max_steps_per_run");
     expect(applied).toHaveLength(2);
   });
 
-  it("configure inference_tier update", async () => {
+  it("configure task_profile update", async () => {
     const result = await executeAgentJob(
       makeEnvelope("agent.configure", {
         agent_id: "evidence-auditor",
-        updates: { inference_tier: "haiku" }
+        updates: { task_profile: { objective: "classify", preferences: { prioritize_speed: true } } }
       }),
       adapter
     );
@@ -421,7 +421,7 @@ describe("executeAgentJob — agent.configure", () => {
     expect(result.status).toBe("completed");
     const out = result.structured_output as Record<string, unknown>;
     expect(out.agent_id).toBe("evidence-auditor");
-    expect(out.applied_updates).toContain("inference_tier");
+    expect(out.applied_updates).toContain("task_profile");
   });
 
   it("configure max_steps_per_run update", async () => {

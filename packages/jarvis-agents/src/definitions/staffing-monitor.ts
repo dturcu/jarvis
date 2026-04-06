@@ -65,7 +65,7 @@ export const staffingMonitorAgent: AgentDefinition = {
     { action: "email.send", severity: "critical" },
   ],
   knowledge_collections: ["playbooks"],
-  inference_tier: "sonnet",
+  task_profile: { objective: "plan" },
   max_steps_per_run: 7,
   system_prompt: STAFFING_MONITOR_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
