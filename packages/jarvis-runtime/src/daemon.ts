@@ -153,6 +153,30 @@ async function main() {
     logger.warn(`Failed to recover stale claims: ${e instanceof Error ? e.message : String(e)}`);
   }
 
+  // Recover runs stuck in awaiting_approval with no pending approvals
+  try {
+    const stuckRuns = runtimeDb.prepare(`
+      SELECT r.run_id, r.agent_id FROM runs r
+      WHERE r.status = 'awaiting_approval'
+      AND NOT EXISTS (
+        SELECT 1 FROM approvals a WHERE a.run_id = r.run_id AND a.status = 'pending'
+      )
+    `).all() as Array<{ run_id: string; agent_id: string }>;
+
+    if (stuckRuns.length > 0) {
+      const runStore = new RunStore(runtimeDb);
+      for (const run of stuckRuns) {
+        runStore.transition(run.run_id, run.agent_id, "failed", "run_failed", {
+          details: { reason: "restart_recovery", original_status: "awaiting_approval" },
+        });
+        logger.info(`Restart recovery: failed stuck run ${run.run_id} (was awaiting_approval with no pending approvals)`);
+      }
+      logger.info(`Restart recovery: resolved ${stuckRuns.length} stuck awaiting_approval run(s)`);
+    }
+  } catch (e) {
+    logger.warn(`Restart recovery (stuck runs): ${e instanceof Error ? e.message : String(e)}`);
+  }
+
   // Orchestrator deps
   const deps = { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, runtimeDb };
 
@@ -195,10 +219,16 @@ async function main() {
         if (cmd.command_type === "run_agent" && cmd.target_agent_id) {
           logger.info(`Command ${cmd.command_id}: run_agent ${cmd.target_agent_id}`);
 
-          // Enqueue the agent with command_id for atomic linkage.
+          // Parse command payload (carries retry_of, etc.) for the orchestrator
+          let commandPayload: Record<string, unknown> | undefined;
+          if (cmd.payload_json) {
+            try { commandPayload = JSON.parse(cmd.payload_json) as Record<string, unknown>; } catch { /* ignore malformed */ }
+          }
+
+          // Enqueue the agent with command_id + payload for atomic linkage.
           // The orchestrator receives command_id via trigger and links it to the run directly.
           // RunStore.completeCommand() marks the command completed/failed when the run ends.
-          agentQueue.enqueue(cmd.target_agent_id, { kind: "manual" }, 0, cmd.command_id);
+          agentQueue.enqueue(cmd.target_agent_id, { kind: "manual" }, 0, cmd.command_id, commandPayload);
         } else {
           logger.warn(`Unknown command type: ${cmd.command_type}`);
           runtimeDb.prepare(

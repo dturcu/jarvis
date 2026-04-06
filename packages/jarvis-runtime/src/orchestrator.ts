@@ -46,8 +46,9 @@ export async function runAgent(
   // Initialize durable run tracking if runtime DB is available
   const runStore = runtimeDb ? new RunStore(runtimeDb) : null;
 
-  // command_id is carried directly on the trigger by AgentQueue (atomic linkage)
+  // command_id and command_payload are carried directly on the trigger by AgentQueue (atomic linkage)
   const commandId = (trigger as { command_id?: string }).command_id;
+  const commandPayload = (trigger as { command_payload?: Record<string, unknown> }).command_payload;
 
   // Load plugin permissions if this is a plugin agent
   const pluginPermissions = loadPluginPermissions(agentId, runtimeDb);
@@ -55,6 +56,13 @@ export async function runAgent(
   // 1. Start run
   const run = runtime.startRun(agentId, trigger);
   const durableRunId = runStore?.startRun(agentId, trigger.kind, commandId, run.goal);
+
+  // Log retry relationship in the audit trail so retry runs are linked to originals
+  if (commandPayload?.retry_of && runStore) {
+    runStore.emitEvent(run.run_id, agentId, "run_started", {
+      details: { retry_of: commandPayload.retry_of as string },
+    });
+  }
 
   // Create a context-aware logger for this run
   const log = logger.withContext({ run_id: run.run_id, agent_id: agentId });
@@ -377,6 +385,22 @@ export async function runAgent(
           agent_id: agentId, run_id: run.run_id, step: step.step,
           action: step.action, reasoning: step.reasoning, outcome: `error: ${errMsg}`,
         });
+      }
+
+      // ── Post-step cancellation check ──
+      // Detect cancellation that occurred during step execution
+      if (runStore) {
+        const postStepStatus = runStore.getStatus(run.run_id);
+        if (postStepStatus === "cancelled") {
+          log.info("Run cancelled during step execution — stopping after step completion");
+          runStore.emitEvent(run.run_id, agentId, "run_cancelled", {
+            step_no: step.step, action: step.action,
+            details: { reason: "operator_cancel", cancelled_after_step: step.step },
+          });
+          statusWriter?.completeRun("cancelled");
+          runtime.completeRun(run.run_id, "Cancelled by operator after step " + step.step);
+          return runtime.getRun(run.run_id)!;
+        }
       }
     }
 

@@ -110,6 +110,15 @@ runsRouter.post('/:runId/retry', (req, res) => {
       return
     }
 
+    // Check if original run had outbound side effects (email, social, CRM moves)
+    // to warn operators that retrying may re-trigger those actions
+    const outboundActions = ['email.send', 'social.post', 'crm.move_stage', 'document.generate_report']
+    const completedSteps = db.prepare(
+      "SELECT action FROM run_events WHERE run_id = ? AND event_type = 'step_completed' AND action IS NOT NULL"
+    ).all(run.run_id) as Array<{ action: string }>
+    const hadOutbound = completedSteps.some(s => outboundActions.includes(s.action))
+    const retrySafety = hadOutbound ? 'warn_outbound_effects' : 'safe'
+
     const commandId = randomUUID()
     db.prepare(`
       INSERT INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
@@ -121,7 +130,7 @@ runsRouter.post('/:runId/retry', (req, res) => {
       new Date().toISOString(),
       `retry-${run.run_id}-${Date.now()}`
     )
-    res.json({ ok: true, command_id: commandId, agent_id: run.agent_id })
+    res.json({ ok: true, command_id: commandId, agent_id: run.agent_id, retry_of: run.run_id, retry_safety: retrySafety })
   } catch {
     res.status(500).json({ error: 'Failed to queue retry command' })
   } finally {
