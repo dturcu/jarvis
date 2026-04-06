@@ -15,8 +15,6 @@ import { settingsRouter } from './settings.js'
 import { portalRouter } from './portal.js'
 import { godmodeRouter } from './godmode.js'
 import { modelsRouter } from './models.js'
-import { policyRouter } from './policy.js'
-import { queueRouter } from './queue.js'
 import fs from 'fs'
 import { getHealthReport, getReadinessReport } from '@jarvis/runtime'
 import { createAuthMiddleware } from './middleware/auth.js'
@@ -66,8 +64,6 @@ app.use('/api/settings', settingsRouter)
 app.use('/portal/api', portalRouter)
 app.use('/api/godmode', godmodeRouter)
 app.use('/api/models', modelsRouter)
-app.use('/api/policy', policyRouter)
-app.use('/api/queue', queueRouter)
 
 app.get('/api/health', (_req, res) => {
   const report = getHealthReport()

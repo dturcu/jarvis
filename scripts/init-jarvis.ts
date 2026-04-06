@@ -1,25 +1,16 @@
 /**
- * Jarvis initialization script — production bootstrap.
+ * Jarvis initialization script.
  *
  * Creates ~/.jarvis/ directory and initializes the CRM, Knowledge, and Runtime
-<<<<<<< HEAD
- * SQLite databases via the migration runner. Also initializes the state
- * persistence database.
- *
- * No demo data is seeded here. For demo data, run:
- *   npx tsx scripts/seed-demo.ts
- *
- * Idempotent — if databases already exist, applies any pending migrations.
-=======
  * SQLite databases via the migration runner. Seeds initial data on first creation.
  *
  * Idempotent — if databases already exist, applies any pending migrations and skips seeding.
->>>>>>> origin/master
  *
  * Usage:
  *   npx tsx scripts/init-jarvis.ts
  */
 
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
@@ -29,19 +20,6 @@ import {
   RUNTIME_MIGRATIONS,
   CRM_MIGRATIONS,
   KNOWLEDGE_MIGRATIONS,
-<<<<<<< HEAD
-  type Migration,
-} from "../packages/jarvis-runtime/src/migrations/runner.js";
-import { configureJarvisStatePersistence } from "../packages/jarvis-shared/src/state.js";
-
-// ─── Paths ──────────────────────────────────────────────────────────────────
-
-export const JARVIS_DIR = join(homedir(), ".jarvis");
-export const CRM_DB_PATH = join(JARVIS_DIR, "crm.db");
-export const KNOWLEDGE_DB_PATH = join(JARVIS_DIR, "knowledge.db");
-export const RUNTIME_DB_PATH = join(JARVIS_DIR, "runtime.db");
-export const STATE_DB_PATH = join(JARVIS_DIR, "state.sqlite");
-=======
 } from "../packages/jarvis-runtime/src/migrations/runner.js";
 
 // ─── Paths ──────────────────────────────────────────────────────────────────
@@ -50,19 +28,13 @@ const JARVIS_DIR = join(homedir(), ".jarvis");
 const CRM_DB_PATH = join(JARVIS_DIR, "crm.db");
 const KNOWLEDGE_DB_PATH = join(JARVIS_DIR, "knowledge.db");
 const RUNTIME_DB_PATH = join(JARVIS_DIR, "runtime.db");
->>>>>>> origin/master
 
-// ─── Database Initialization ────────────────────────────────────────────────
+function now(): string {
+  return new Date().toISOString();
+}
 
-export function initDatabase(
-  label: string,
-  dbPath: string,
-  migrations: Migration[],
-): boolean {
-  const isNew = !existsSync(dbPath);
+// ─── CRM Database ───────────────────────────────────────────────────────────
 
-<<<<<<< HEAD
-=======
 function seedCrmData(db: DatabaseSync): void {
   const ts = now();
   const contacts = [
@@ -292,7 +264,6 @@ function initDatabase(
 ): boolean {
   const isNew = !existsSync(dbPath);
 
->>>>>>> origin/master
   const db = new DatabaseSync(dbPath);
   try {
     db.exec("PRAGMA journal_mode = WAL;");
@@ -302,14 +273,11 @@ function initDatabase(
     runMigrations(db, migrations);
 
     const applied = db.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number };
-<<<<<<< HEAD
-=======
 
     if (isNew && seedFn) {
       seedFn(db);
     }
 
->>>>>>> origin/master
     console.log(`  [${isNew ? "created" : "updated"}] ${label} database: ${dbPath} (${applied.n} migration(s))`);
   } finally {
     db.close();
@@ -331,30 +299,15 @@ function main(): void {
     console.log(`  [exists]  ${JARVIS_DIR}\n`);
   }
 
-<<<<<<< HEAD
-  const crmCreated = initDatabase("CRM", CRM_DB_PATH, CRM_MIGRATIONS);
-  const knowledgeCreated = initDatabase("Knowledge", KNOWLEDGE_DB_PATH, KNOWLEDGE_MIGRATIONS);
-  const runtimeCreated = initDatabase("Runtime", RUNTIME_DB_PATH, RUNTIME_MIGRATIONS);
-
-  // Initialize state persistence database
-  configureJarvisStatePersistence({ databasePath: STATE_DB_PATH });
-  const stateIsNew = !existsSync(STATE_DB_PATH);
-  console.log(`  [${stateIsNew ? "created" : "updated"}] State database: ${STATE_DB_PATH}`);
-=======
   const crmCreated = initDatabase("CRM", CRM_DB_PATH, CRM_MIGRATIONS, seedCrmData);
   const knowledgeCreated = initDatabase("Knowledge", KNOWLEDGE_DB_PATH, KNOWLEDGE_MIGRATIONS, seedKnowledgeData);
   const runtimeCreated = initDatabase("Runtime", RUNTIME_DB_PATH, RUNTIME_MIGRATIONS);
->>>>>>> origin/master
 
   console.log("\n── Summary ──────────────────────────────────────────────");
   console.log(`  Directory:    ${JARVIS_DIR}`);
   console.log(`  CRM DB:       ${crmCreated ? "CREATED" : "already existed"}`);
   console.log(`  Knowledge DB: ${knowledgeCreated ? "CREATED" : "already existed"}`);
   console.log(`  Runtime DB:   ${runtimeCreated ? "CREATED" : "already existed"}`);
-<<<<<<< HEAD
-  console.log(`  State DB:     ${STATE_DB_PATH}`);
-=======
->>>>>>> origin/master
   console.log("  Done.\n");
 }
 

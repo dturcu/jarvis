@@ -67,7 +67,6 @@ export const driveWatcherAgent: AgentDefinition = {
   task_profile: { objective: "classify", preferences: { prioritize_speed: true } },
   max_steps_per_run: 10,
   system_prompt: DRIVE_WATCHER_SYSTEM_PROMPT,
-  experimental: true,
   output_channels: ["telegram:daniel"],
   maturity: "operational",
 };
