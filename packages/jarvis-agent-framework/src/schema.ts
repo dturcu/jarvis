@@ -82,4 +82,6 @@ export type AgentDefinition = {
   output_channels: string[];
   planner_mode?: PlannerMode;
   maturity?: AgentMaturity;
+  /** When true, the agent is not part of the V1 production set and may be unstable. */
+  experimental?: boolean;
 };

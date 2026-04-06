@@ -72,5 +72,7 @@ export const socialEngagementAgent: AgentDefinition = {
   max_steps_per_run: 15,
   system_prompt: SOCIAL_ENGAGEMENT_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
+  planner_mode: "single",
   maturity: "operational",
+  experimental: true,
 };

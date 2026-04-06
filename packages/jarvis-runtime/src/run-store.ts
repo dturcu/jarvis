@@ -16,7 +16,8 @@ export type RunEventType =
   | "disagreement_resolved"
   | "run_completed"
   | "run_failed"
-  | "run_cancelled";
+  | "run_cancelled"
+  | "daemon_shutdown";
 
 /** Valid state transitions for the run state machine. */
 const VALID_TRANSITIONS: Record<RunStatus, RunStatus[]> = {

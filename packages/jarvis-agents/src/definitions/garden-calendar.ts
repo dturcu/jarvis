@@ -69,5 +69,7 @@ export const gardenCalendarAgent: AgentDefinition = {
   max_steps_per_run: 5,
   system_prompt: GARDEN_CALENDAR_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
+  planner_mode: "single",
   maturity: "operational",
+  experimental: true,
 };

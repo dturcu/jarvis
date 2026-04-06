@@ -194,6 +194,11 @@ export async function runAgent(
       details: { steps: plan.steps.length, goal: run.goal, planner_mode: plannerMode },
     });
 
+    // Log model selection for observability
+    runStore?.emitEvent(run.run_id, agentId, "model_selected", {
+      details: { source: "planner", planner_mode: plannerMode },
+    });
+
     if (plan.steps.length === 0) {
       log.warn("Produced empty plan");
       runStore?.transition(run.run_id, agentId, "completed", "run_completed", {
@@ -212,6 +217,19 @@ export async function runAgent(
 
     // 4. Execute steps sequentially
     for (const step of plan.steps) {
+      // ── Check for external cancellation before each step ──
+      // An operator may cancel the run via the dashboard while it's executing.
+      // We check the durable status from the DB to detect this.
+      if (runStore) {
+        const durableStatus = runStore.getStatus(run.run_id);
+        if (durableStatus === "cancelled") {
+          log.info("Run cancelled externally — stopping execution");
+          statusWriter?.completeRun("cancelled");
+          runtime.completeRun(run.run_id, "Cancelled by operator");
+          return runtime.getRun(run.run_id)!;
+        }
+      }
+
       const stepLog = log.withContext({ step_no: step.step, action: step.action });
       stepLog.info(`Step ${step.step}/${plan.steps.length}: ${step.action}`, { reasoning: step.reasoning.slice(0, 100) });
 
@@ -362,7 +380,14 @@ export async function runAgent(
       }
     }
 
-    // 5. Complete run
+    // 5. Complete run — check durable status first to handle external cancellation
+    const finalStatus = runStore?.getStatus(run.run_id);
+    if (finalStatus === "cancelled") {
+      log.info("Run was cancelled externally during final step — respecting cancellation");
+      statusWriter?.completeRun("cancelled");
+      runtime.completeRun(run.run_id, "Cancelled by operator");
+      return runtime.getRun(run.run_id)!;
+    }
     runStore?.transition(run.run_id, agentId, "completed", "run_completed", {
       details: { steps_completed: run.current_step, total_steps: plan.steps.length },
     });
