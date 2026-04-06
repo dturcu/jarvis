@@ -33,6 +33,13 @@ export type ReadinessReport = {
     runtime_db: boolean;
     daemon_running: boolean;
   };
+  details: {
+    migrations: { runtime: string | null; crm: string | null; knowledge: string | null };
+    pending_approvals: number;
+    pending_commands: number;
+    stale_claims: number;
+    overdue_schedules: number;
+  };
 };
 
 const startTime = Date.now();
@@ -141,6 +148,22 @@ export function getHealthReport(): HealthReport {
   return report;
 }
 
+function latestMigration(dbPath: string): string | null {
+  if (!fs.existsSync(dbPath)) return null;
+  try {
+    const db = new DatabaseSync(dbPath);
+    db.exec("PRAGMA journal_mode = WAL;");
+    db.exec("PRAGMA busy_timeout = 5000;");
+    const row = db.prepare(
+      "SELECT id FROM schema_migrations ORDER BY id DESC LIMIT 1",
+    ).get() as { id: string } | undefined;
+    db.close();
+    return row?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export function getReadinessReport(): ReadinessReport {
   const checks = {
     jarvis_dir: fs.existsSync(JARVIS_DIR),
@@ -150,25 +173,45 @@ export function getReadinessReport(): ReadinessReport {
     daemon_running: false,
   };
 
-  // Check daemon heartbeat
+  const details = {
+    migrations: {
+      runtime: latestMigration(RUNTIME_DB_PATH),
+      crm: latestMigration(CRM_DB_PATH),
+      knowledge: latestMigration(KNOWLEDGE_DB_PATH),
+    },
+    pending_approvals: 0,
+    pending_commands: 0,
+    stale_claims: 0,
+    overdue_schedules: 0,
+  };
+
+  // Check daemon heartbeat + operational metrics
   if (checks.runtime_db) {
     try {
       const rtDb = new DatabaseSync(RUNTIME_DB_PATH);
       rtDb.exec("PRAGMA journal_mode = WAL;");
       rtDb.exec("PRAGMA busy_timeout = 5000;");
+
       const row = rtDb.prepare(
         "SELECT last_seen_at FROM daemon_heartbeats ORDER BY last_seen_at DESC LIMIT 1",
       ).get() as { last_seen_at: string } | undefined;
-      rtDb.close();
 
       if (row) {
         checks.daemon_running = Date.now() - new Date(row.last_seen_at).getTime() < 30_000;
       }
+
+      details.pending_approvals = queryCount(rtDb, "SELECT COUNT(*) as n FROM approvals WHERE status = 'pending'");
+      details.pending_commands = queryCount(rtDb, "SELECT COUNT(*) as n FROM agent_commands WHERE status = 'queued'");
+      details.stale_claims = queryCount(rtDb, "SELECT COUNT(*) as n FROM agent_commands WHERE status = 'claimed' AND claimed_at < datetime('now', '-10 minutes')");
+      details.overdue_schedules = queryCount(rtDb, "SELECT COUNT(*) as n FROM schedules WHERE enabled = 1 AND next_fire_at < datetime('now')");
+
+      rtDb.close();
     } catch { /* can't check */ }
   }
 
   return {
     ready: checks.jarvis_dir && checks.crm_db && checks.knowledge_db && checks.runtime_db && checks.daemon_running,
     checks,
+    details,
   };
 }

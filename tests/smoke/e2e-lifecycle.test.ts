@@ -695,3 +695,111 @@ describe("E2E: Multi-Run Concurrency", () => {
     expect(recent[2].run_id).toBe(r1);
   });
 });
+
+// ── Daemon Restart: Stale Claim Recovery ─────────────────────────────────────
+
+describe("E2E: Daemon Restart — Stale Claim Recovery", () => {
+  let db: DatabaseSync;
+  let dbPath: string;
+
+  beforeEach(() => {
+    ({ db, path: dbPath } = createTestDb());
+  });
+
+  afterEach(() => cleanup(db, dbPath));
+
+  it("recovers stale claims older than threshold", () => {
+    // Simulate daemon A claiming commands, then crashing
+    const staleTime = new Date(Date.now() - 15 * 60 * 1000).toISOString(); // 15 min ago
+    const recentTime = new Date(Date.now() - 2 * 60 * 1000).toISOString(); // 2 min ago (not stale)
+
+    db.prepare(`INSERT INTO agent_commands (command_id, command_type, target_agent_id, status, created_at, claimed_at) VALUES (?, ?, ?, ?, ?, ?)`).run(
+      "cmd-stale-1", "run_agent", "garden-calendar", "claimed", staleTime, staleTime,
+    );
+    db.prepare(`INSERT INTO agent_commands (command_id, command_type, target_agent_id, status, created_at, claimed_at) VALUES (?, ?, ?, ?, ?, ?)`).run(
+      "cmd-stale-2", "run_agent", "bd-pipeline", "claimed", staleTime, staleTime,
+    );
+    db.prepare(`INSERT INTO agent_commands (command_id, command_type, target_agent_id, status, created_at, claimed_at) VALUES (?, ?, ?, ?, ?, ?)`).run(
+      "cmd-recent", "run_agent", "evidence-auditor", "claimed", recentTime, recentTime,
+    );
+
+    // Daemon B restarts — recover stale claims (same logic as daemon.ts startup)
+    const staleThreshold = new Date(Date.now() - 10 * 60 * 1000).toISOString(); // 10 min threshold
+    const result = db.prepare(
+      "UPDATE agent_commands SET status = 'queued', claimed_at = NULL WHERE status = 'claimed' AND claimed_at < ?",
+    ).run(staleThreshold);
+    const changes = (result as { changes: number }).changes;
+
+    expect(changes).toBe(2); // Only the two stale ones
+
+    // Verify state
+    const stale1 = db.prepare("SELECT status, claimed_at FROM agent_commands WHERE command_id = ?").get("cmd-stale-1") as Record<string, unknown>;
+    expect(stale1.status).toBe("queued");
+    expect(stale1.claimed_at).toBeNull();
+
+    const stale2 = db.prepare("SELECT status FROM agent_commands WHERE command_id = ?").get("cmd-stale-2") as Record<string, unknown>;
+    expect(stale2.status).toBe("queued");
+
+    const recent = db.prepare("SELECT status FROM agent_commands WHERE command_id = ?").get("cmd-recent") as Record<string, unknown>;
+    expect(recent.status).toBe("claimed"); // Not recovered — still active
+  });
+
+  it("recovered commands can be re-claimed without duplicates", () => {
+    const staleTime = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+
+    db.prepare(`INSERT INTO agent_commands (command_id, command_type, target_agent_id, status, created_at, claimed_at, idempotency_key) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
+      "cmd-recover", "run_agent", "garden-calendar", "claimed", staleTime, staleTime, "idem-garden-1",
+    );
+
+    // Recover
+    db.prepare("UPDATE agent_commands SET status = 'queued', claimed_at = NULL WHERE status = 'claimed' AND claimed_at < ?").run(
+      new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+    );
+
+    // Re-claim
+    const claimResult = db.prepare(
+      "UPDATE agent_commands SET status = 'claimed', claimed_at = ? WHERE command_id = ? AND status = 'queued'",
+    ).run(new Date().toISOString(), "cmd-recover");
+    expect((claimResult as { changes: number }).changes).toBe(1);
+
+    // Idempotency key prevents second insert of same command
+    expect(() => {
+      db.prepare(`INSERT INTO agent_commands (command_id, command_type, target_agent_id, status, created_at, idempotency_key) VALUES (?, ?, ?, ?, ?, ?)`).run(
+        "cmd-recover-2", "run_agent", "garden-calendar", "queued", new Date().toISOString(), "idem-garden-1",
+      );
+    }).toThrow();
+  });
+
+  it("shutdown marks in-flight runs as failed and releases claims", () => {
+    const store = new RunStore(db);
+    const r1 = store.startRun("agent-a", "schedule");
+    store.transition(r1, "agent-a", "executing", "step_started");
+    const r2 = store.startRun("agent-b", "manual");
+    // r2 stays in planning
+    const r3 = store.startRun("agent-c", "schedule");
+    store.transition(r3, "agent-c", "executing", "step_started");
+    store.transition(r3, "agent-c", "completed", "run_completed");
+
+    // Simulate claimed commands
+    db.prepare(`INSERT INTO agent_commands (command_id, command_type, target_agent_id, status, created_at, claimed_at) VALUES (?, ?, ?, ?, ?, ?)`).run(
+      "cmd-shutdown", "run_agent", "agent-a", "claimed", new Date().toISOString(), new Date().toISOString(),
+    );
+
+    // Shutdown sequence (same as daemon.ts shutdown)
+    const runResult = db.prepare(
+      "UPDATE runs SET status = 'failed', completed_at = ?, error = 'daemon_shutdown' WHERE status IN ('queued','planning','executing','awaiting_approval')",
+    ).run(new Date().toISOString());
+    const runChanges = (runResult as { changes: number }).changes;
+    expect(runChanges).toBe(2); // r1 (executing) and r2 (planning) — r3 already completed
+
+    const cmdResult = db.prepare(
+      "UPDATE agent_commands SET status = 'queued', claimed_at = NULL WHERE status = 'claimed'",
+    ).run();
+    expect((cmdResult as { changes: number }).changes).toBe(1);
+
+    // Verify
+    expect(store.getStatus(r1)).toBe("failed");
+    expect(store.getStatus(r2)).toBe("failed");
+    expect(store.getStatus(r3)).toBe("completed"); // Untouched
+  });
+});
