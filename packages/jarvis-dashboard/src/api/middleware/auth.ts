@@ -85,6 +85,18 @@ const ROUTE_PERMISSIONS: Record<string, Record<string, UserRole>> = {
   // Knowledge mutations require operator
   "/api/knowledge": { GET: "viewer", POST: "operator", PATCH: "operator", DELETE: "admin" },
 
+  // Support bundle contains sensitive diagnostics — admin only
+  "/api/support": { GET: "admin" },
+
+  // Service management
+  "/api/service": { GET: "viewer", POST: "admin" },
+
+  // Backup/restore require admin
+  "/api/backup": { GET: "operator", POST: "admin" },
+
+  // Safe mode
+  "/api/safemode": { GET: "viewer", POST: "admin" },
+
   // Read-only routes
   "/api/agents": { GET: "viewer" },
   "/api/daemon": { GET: "viewer" },
