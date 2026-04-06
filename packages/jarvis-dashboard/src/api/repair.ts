@@ -354,10 +354,29 @@ function checkModelRuntime(): RepairCheck {
       }
     }
 
+    // Check freshness — if last_seen_at is stale, models may be unavailable despite being enabled
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+    const freshRow = db.prepare(
+      'SELECT COUNT(*) as n FROM model_registry WHERE enabled = 1 AND last_seen_at > ?'
+    ).get(fiveMinAgo) as { n: number }
+
+    if (freshRow.n === 0) {
+      return {
+        name: 'model_runtime',
+        status: 'warning',
+        message: `${row.n} model(s) enabled but none seen in the last 5 minutes — runtime may be down`,
+        severity: 2,
+        fix_action: {
+          type: 'start_model_runtime',
+          description: 'Verify LM Studio or Ollama is running and has loaded models',
+        },
+      }
+    }
+
     return {
       name: 'model_runtime',
       status: 'ok',
-      message: `${row.n} enabled model(s) available`,
+      message: `${freshRow.n} enabled model(s) recently seen`,
       severity: 0,
       fix_action: null,
     }
@@ -391,9 +410,11 @@ function checkStaleClaims(): RepairCheck {
   let db: DatabaseSync | undefined
   try {
     db = openRuntimeDb()
+    // Use ISO timestamp for comparison (claimed_at stored as ISO string)
+    const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
     const row = db.prepare(
-      "SELECT COUNT(*) as n FROM agent_commands WHERE status = 'claimed' AND claimed_at < datetime('now', '-10 minutes')"
-    ).get() as { n: number }
+      "SELECT COUNT(*) as n FROM agent_commands WHERE status = 'claimed' AND claimed_at < ?"
+    ).get(tenMinAgo) as { n: number }
 
     if (row.n > 0) {
       return {
@@ -418,10 +439,10 @@ function checkStaleClaims(): RepairCheck {
   } catch {
     return {
       name: 'stale_claims',
-      status: 'ok',
+      status: 'warning',
       message: 'Cannot check stale claims — database error',
-      severity: 0,
-      fix_action: null,
+      severity: 1,
+      fix_action: { type: 'manual', description: 'Inspect the runtime database and retry the repair check' },
     }
   } finally {
     try { db?.close() } catch { /* best-effort */ }
@@ -470,10 +491,10 @@ function checkOrphanRuns(): RepairCheck {
   } catch {
     return {
       name: 'orphan_runs',
-      status: 'ok',
+      status: 'warning',
       message: 'Cannot check orphan runs — database error',
-      severity: 0,
-      fix_action: null,
+      severity: 2,
+      fix_action: { type: 'manual', description: 'Inspect the runtime database and retry the repair check' },
     }
   } finally {
     try { db?.close() } catch { /* best-effort */ }
@@ -596,10 +617,7 @@ repairRouter.get('/', (_req, res) => {
     .sort((a, b) => b.severity - a.severity)
 
   const recommended_actions = actionable.map(c => {
-    // Build a concise human-readable recommendation
-    if (c.fix_action!.field) {
-      return `Fix configuration: set ${c.fix_action!.field}`
-    }
+    // Use the full description as the primary recommendation
     return c.fix_action!.description
   })
 
