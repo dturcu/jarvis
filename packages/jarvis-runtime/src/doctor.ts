@@ -131,8 +131,14 @@ function checkDatabase(name: string, dbPath: string, tables: string[]) {
 }
 
 function checkDatabases() {
-  checkDatabase("CRM", CRM_DB_PATH, ["contacts", "notes", "stage_history"]);
-  checkDatabase("Knowledge", KNOWLEDGE_DB_PATH, ["documents", "playbooks", "entities", "relations", "decisions"]);
+  checkDatabase("CRM", CRM_DB_PATH, [
+    "schema_migrations", "contacts", "notes", "stage_history",
+    "campaigns", "campaign_recipients",
+  ]);
+  checkDatabase("Knowledge", KNOWLEDGE_DB_PATH, [
+    "schema_migrations", "documents", "playbooks", "entities", "relations",
+    "decisions", "entity_provenance", "memory", "agent_runs", "embedding_chunks",
+  ]);
   checkDatabase("Runtime", RUNTIME_DB_PATH, [
     "schema_migrations", "approvals", "agent_commands", "runs", "run_events",
     "daemon_heartbeats", "notifications", "plugin_installs", "audit_log",

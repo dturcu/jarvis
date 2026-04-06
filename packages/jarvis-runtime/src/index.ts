@@ -1,6 +1,6 @@
 export { loadConfig, validateConfig, type JarvisRuntimeConfig, type ConfigCheckResult } from "./config.js";
 export { openRuntimeDb } from "./runtime-db.js";
-export { runMigrations } from "./migrations/runner.js";
+export { runMigrations, RUNTIME_MIGRATIONS, CRM_MIGRATIONS, KNOWLEDGE_MIGRATIONS, type Migration } from "./migrations/runner.js";
 export { Logger, type LogContext } from "./logger.js";
 export { createWorkerRegistry, buildEnvelope, type WorkerRegistry } from "./worker-registry.js";
 export { buildPlanWithInference } from "./planner-real.js";
