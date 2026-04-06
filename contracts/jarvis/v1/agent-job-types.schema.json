@@ -288,6 +288,11 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "planner_mode": {
+          "type": "string",
+          "enum": ["single", "critic", "multi"],
+          "description": "Controls multi-viewpoint planning: single (default), critic (plan+review), multi (N planners+evaluator)"
         }
       },
       "additionalProperties": false

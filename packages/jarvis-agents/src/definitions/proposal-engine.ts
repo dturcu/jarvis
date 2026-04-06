@@ -60,4 +60,5 @@ export const proposalEngineAgent: AgentDefinition = {
   max_steps_per_run: 8,
   system_prompt: PROPOSAL_ENGINE_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
+  planner_mode: "multi",
 };

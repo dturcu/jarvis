@@ -82,4 +82,5 @@ export const contractReviewerAgent: AgentDefinition = {
   max_steps_per_run: 6,
   system_prompt: CONTRACT_REVIEWER_SYSTEM_PROMPT,
   output_channels: ["telegram:daniel"],
+  planner_mode: "multi",
 };

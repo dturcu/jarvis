@@ -4,6 +4,8 @@ import { AgentRuntime, SqliteKnowledgeStore, LessonCapture } from "@jarvis/agent
 import { SqliteEntityGraph } from "@jarvis/agent-framework";
 import { SqliteDecisionLog } from "@jarvis/agent-framework";
 import { buildPlanWithInference } from "./planner-real.js";
+import { buildPlanWithCritic } from "./planner-critic.js";
+import { buildPlanMultiViewpoint } from "./planner-multi.js";
 import { requestApproval, waitForApproval } from "./approval-bridge.js";
 import { buildEnvelope, type WorkerRegistry } from "./worker-registry.js";
 import { writeTelegramQueue } from "./notify.js";
@@ -57,8 +59,8 @@ export async function runAgent(
     // 2. Gather context (including RAG-augmented chunks if pipeline is available)
     const context = await gatherContext(def, knowledgeStore, entityGraph, ragPipeline, logger);
 
-    // 3. Build plan via inference
-    const plan = await buildPlanWithInference({
+    // 3. Build plan via inference (dispatch based on planner_mode)
+    const plannerParams = {
       agent_id: agentId,
       run_id: run.run_id,
       goal: run.goal,
@@ -67,7 +69,107 @@ export async function runAgent(
       capabilities: def.capabilities,
       max_steps: def.max_steps_per_run,
       deps: { chat: registry.chat.bind(registry), logger },
-    });
+    };
+
+    const plannerMode = def.planner_mode ?? "single";
+    let plan;
+
+    if (plannerMode === "critic") {
+      const result = await buildPlanWithCritic(plannerParams);
+      plan = result.plan;
+      log.info(`Critic assessment: ${result.critique.overall_assessment}`, {
+        issues: result.critique.issues.length,
+        risks: result.critique.risks.length,
+      });
+      runStore?.emitEvent(run.run_id, agentId, "plan_critique", {
+        details: {
+          assessment: result.critique.overall_assessment,
+          issues: result.critique.issues,
+          risks: result.critique.risks,
+        },
+      });
+    } else if (plannerMode === "multi") {
+      const result = await buildPlanMultiViewpoint({
+        ...plannerParams,
+        run_critic: true,
+      });
+      plan = result.plan;
+      log.info(`Multi-viewpoint: ${result.candidates.length} plans, selected #${result.selected_index} (score ${result.scores[0]?.total ?? "N/A"})`);
+      runStore?.emitEvent(run.run_id, agentId, "plan_multi_viewpoint", {
+        details: {
+          candidate_count: result.candidates.length,
+          selected_index: result.selected_index,
+          scores: result.scores.map(s => ({ index: s.plan_index, total: s.total })),
+          disagreement: result.disagreement,
+        },
+      });
+
+      // Disagreement-aware escalation: if planners disagree substantially,
+      // request human approval before proceeding with the selected plan
+      if (result.disagreement.disagreement && runtimeDb) {
+        log.warn(`Planner disagreement: ${result.disagreement.reason}`);
+        const approvalPayload = [
+          `Multi-viewpoint planners disagreed: ${result.disagreement.reason}`,
+          `Unique actions: ${result.disagreement.details.unique_actions.join(", ")}`,
+          `Step count range: ${result.disagreement.details.step_count_range.join("-")}`,
+          `\nSelected plan (score ${result.scores[0]?.total ?? "N/A"}):`,
+          ...result.plan.steps.map(s => `  ${s.step}. [${s.action}] ${s.reasoning}`),
+          `\nAlternative plans:`,
+          ...result.candidates
+            .filter((_, i) => i !== result.selected_index)
+            .map((c, i) => `  Plan ${i + 1}: ${c.steps.map(s => s.action).join(" → ")}`),
+        ].join("\n");
+
+        runStore?.transition(run.run_id, agentId, "awaiting_approval", "disagreement_escalation", {
+          details: { reason: result.disagreement.reason },
+        });
+
+        const approvalId = requestApproval(runtimeDb, {
+          agent_id: agentId,
+          run_id: run.run_id,
+          action: "plan_disagreement",
+          severity: "warning",
+          payload: approvalPayload,
+        });
+
+        run.status = "awaiting_approval";
+        run.updated_at = new Date().toISOString();
+        statusWriter?.setAwaitingApproval(0, "plan_disagreement");
+
+        const decision = await waitForApproval(runtimeDb, approvalId, 4 * 60 * 60 * 1000);
+
+        runStore?.emitEvent(run.run_id, agentId, "disagreement_resolved", {
+          details: { decision },
+        });
+
+        if (decision === "rejected") {
+          log.info("Disagreement escalation rejected — aborting run");
+          runStore?.transition(run.run_id, agentId, "cancelled", "run_cancelled", {
+            details: { reason: "disagreement_rejected" },
+          });
+          statusWriter?.completeRun("disagreement_rejected");
+          runtime.completeRun(run.run_id, "Plan rejected due to planner disagreement");
+          return run;
+        }
+
+        if (decision === "timeout") {
+          log.warn("Disagreement escalation timeout — aborting run");
+          runStore?.transition(run.run_id, agentId, "failed", "run_failed", {
+            details: { reason: "disagreement_timeout" },
+          });
+          statusWriter?.completeRun("disagreement_timeout");
+          runtime.completeRun(run.run_id, "Disagreement approval timeout");
+          return run;
+        }
+
+        run.status = "executing";
+        run.updated_at = new Date().toISOString();
+        log.info("Disagreement escalation approved — proceeding with selected plan");
+      }
+    } else {
+      // Default: single planner
+      plan = await buildPlanWithInference(plannerParams);
+    }
 
     run.plan = plan;
     run.total_steps = plan.steps.length;
@@ -76,7 +178,7 @@ export async function runAgent(
 
     // Emit plan_built event
     runStore?.emitEvent(run.run_id, agentId, "plan_built", {
-      details: { steps: plan.steps.length, goal: run.goal },
+      details: { steps: plan.steps.length, goal: run.goal, planner_mode: plannerMode },
     });
 
     if (plan.steps.length === 0) {
