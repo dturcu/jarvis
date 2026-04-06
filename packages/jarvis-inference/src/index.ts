@@ -331,6 +331,8 @@ export * from "./router.js";
 export * from "./rag.js";
 export * from "./streaming.js";
 export * from "./task-profile.js";
+export * from "./registry.js";
+export * from "./benchmark.js";
 
 export default definePluginEntry({
   id: "jarvis-inference",
