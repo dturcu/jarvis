@@ -13,6 +13,7 @@ import { existsSync, mkdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { runMigrations } from "../packages/jarvis-runtime/src/migrations/runner.js";
 
 // ─── Paths ──────────────────────────────────────────────────────────────────
 
@@ -223,6 +224,19 @@ function initKnowledgeDatabase(): boolean {
         outcome TEXT,
         created_at TEXT NOT NULL
       );
+
+      CREATE TABLE IF NOT EXISTS entity_provenance (
+        provenance_id TEXT PRIMARY KEY,
+        entity_id TEXT NOT NULL,
+        change_type TEXT NOT NULL,
+        agent_id TEXT NOT NULL,
+        run_id TEXT,
+        step_no INTEGER,
+        action TEXT,
+        changed_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_prov_entity ON entity_provenance(entity_id);
+      CREATE INDEX IF NOT EXISTS idx_prov_agent ON entity_provenance(agent_id);
     `);
 
     // ── Seed documents (mirrors KnowledgeStore._seed()) ─────────────────────
@@ -375,29 +389,17 @@ function initKnowledgeDatabase(): boolean {
 function initRuntimeDatabase(): boolean {
   const isNew = !existsSync(RUNTIME_DB_PATH);
 
-  // openRuntimeDb handles creation + WAL + migrations
-  // We import it dynamically to avoid circular dependency issues in the init script
   const db = new DatabaseSync(RUNTIME_DB_PATH);
   try {
     db.exec("PRAGMA journal_mode = WAL;");
     db.exec("PRAGMA foreign_keys = ON;");
     db.exec("PRAGMA busy_timeout = 5000;");
 
-    // Run the migration runner from the runtime package
-    // We inline the migration check here to avoid needing a built package
-    const rows = db.prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'",
-    ).all() as Array<{ name: string }>;
+    // Run all pending migrations immediately — deterministic bootstrap
+    runMigrations(db);
 
-    if (rows.length > 0) {
-      // Migrations table exists — runtime-db.ts will handle pending migrations at daemon startup
-      const applied = db.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number };
-      console.log(`  [exists]  Runtime database: ${RUNTIME_DB_PATH} (${applied.n} migrations applied)`);
-    } else {
-      // Fresh database — openRuntimeDb() in the daemon will create and migrate
-      console.log(`  [created] Runtime database: ${RUNTIME_DB_PATH}`);
-      console.log(`            Migrations will run on first daemon start`);
-    }
+    const applied = db.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number };
+    console.log(`  [${isNew ? "created" : "updated"}] Runtime database: ${RUNTIME_DB_PATH} (${applied.n} migration(s) applied)`);
   } finally {
     db.close();
   }

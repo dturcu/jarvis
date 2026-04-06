@@ -56,6 +56,19 @@ function createKnowledgeDb(): { db: DatabaseSync; path: string } {
       created_at TEXT NOT NULL
     )
   `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS entity_provenance (
+      provenance_id TEXT PRIMARY KEY,
+      entity_id TEXT NOT NULL,
+      change_type TEXT NOT NULL,
+      agent_id TEXT NOT NULL,
+      run_id TEXT,
+      step_no INTEGER,
+      action TEXT,
+      changed_at TEXT NOT NULL
+    )
+  `);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_prov_entity ON entity_provenance(entity_id)");
   return { db, path: dbPath };
 }
 

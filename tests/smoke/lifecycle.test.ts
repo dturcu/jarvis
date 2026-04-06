@@ -43,7 +43,7 @@ describe("Smoke: Database Lifecycle", () => {
 
   afterEach(() => cleanup(db, dbPath));
 
-  it("creates all 12 runtime tables", () => {
+  it("creates all 13 runtime tables", () => {
     const tables = db.prepare(
       "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name != 'schema_migrations'",
     ).all() as Array<{ name: string }>;
@@ -52,7 +52,7 @@ describe("Smoke: Database Lifecycle", () => {
       "agent_commands", "agent_memory", "approvals", "audit_log",
       "daemon_heartbeats", "model_benchmarks", "model_registry",
       "notifications", "plugin_installs", "run_events",
-      "schedules", "settings",
+      "runs", "schedules", "settings",
     ]);
   });
 
@@ -60,7 +60,7 @@ describe("Smoke: Database Lifecycle", () => {
     runMigrations(db); // second time
     runMigrations(db); // third time
     const rows = db.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number };
-    expect(rows.n).toBe(1);
+    expect(rows.n).toBe(2);
   });
 });
 

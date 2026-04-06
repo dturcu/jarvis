@@ -33,16 +33,18 @@ describe("Runtime DB and Migration Framework", () => {
     it("records applied migrations", () => {
       runMigrations(db);
       const rows = db.prepare("SELECT id, name FROM schema_migrations ORDER BY id").all() as Array<{ id: string; name: string }>;
-      expect(rows).toHaveLength(1);
+      expect(rows).toHaveLength(2);
       expect(rows[0]!.id).toBe("0001");
       expect(rows[0]!.name).toBe("runtime_core");
+      expect(rows[1]!.id).toBe("0002");
+      expect(rows[1]!.name).toBe("production_fixes");
     });
 
     it("is idempotent — repeated runs do not fail", () => {
       runMigrations(db);
       runMigrations(db);
       const rows = db.prepare("SELECT id FROM schema_migrations").all();
-      expect(rows).toHaveLength(1);
+      expect(rows).toHaveLength(2);
     });
   });
 
@@ -60,13 +62,14 @@ describe("Runtime DB and Migration Framework", () => {
       "model_benchmarks",
       "schedules",
       "agent_memory",
+      "runs",
     ];
 
     beforeEach(() => {
       runMigrations(db);
     });
 
-    it("creates all 12 tables", () => {
+    it("creates all 13 tables", () => {
       const tables = db.prepare(
         "SELECT name FROM sqlite_master WHERE type='table' AND name != 'schema_migrations' ORDER BY name",
       ).all() as Array<{ name: string }>;

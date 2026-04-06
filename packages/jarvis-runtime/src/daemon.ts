@@ -10,15 +10,15 @@ import { SqliteEntityGraph } from "@jarvis/agent-framework";
 import { SqliteDecisionLog } from "@jarvis/agent-framework";
 import { ALL_AGENTS } from "@jarvis/agents";
 import { loadPlugins } from "./plugin-loader.js";
-import { SchedulerStore, computeNextFireAt } from "@jarvis/scheduler";
+import { computeNextFireAt } from "@jarvis/scheduler";
 import { loadConfig, JARVIS_DIR, KNOWLEDGE_DB_PATH } from "./config.js";
 import { openRuntimeDb } from "./runtime-db.js";
 import { createWorkerRegistry } from "./worker-registry.js";
 import { AgentQueue } from "./agent-queue.js";
+import { DbSchedulerStore } from "./db-scheduler.js";
 import { Logger } from "./logger.js";
 import { StatusWriter } from "./status-writer.js";
 import type { AgentTrigger } from "@jarvis/agent-framework";
-import { randomUUID } from "node:crypto";
 import { discoverModels, syncModelRegistry } from "@jarvis/inference";
 
 async function main() {
@@ -51,8 +51,10 @@ async function main() {
   const memory = new AgentMemoryStore();
   const runtime = new AgentRuntime(memory);
   const lessonCapture = new LessonCapture(knowledgeStore);
-  const registry = createWorkerRegistry(config, logger);
-  const scheduler = new SchedulerStore();
+  const registry = createWorkerRegistry(config, logger, runtimeDb);
+
+  // DB-backed scheduler — persists across restarts
+  const scheduler = new DbSchedulerStore(runtimeDb);
 
   // Register all built-in agents
   for (const def of ALL_AGENTS) {
@@ -74,7 +76,7 @@ async function main() {
   // Collect all agent definitions (built-in + plugins)
   const allAgentDefs = [...ALL_AGENTS, ...pluginManifests.map(m => m.agent)];
 
-  // Seed schedules from agent triggers
+  // Seed schedules from agent triggers (only inserts if not already in DB)
   let scheduleCount = 0;
   for (const def of allAgentDefs) {
     for (const trigger of def.triggers) {
@@ -83,7 +85,7 @@ async function main() {
           { cron_expression: trigger.cron, interval_seconds: undefined } as Parameters<typeof computeNextFireAt>[0],
           new Date(),
         );
-        scheduler.createSchedule({
+        const inserted = scheduler.seedSchedule({
           job_type: `agent.${def.agent_id}`,
           input: { agent_id: def.agent_id },
           cron_expression: trigger.cron,
@@ -92,11 +94,16 @@ async function main() {
           scope_group: "agents",
           label: def.label,
         });
+        if (inserted) {
+          logger.info(`  Schedule (new): ${def.agent_id} @ ${trigger.cron}`);
+        }
         scheduleCount++;
-        logger.info(`  Schedule: ${def.agent_id} @ ${trigger.cron}`);
       }
     }
   }
+
+  const totalSchedules = scheduler.count();
+  logger.info(`Schedules: ${totalSchedules} in DB (${scheduleCount} from agent definitions)`);
 
   // Discover local models and populate registry
   try {
@@ -112,10 +119,10 @@ async function main() {
     logger.warn(`Model discovery failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 
-  logger.info(`Jarvis daemon started: ${allAgentDefs.length} agents (${pluginManifests.length} plugins), ${scheduleCount} schedules`);
+  logger.info(`Jarvis daemon started: ${allAgentDefs.length} agents (${pluginManifests.length} plugins), ${totalSchedules} schedules`);
 
   // Status writer — writes daemon heartbeat to runtime.db
-  const statusWriter = new StatusWriter(allAgentDefs.length, scheduleCount, logger, runtimeDb);
+  const statusWriter = new StatusWriter(allAgentDefs.length, totalSchedules, logger, runtimeDb);
   statusWriter.start();
 
   // Recover stale command claims from previous crash
@@ -145,7 +152,7 @@ async function main() {
   const pollInterval = setInterval(async () => {
     if (agentQueue.isDraining) return;
 
-    // Check scheduled agents
+    // Check scheduled agents (from DB-backed scheduler)
     const now = new Date();
     const due = scheduler.getDueSchedules(now);
     for (const schedule of due) {
@@ -173,12 +180,22 @@ async function main() {
 
         if (cmd.command_type === "run_agent" && cmd.target_agent_id) {
           logger.info(`Command ${cmd.command_id}: run_agent ${cmd.target_agent_id}`);
+
+          // Enqueue the agent — command stays 'claimed' until agent completes.
+          // The orchestrator links the command_id to the run via RunStore,
+          // and RunStore.completeCommand() marks it completed/failed when the run ends.
           agentQueue.enqueue(cmd.target_agent_id, { kind: "manual" });
 
-          // Mark command completed (agent execution is async via queue)
-          runtimeDb.prepare(
-            "UPDATE agent_commands SET status = 'completed', completed_at = ? WHERE command_id = ?",
-          ).run(new Date().toISOString(), cmd.command_id);
+          // Store command_id so orchestrator can link it to the run
+          try {
+            runtimeDb.prepare(
+              "INSERT OR REPLACE INTO settings (key, value_json, updated_at) VALUES (?, ?, ?)",
+            ).run(
+              `pending_command:${cmd.target_agent_id}`,
+              JSON.stringify(cmd.command_id),
+              new Date().toISOString(),
+            );
+          } catch { /* best-effort */ }
         } else {
           logger.warn(`Unknown command type: ${cmd.command_type}`);
           runtimeDb.prepare(

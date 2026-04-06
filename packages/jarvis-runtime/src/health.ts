@@ -142,7 +142,7 @@ export function getReadinessReport(): ReadinessReport {
   }
 
   return {
-    ready: checks.jarvis_dir && checks.crm_db && checks.knowledge_db && checks.runtime_db,
+    ready: checks.jarvis_dir && checks.crm_db && checks.knowledge_db && checks.runtime_db && checks.daemon_running,
     checks,
   };
 }

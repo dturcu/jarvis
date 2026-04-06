@@ -1,5 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { migration0001 } from "./0001_runtime_core.js";
+import { migration0002 } from "./0002_production_fixes.js";
 
 export type Migration = {
   id: string;        // e.g. "0001"
@@ -10,6 +11,7 @@ export type Migration = {
 /** All registered migrations in order. Add new migrations to this array. */
 const ALL_MIGRATIONS: Migration[] = [
   migration0001,
+  migration0002,
 ];
 
 /**
