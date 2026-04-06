@@ -559,20 +559,22 @@ describe("Logger", () => {
     expect(firstLine.ts).toBeTruthy();
   });
 
-  it("error level triggers Telegram alert", () => {
+  it("error level triggers alert", () => {
     const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const alertsFile = join(TEMP_DIR, "alerts.jsonl");
 
     const logger = new Logger("info", { logToFile: false, alertOnError: true });
     logger.error("critical failure", { component: "crm" });
 
     consoleSpy.mockRestore();
 
-    expect(fs.existsSync(TEMP_TELEGRAM_QUEUE)).toBe(true);
-    const queue = JSON.parse(fs.readFileSync(TEMP_TELEGRAM_QUEUE, "utf8")) as Array<Record<string, unknown>>;
-    expect(queue.length).toBeGreaterThan(0);
-    expect(queue[0]!.agent).toBe("daemon");
-    expect((queue[0]!.message as string)).toContain("critical failure");
-    expect(queue[0]!.sent).toBe(false);
+    expect(fs.existsSync(alertsFile)).toBe(true);
+    const lines = fs.readFileSync(alertsFile, "utf8").trim().split("\n");
+    expect(lines.length).toBeGreaterThan(0);
+    const entry = JSON.parse(lines[0]!) as Record<string, unknown>;
+    expect(entry.level).toBe("ERROR");
+    expect(entry.msg).toContain("critical failure");
+    expect(entry.agent_id).toBe("daemon");
   });
 
   it("debug messages filtered when level is 'info'", () => {

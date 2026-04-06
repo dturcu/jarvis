@@ -19,6 +19,7 @@ import { DatabaseSync } from "node:sqlite";
 const JARVIS_DIR = join(homedir(), ".jarvis");
 const CRM_DB_PATH = join(JARVIS_DIR, "crm.db");
 const KNOWLEDGE_DB_PATH = join(JARVIS_DIR, "knowledge.db");
+const RUNTIME_DB_PATH = join(JARVIS_DIR, "runtime.db");
 
 function now(): string {
   return new Date().toISOString();
@@ -369,6 +370,40 @@ function initKnowledgeDatabase(): boolean {
   return true;
 }
 
+// ─── Runtime Database ──────────────────────────────────────────────────────
+
+function initRuntimeDatabase(): boolean {
+  const isNew = !existsSync(RUNTIME_DB_PATH);
+
+  // openRuntimeDb handles creation + WAL + migrations
+  // We import it dynamically to avoid circular dependency issues in the init script
+  const db = new DatabaseSync(RUNTIME_DB_PATH);
+  try {
+    db.exec("PRAGMA journal_mode = WAL;");
+    db.exec("PRAGMA foreign_keys = ON;");
+    db.exec("PRAGMA busy_timeout = 5000;");
+
+    // Run the migration runner from the runtime package
+    // We inline the migration check here to avoid needing a built package
+    const rows = db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='schema_migrations'",
+    ).all() as Array<{ name: string }>;
+
+    if (rows.length > 0) {
+      // Migrations table exists — runtime-db.ts will handle pending migrations at daemon startup
+      const applied = db.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number };
+      console.log(`  [exists]  Runtime database: ${RUNTIME_DB_PATH} (${applied.n} migrations applied)`);
+    } else {
+      // Fresh database — openRuntimeDb() in the daemon will create and migrate
+      console.log(`  [created] Runtime database: ${RUNTIME_DB_PATH}`);
+      console.log(`            Migrations will run on first daemon start`);
+    }
+  } finally {
+    db.close();
+  }
+  return isNew;
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 function main(): void {
@@ -385,11 +420,13 @@ function main(): void {
 
   const crmCreated = initCrmDatabase();
   const knowledgeCreated = initKnowledgeDatabase();
+  const runtimeCreated = initRuntimeDatabase();
 
   console.log("\n── Summary ──────────────────────────────────────────────");
   console.log(`  Directory:    ${JARVIS_DIR}`);
   console.log(`  CRM DB:       ${crmCreated ? "CREATED" : "already existed"}`);
   console.log(`  Knowledge DB: ${knowledgeCreated ? "CREATED" : "already existed"}`);
+  console.log(`  Runtime DB:   ${runtimeCreated ? "CREATED" : "already existed"}`);
   console.log("  Done.\n");
 }
 

@@ -14,9 +14,8 @@ import { analyticsRouter } from './analytics.js'
 import { settingsRouter } from './settings.js'
 import { portalRouter } from './portal.js'
 import { godmodeRouter } from './godmode.js'
-import os from 'os'
-import { DatabaseSync } from 'node:sqlite'
 import fs from 'fs'
+import { getHealthReport, getReadinessReport } from '@jarvis/runtime'
 
 const app = express()
 const PORT = Number(process.env.PORT ?? 4242)
@@ -51,47 +50,24 @@ app.use('/portal/api', portalRouter)
 app.use('/api/godmode', godmodeRouter)
 
 app.get('/api/health', (_req, res) => {
-  const jarvisDir = join(os.homedir(), '.jarvis')
-  let crmCount = 0, docsCount = 0, playbooksCount = 0, decisionsCount = 0
-  try {
-    const crm = new DatabaseSync(join(jarvisDir, 'crm.db'))
-    crmCount = (crm.prepare('SELECT COUNT(*) as n FROM contacts').get() as { n: number }).n
-    crm.close()
-  } catch (err) {
-    console.error('Failed to query CRM database:', err)
-  }
-  try {
-    const kb = new DatabaseSync(join(jarvisDir, 'knowledge.db'))
-    docsCount = (kb.prepare('SELECT COUNT(*) as n FROM documents').get() as { n: number }).n
-    playbooksCount = (kb.prepare('SELECT COUNT(*) as n FROM playbooks').get() as { n: number }).n
-    decisionsCount = (kb.prepare('SELECT COUNT(*) as n FROM decisions').get() as { n: number }).n
-    kb.close()
-  } catch (err) {
-    console.error('Failed to query Knowledge database:', err)
-  }
-  const approvalsPath = join(jarvisDir, 'approvals.json')
-  let pendingApprovals = 0
-  if (fs.existsSync(approvalsPath)) {
-    try {
-      const a = JSON.parse(fs.readFileSync(approvalsPath, 'utf8')) as Array<{ status: string }>
-      pendingApprovals = a.filter(x => x.status === 'pending').length
-    } catch (err) {
-      console.error('Failed to read approvals file:', err)
-    }
-  }
-  const telegramConfigured = fs.existsSync(join(jarvisDir, 'config.json'))
-
+  const report = getHealthReport()
   res.json({
-    ok: true,
-    distPath,
+    ok: report.status !== 'unhealthy',
+    status: report.status,
+    uptime_seconds: report.uptime_seconds,
+    crm: report.crm,
+    knowledge: report.knowledge,
+    runtime: report.runtime,
+    daemon: report.daemon,
+    disk_free_gb: report.disk_free_gb,
     distExists: fs.existsSync(indexHtml),
-    crm: { contacts: crmCount },
-    knowledge: { documents: docsCount, playbooks: playbooksCount },
-    decisions: { total: decisionsCount },
-    pendingApprovals,
-    telegramConfigured,
     dashboardUrl: `http://localhost:${PORT}`
   })
+})
+
+app.get('/api/ready', (_req, res) => {
+  const report = getReadinessReport()
+  res.status(report.ready ? 200 : 503).json(report)
 })
 
 // SPA: serve index.html for all non-API routes
