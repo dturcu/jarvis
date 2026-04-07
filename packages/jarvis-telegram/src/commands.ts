@@ -2,10 +2,13 @@ import { randomUUID } from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'
 import { CRM_DB, openRuntimeDb } from './config.js'
 import { loadApprovals, resolveApproval } from './approvals.js'
+import { handleFreeText, type ParsedAction } from './chat-handler.js'
 
 const AGENTS = [
   'bd-pipeline', 'proposal-engine', 'evidence-auditor', 'contract-reviewer',
-  'staffing-monitor', 'content-engine', 'portfolio-monitor', 'garden-calendar'
+  'staffing-monitor', 'content-engine', 'portfolio-monitor', 'garden-calendar',
+  'email-campaign', 'social-engagement', 'security-monitor', 'drive-watcher',
+  'invoice-generator', 'meeting-transcriber'
 ]
 
 export async function handleCommand(text: string): Promise<string> {
@@ -13,17 +16,50 @@ export async function handleCommand(text: string): Promise<string> {
   const cmd = parts[0]?.toLowerCase() ?? ''
   const arg = parts[1] ?? ''
 
-  switch (cmd) {
-    case '/status': return getStatus()
-    case '/crm': return getCrmTop5()
-    case '/portfolio': return triggerAgent('portfolio-monitor')
-    case '/garden': return triggerAgent('garden-calendar')
-    case '/bd': return triggerAgent('bd-pipeline')
-    case '/content': return triggerAgent('content-engine')
-    case '/approve': return handleApproval(arg, 'approved')
-    case '/reject': return handleApproval(arg, 'rejected')
-    case '/help': return getHelp()
-    default: return `Unknown command: ${cmd}\n\nSend /help for available commands.`
+  // Slash commands — fast path, no LLM needed
+  if (cmd.startsWith('/')) {
+    switch (cmd) {
+      case '/status': return getStatus()
+      case '/crm': return getCrmTop5()
+      case '/portfolio': return triggerAgent('portfolio-monitor')
+      case '/garden': return triggerAgent('garden-calendar')
+      case '/bd': return triggerAgent('bd-pipeline')
+      case '/content': return triggerAgent('content-engine')
+      case '/approve': return handleApproval(arg, 'approved')
+      case '/reject': return handleApproval(arg, 'rejected')
+      case '/help': return getHelp()
+      default: return `Unknown command: ${cmd}\n\nSend /help for available commands.`
+    }
+  }
+
+  // Free-text — route through LLM
+  return handleFreeTextMessage(text)
+}
+
+async function handleFreeTextMessage(text: string): Promise<string> {
+  const { text: reply, actions } = await handleFreeText(text)
+  const parts: string[] = []
+
+  // Execute any actions the LLM requested
+  for (const action of actions) {
+    parts.push(await executeAction(action))
+  }
+
+  // Combine LLM reply with action results
+  if (parts.length > 0) {
+    return `${reply}\n\n${parts.join('\n\n')}`
+  }
+  return reply
+}
+
+async function executeAction(action: ParsedAction): Promise<string> {
+  switch (action.type) {
+    case 'trigger':
+      return triggerAgent(action.agentId)
+    case 'status':
+      return getStatus()
+    case 'crm':
+      return getCrmTop5()
   }
 }
 
@@ -140,5 +176,10 @@ function getHelp(): string {
 /content       — Trigger content engine
 /approve <id>  — Approve a gated action
 /reject <id>   — Reject a gated action
-/help          — This message`
+/help          — This message
+
+You can also send free-text messages and I'll understand what you need. Try:
+• "check my portfolio"
+• "what's the system status?"
+• "run the evidence auditor"`
 }
