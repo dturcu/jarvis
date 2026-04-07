@@ -8,6 +8,7 @@ import fs from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { JARVIS_DIR, CRM_DB_PATH, KNOWLEDGE_DB_PATH, RUNTIME_DB_PATH } from "./config.js";
+import type { WorkerHealthEntry } from "./worker-health.js";
 
 export type HealthStatus = "healthy" | "degraded" | "unhealthy";
 
@@ -22,8 +23,16 @@ export type HealthReport = {
   migrations: { latest_id: string | null; count: number };
   models: { registered: number; enabled: number; models_available: boolean };
   channels: { ok: boolean; threads: number; messages: number; deliveries: number };
+  workers?: WorkerHealthEntry[];
+  auth_mode?: string;
   disk_free_gb: number | null;
 };
+
+/** Set a provider function for worker health data. Called from daemon.ts. */
+let workerHealthProvider: (() => WorkerHealthEntry[]) | null = null;
+export function setWorkerHealthProvider(fn: () => WorkerHealthEntry[]): void {
+  workerHealthProvider = fn;
+}
 
 export type ReadinessReport = {
   ready: boolean;
@@ -155,6 +164,12 @@ export function getHealthReport(): HealthReport {
   } else if (!report.daemon.running || (report.disk_free_gb !== null && report.disk_free_gb < 2) || !report.models.models_available) {
     report.status = "degraded";
   }
+
+  // Worker health (injected by daemon)
+  if (workerHealthProvider) {
+    report.workers = workerHealthProvider();
+  }
+  report.auth_mode = process.env.JARVIS_MODE ?? "dev";
 
   return report;
 }

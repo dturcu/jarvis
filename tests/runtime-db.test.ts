@@ -33,20 +33,22 @@ describe("Runtime DB and Migration Framework", () => {
     it("records applied migrations", () => {
       runMigrations(db);
       const rows = db.prepare("SELECT id, name FROM schema_migrations ORDER BY id").all() as Array<{ id: string; name: string }>;
-      expect(rows).toHaveLength(3);
+      expect(rows).toHaveLength(4);
       expect(rows[0]!.id).toBe("0001");
       expect(rows[0]!.name).toBe("runtime_core");
       expect(rows[1]!.id).toBe("0002");
       expect(rows[1]!.name).toBe("production_fixes");
       expect(rows[2]!.id).toBe("0003");
       expect(rows[2]!.name).toBe("channel_persistence");
+      expect(rows[3]!.id).toBe("0004");
+      expect(rows[3]!.name).toBe("channel_fixes");
     });
 
     it("is idempotent — repeated runs do not fail", () => {
       runMigrations(db);
       runMigrations(db);
       const rows = db.prepare("SELECT id FROM schema_migrations").all();
-      expect(rows).toHaveLength(3);
+      expect(rows).toHaveLength(4);
     });
   });
 

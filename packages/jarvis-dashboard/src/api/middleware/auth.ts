@@ -157,9 +157,17 @@ export function createAuthMiddleware() {
     }
 
     const tokens = loadTokens();
+    const mode = process.env.JARVIS_MODE ?? "dev";
 
-    // If no tokens configured, allow all (dev mode)
+    // If no tokens configured, behavior depends on mode
     if (tokens.length === 0) {
+      if (mode === "production") {
+        res.status(503).json({
+          error: "Production mode requires API tokens. Configure api_token or api_tokens in ~/.jarvis/config.json",
+        });
+        return;
+      }
+      // Dev mode: grant synthetic admin with warning
       req.user = { role: "admin", token_prefix: "none" };
       next();
       return;

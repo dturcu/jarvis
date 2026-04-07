@@ -92,19 +92,23 @@ describe("createCommand", () => {
   });
 
   it("with duplicate idempotency key throws (UNIQUE constraint)", () => {
-    createCommand(db, {
+    const first = createCommand(db, {
       agentId: "bd-pipeline",
       source: "webhook",
       idempotencyKey: "unique-key-1",
     });
 
-    expect(() => {
-      createCommand(db, {
-        agentId: "bd-pipeline",
-        source: "webhook",
-        idempotencyKey: "unique-key-1",
-      });
-    }).toThrow();
+    // Idempotent: duplicate key returns existing command instead of throwing
+    const second = createCommand(db, {
+      agentId: "bd-pipeline",
+      source: "webhook",
+      idempotencyKey: "unique-key-1",
+    });
+
+    expect(second.commandId).toBe(first.commandId);
+    // Only one row in agent_commands
+    const count = (db.prepare("SELECT COUNT(*) as n FROM agent_commands WHERE idempotency_key = 'unique-key-1'").get() as { n: number }).n;
+    expect(count).toBe(1);
   });
 
   it("returns both commandId and messageId when channel tracking is active", () => {

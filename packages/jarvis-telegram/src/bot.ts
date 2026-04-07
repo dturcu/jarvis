@@ -114,20 +114,9 @@ export class JarvisBot {
             sender: senderName,
           }
 
-          // Record inbound message
-          if (this.channelStore && this.threadId) {
-            try {
-              this.channelStore.recordMessage({
-                threadId: this.threadId,
-                channel: 'telegram',
-                externalId: String(update.message?.message_id ?? ''),
-                direction: 'inbound',
-                contentPreview: text,
-                sender: senderName,
-              })
-            } catch { /* best-effort */ }
-          }
-
+          // Inbound message recording is handled by createCommand() for
+          // trigger commands (avoids duplicate rows). For non-trigger commands
+          // (status, crm, help), record after handleCommand returns.
           const response = await handleCommand(text, ctx)
           await this.send(response)
 
@@ -157,6 +146,7 @@ export class JarvisBot {
     // Initialize channel store for message tracking
     try {
       const db = openRuntimeDb()
+      db.exec('PRAGMA foreign_keys = ON')
       this.channelStore = new ChannelStore(db)
       this.threadId = this.channelStore.getOrCreateThread('telegram', this.chatId, 'Telegram chat')
     } catch {
