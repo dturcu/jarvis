@@ -435,6 +435,7 @@ export async function runAgent(
         } else {
           runStore?.emitEvent(run.run_id, agentId, "step_completed", {
             step_no: step.step, action: step.action,
+            details: result.artifacts?.length ? { artifacts: result.artifacts } : undefined,
           });
         }
 

@@ -122,6 +122,12 @@ const ManifestSchema = Type.Object({
   }))),
   config_requirements: Type.Optional(Type.Array(Type.String())),
   installed_at: Type.Optional(Type.String()),
+  /** SHA-256 checksum of the manifest content for integrity verification. */
+  checksum_sha256: Type.Optional(Type.String({ pattern: "^[a-f0-9]{64}$" })),
+  /** Minimum Jarvis version required by this plugin (semver). */
+  min_jarvis_version: Type.Optional(Type.String({ pattern: "^\\d+\\.\\d+\\.\\d+" })),
+  /** Maximum Jarvis version compatible with this plugin (semver). */
+  max_jarvis_version: Type.Optional(Type.String({ pattern: "^\\d+\\.\\d+\\.\\d+" })),
 });
 
 export type PluginManifest = Static<typeof ManifestSchema> & {
@@ -167,7 +173,32 @@ export function validateManifest(data: unknown): ManifestValidationResult {
     }
   }
 
+  // Version compatibility check
+  if (manifest.min_jarvis_version || manifest.max_jarvis_version) {
+    const jarvisVersion = JARVIS_PLATFORM_VERSION;
+    if (manifest.min_jarvis_version && compareSemver(jarvisVersion, manifest.min_jarvis_version) < 0) {
+      errors.push(`Requires Jarvis >= ${manifest.min_jarvis_version} (current: ${jarvisVersion})`);
+    }
+    if (manifest.max_jarvis_version && compareSemver(jarvisVersion, manifest.max_jarvis_version) > 0) {
+      errors.push(`Requires Jarvis <= ${manifest.max_jarvis_version} (current: ${jarvisVersion})`);
+    }
+  }
+
   return { valid: errors.length === 0, errors };
+}
+
+/** Current Jarvis platform version for compatibility gating. */
+export const JARVIS_PLATFORM_VERSION = "0.1.0";
+
+/** Simple semver comparison. Returns -1 if a < b, 0 if equal, 1 if a > b. */
+function compareSemver(a: string, b: string): number {
+  const pa = a.split(".").map(Number);
+  const pb = b.split(".").map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] ?? 0) < (pb[i] ?? 0)) return -1;
+    if ((pa[i] ?? 0) > (pb[i] ?? 0)) return 1;
+  }
+  return 0;
 }
 
 /**

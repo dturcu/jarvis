@@ -47,9 +47,9 @@ export class RunStore {
     this.db.exec("BEGIN IMMEDIATE");
     try {
       this.db.prepare(`
-        INSERT INTO runs (run_id, agent_id, status, trigger_kind, command_id, goal, started_at)
-        VALUES (?, ?, 'queued', ?, ?, ?, ?)
-      `).run(runId, agentId, triggerKind ?? null, commandId ?? null, goal ?? null, now);
+        INSERT INTO runs (run_id, agent_id, status, trigger_kind, command_id, goal, started_at, owner)
+        VALUES (?, ?, 'queued', ?, ?, ?, ?, ?)
+      `).run(runId, agentId, triggerKind ?? null, commandId ?? null, goal ?? null, now, owner ?? null);
 
       // Inline transition to 'planning' + event emission within the same transaction
       this.db.prepare(`
@@ -151,10 +151,17 @@ export class RunStore {
   }
 
   /** Get runs owned by or assigned to a specific user. */
-  getRunsByUser(userId: string, limit = 20): Array<Record<string, unknown>> {
+  getRunsByUser(userId: string, limit = 20): Array<{
+    run_id: string; agent_id: string; status: RunStatus;
+    trigger_kind: string | null; command_id: string | null;
+    goal: string | null; total_steps: number | null;
+    current_step: number; error: string | null;
+    started_at: string; completed_at: string | null;
+    owner: string | null; assignee: string | null;
+  }> {
     return this.db.prepare(
       "SELECT * FROM runs WHERE owner = ? OR assignee = ? ORDER BY started_at DESC LIMIT ?",
-    ).all(userId, userId, limit) as Array<Record<string, unknown>>;
+    ).all(userId, userId, limit) as any[];
   }
 
   /** Emit a run event without changing status (e.g., step_started within executing). */

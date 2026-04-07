@@ -21,6 +21,7 @@ import {
   loadConfig,
   validateConfig,
 } from "./config.js";
+import { JARVIS_PLATFORM_VERSION } from "./plugin-loader.js";
 
 type CheckResult = {
   name: string;
@@ -133,7 +134,7 @@ function checkDaemon() {
 
 function checkMigrations() {
   for (const [name, dbPath, expected] of [
-    ["Runtime", RUNTIME_DB_PATH, "0004"],
+    ["Runtime", RUNTIME_DB_PATH, "0006"],
     ["CRM", CRM_DB_PATH, "crm_0001"],
     ["Knowledge", KNOWLEDGE_DB_PATH, "knowledge_0001"],
   ] as const) {
@@ -362,6 +363,7 @@ async function main() {
     console.log("  Running with --fix: will attempt to auto-fix issues\n");
   }
 
+  pass("Platform", `Jarvis v${JARVIS_PLATFORM_VERSION}`);
   checkNodeVersion();
   checkJarvisDir();
   checkConfig();

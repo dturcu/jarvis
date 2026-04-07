@@ -129,13 +129,19 @@ export function delegateApproval(
   note?: string,
 ): boolean {
   const now = new Date().toISOString();
+
+  // Atomic: delegation update + audit log entry (same pattern as resolveApproval)
+  db.exec("BEGIN IMMEDIATE");
   try {
     const result = db.prepare(`
       UPDATE approvals SET assignee = ?, delegated_by = ?, delegation_note = ?
       WHERE approval_id = ? AND status = 'pending'
     `).run(assignee, delegatedBy, note ?? null, approvalId);
 
-    if ((result as { changes: number }).changes === 0) return false;
+    if ((result as { changes: number }).changes === 0) {
+      db.exec("ROLLBACK");
+      return false;
+    }
 
     db.prepare(`
       INSERT INTO audit_log (audit_id, actor_type, actor_id, action, target_type, target_id, payload_json, created_at)
@@ -146,9 +152,11 @@ export function delegateApproval(
       JSON.stringify({ assignee, note }), now,
     );
 
+    db.exec("COMMIT");
     return true;
-  } catch {
-    return false;
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
   }
 }
 
