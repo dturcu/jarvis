@@ -22,6 +22,7 @@ import { StatusWriter } from "./status-writer.js";
 import type { AgentTrigger } from "@jarvis/agent-framework";
 import { discoverModels, syncModelRegistry } from "@jarvis/inference";
 import { RunStore } from "./run-store.js";
+import { ChannelStore } from "./channel-store.js";
 import { resolveApproval } from "./approval-bridge.js";
 
 // ─── Restart Policy ──────────────────────────────────────────────────────────
@@ -146,13 +147,13 @@ async function main() {
   let safeModeReason: string | null = null;
 
   try {
-    // Check runtime DB tables
+    // Check runtime DB tables (core 4 + channel 3)
     const tableCheck = runtimeDb.prepare(
-      "SELECT COUNT(*) as n FROM sqlite_master WHERE type='table' AND name IN ('runs','approvals','agent_commands','daemon_heartbeats')",
+      "SELECT COUNT(*) as n FROM sqlite_master WHERE type='table' AND name IN ('runs','approvals','agent_commands','daemon_heartbeats','channel_threads','channel_messages','artifact_deliveries')",
     ).get() as { n: number };
     if (tableCheck.n < 4) {
       safeMode = true;
-      safeModeReason = `Missing required tables (found ${tableCheck.n}/4)`;
+      safeModeReason = `Missing required tables (found ${tableCheck.n}/7)`;
     }
 
     // Check config validity
@@ -217,8 +218,17 @@ async function main() {
     logger.warn(`Restart recovery (stuck runs): ${e instanceof Error ? e.message : String(e)}`);
   }
 
+  // Channel store for durable channel tracking
+  let channelStore: ChannelStore | undefined;
+  try {
+    channelStore = new ChannelStore(runtimeDb);
+    logger.info("Channel store initialized");
+  } catch (e) {
+    logger.warn(`Channel store init failed: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
   // Orchestrator deps
-  const deps = { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, runtimeDb };
+  const deps = { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, runtimeDb, channelStore };
 
   // Agent Queue
   const agentQueue = new AgentQueue(config.max_concurrent, deps, logger);

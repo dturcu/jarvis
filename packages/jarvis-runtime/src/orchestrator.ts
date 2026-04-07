@@ -12,6 +12,7 @@ import { writeTelegramQueue } from "./notify.js";
 import { RunStore } from "./run-store.js";
 import { isReadOnlyAction } from "./action-classifier.js";
 import { isActionPermitted, type PluginPermission } from "./plugin-loader.js";
+import type { ChannelStore } from "./channel-store.js";
 import type { RagPipeline } from "./rag-pipeline.js";
 import type { Logger } from "./logger.js";
 import type { StatusWriter } from "./status-writer.js";
@@ -31,6 +32,7 @@ export type OrchestratorDeps = {
   statusWriter?: StatusWriter;
   ragPipeline?: RagPipeline;
   runtimeDb?: DatabaseSync;
+  channelStore?: ChannelStore;
 };
 
 /**
@@ -456,6 +458,22 @@ export async function runAgent(
     // 7. Notify via Telegram queue
     const summary = `${def.label}: completed ${run.current_step}/${plan.steps.length} steps. Goal: ${run.goal}`;
     writeTelegramQueue(agentId, summary, runtimeDb);
+
+    // 7b. Record artifact delivery linking run to originating channel thread
+    if (deps.channelStore && commandId) {
+      try {
+        const threadId = deps.channelStore.getThreadByCommandId(commandId);
+        if (threadId) {
+          deps.channelStore.recordDelivery({
+            runId: run.run_id,
+            threadId,
+            channel: "telegram",
+            artifactType: "notification",
+            contentPreview: summary,
+          });
+        }
+      } catch { /* best-effort */ }
+    }
 
     // 8. Post-hoc review notification for trusted_with_review agents
     if (def.maturity === "trusted_with_review") {

@@ -5,6 +5,7 @@ import https from 'https'
 import os from 'os'
 import fs, { realpathSync } from 'fs'
 import { join, resolve, relative } from 'path'
+import { ChannelStore } from '@jarvis/runtime'
 
 const LMS_URL = process.env.LMS_URL ?? 'http://localhost:1234'
 const DEFAULT_MODEL = process.env.LMS_MODEL ?? 'qwen/qwen3.5-35b-a3b'
@@ -634,6 +635,34 @@ Today is ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long
   } catch (e) {
     sendSSE(res, 'error', { message: e instanceof Error ? e.message : String(e) })
   }
+
+  // Record interaction in channel store for lineage tracking
+  try {
+    const runtimeDbPath = join(os.homedir(), '.jarvis', 'runtime.db')
+    if (fs.existsSync(runtimeDbPath)) {
+      const trackDb = new DatabaseSync(runtimeDbPath)
+      trackDb.exec("PRAGMA journal_mode = WAL;")
+      trackDb.exec("PRAGMA busy_timeout = 5000;")
+      const cs = new ChannelStore(trackDb)
+      const sessionId = (req.body as { sessionId?: string }).sessionId ?? `godmode-${Date.now()}`
+      const threadId = cs.getOrCreateThread('dashboard', sessionId, 'Godmode session')
+      cs.recordMessage({
+        threadId,
+        channel: 'dashboard',
+        direction: 'inbound',
+        contentPreview: message,
+        sender: 'operator',
+      })
+      cs.recordMessage({
+        threadId,
+        channel: 'dashboard',
+        direction: 'outbound',
+        contentPreview: fullTextForArtifacts,
+        sender: 'jarvis',
+      })
+      trackDb.close()
+    }
+  } catch { /* best-effort channel tracking */ }
 
   res.write('data: [DONE]\n\n')
   res.end()

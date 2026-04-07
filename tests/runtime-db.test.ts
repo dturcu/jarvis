@@ -33,18 +33,20 @@ describe("Runtime DB and Migration Framework", () => {
     it("records applied migrations", () => {
       runMigrations(db);
       const rows = db.prepare("SELECT id, name FROM schema_migrations ORDER BY id").all() as Array<{ id: string; name: string }>;
-      expect(rows).toHaveLength(2);
+      expect(rows).toHaveLength(3);
       expect(rows[0]!.id).toBe("0001");
       expect(rows[0]!.name).toBe("runtime_core");
       expect(rows[1]!.id).toBe("0002");
       expect(rows[1]!.name).toBe("production_fixes");
+      expect(rows[2]!.id).toBe("0003");
+      expect(rows[2]!.name).toBe("channel_persistence");
     });
 
     it("is idempotent — repeated runs do not fail", () => {
       runMigrations(db);
       runMigrations(db);
       const rows = db.prepare("SELECT id FROM schema_migrations").all();
-      expect(rows).toHaveLength(2);
+      expect(rows).toHaveLength(3);
     });
   });
 
@@ -63,13 +65,16 @@ describe("Runtime DB and Migration Framework", () => {
       "schedules",
       "agent_memory",
       "runs",
+      "channel_threads",
+      "channel_messages",
+      "artifact_deliveries",
     ];
 
     beforeEach(() => {
       runMigrations(db);
     });
 
-    it("creates all 13 tables", () => {
+    it("creates all 16 tables", () => {
       const tables = db.prepare(
         "SELECT name FROM sqlite_master WHERE type='table' AND name != 'schema_migrations' ORDER BY name",
       ).all() as Array<{ name: string }>;

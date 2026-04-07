@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite'
 import os from 'node:os'
 import fs from 'node:fs'
 import { join } from 'node:path'
+import { createCommand } from '@jarvis/runtime'
 
 const JARVIS_DIR = join(os.homedir(), '.jarvis')
 
@@ -33,32 +34,32 @@ function getDb(): DatabaseSync {
 }
 
 /**
- * Insert a command into agent_commands table.
- * Replaces the old file-based trigger mechanism.
+ * Insert a command into agent_commands table via the centralized command factory.
+ * Also writes an audit log entry for webhook triggers.
  */
 function insertCommand(agentId: string, triggeredBy: string, context: Record<string, unknown>): string {
   const db = getDb()
-  const commandId = randomUUID()
-  const now = new Date().toISOString()
   // Use agent_id + timestamp as idempotency key to prevent rapid duplicate triggers
   const idempotencyKey = `${agentId}:${triggeredBy}:${Math.floor(Date.now() / 10_000)}`
 
   try {
-    db.prepare(`
-      INSERT OR IGNORE INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, created_at, created_by, idempotency_key)
-      VALUES (?, ?, ?, ?, 'queued', ?, ?, ?)
-    `).run(commandId, 'run_agent', agentId, JSON.stringify(context), now, triggeredBy, idempotencyKey)
+    const { commandId } = createCommand(db, {
+      agentId,
+      source: 'webhook',
+      payload: context,
+      idempotencyKey,
+    })
 
     // Write audit log entry
     db.prepare(`
       INSERT INTO audit_log (audit_id, actor_type, actor_id, action, target_type, target_id, payload_json, created_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(randomUUID(), 'webhook', triggeredBy, 'trigger.created', 'agent', agentId, JSON.stringify(context), now)
+    `).run(randomUUID(), 'webhook', triggeredBy, 'trigger.created', 'agent', agentId, JSON.stringify(context), new Date().toISOString())
+
+    return commandId
   } finally {
     try { db.close() } catch { /* best-effort */ }
   }
-
-  return commandId
 }
 
 export const webhookRouter = Router()

@@ -1,13 +1,14 @@
-import { handleCommand } from './commands.js'
+import { handleCommand, type CommandContext } from './commands.js'
 import { getUnnotifiedPending, markNotified, formatApprovalMessage } from './approvals.js'
 import { openRuntimeDb } from './config.js'
+import { ChannelStore } from '@jarvis/runtime'
 import type { JarvisConfig } from './config.js'
 
 type TelegramUpdate = {
   update_id: number
   message?: {
     message_id: number
-    from?: { id: number }
+    from?: { id: number; username?: string; first_name?: string }
     chat: { id: number }
     text?: string
   }
@@ -18,6 +19,8 @@ export class JarvisBot {
   private chatId: string
   private offset = 0
   private running = false
+  private channelStore: ChannelStore | null = null
+  private threadId: string | null = null
 
   constructor(private config: JarvisConfig['telegram']) {
     this.baseUrl = `https://api.telegram.org/bot${config.bot_token}`
@@ -67,6 +70,20 @@ export class JarvisBot {
         try {
           await this.send(formatApprovalMessage(entry))
           markNotified(db, entry.id)
+
+          // Record the outbound approval notification as a channel message
+          if (this.channelStore && this.threadId) {
+            try {
+              this.channelStore.recordMessage({
+                threadId: this.threadId,
+                channel: 'telegram',
+                direction: 'outbound',
+                contentPreview: `Approval needed: ${entry.action} by ${entry.agent}`,
+                sender: 'jarvis',
+                runId: entry.run_id,
+              })
+            } catch { /* best-effort */ }
+          }
         } catch {
           // retry next cycle
         }
@@ -85,8 +102,47 @@ export class JarvisBot {
       const fromChat = String(update.message?.chat.id ?? '')
       if (text && fromChat === this.chatId) {
         try {
-          const response = await handleCommand(text)
+          // Build command context with channel tracking
+          const senderName = update.message?.from?.username
+            ?? update.message?.from?.first_name
+            ?? 'unknown'
+          const ctx: CommandContext = {
+            channelStore: this.channelStore ?? undefined,
+            threadId: this.threadId ?? undefined,
+            telegramMessageId: String(update.message?.message_id ?? ''),
+            chatId: fromChat,
+            sender: senderName,
+          }
+
+          // Record inbound message
+          if (this.channelStore && this.threadId) {
+            try {
+              this.channelStore.recordMessage({
+                threadId: this.threadId,
+                channel: 'telegram',
+                externalId: String(update.message?.message_id ?? ''),
+                direction: 'inbound',
+                contentPreview: text,
+                sender: senderName,
+              })
+            } catch { /* best-effort */ }
+          }
+
+          const response = await handleCommand(text, ctx)
           await this.send(response)
+
+          // Record outbound response
+          if (this.channelStore && this.threadId) {
+            try {
+              this.channelStore.recordMessage({
+                threadId: this.threadId,
+                channel: 'telegram',
+                direction: 'outbound',
+                contentPreview: response,
+                sender: 'jarvis',
+              })
+            } catch { /* best-effort */ }
+          }
         } catch (e) {
           await this.send(`Error: ${String(e)}`)
         }
@@ -97,6 +153,16 @@ export class JarvisBot {
   async start(): Promise<void> {
     this.running = true
     console.log(`Jarvis Telegram bot started. Chat ID: ${this.chatId}`)
+
+    // Initialize channel store for message tracking
+    try {
+      const db = openRuntimeDb()
+      this.channelStore = new ChannelStore(db)
+      this.threadId = this.channelStore.getOrCreateThread('telegram', this.chatId, 'Telegram chat')
+    } catch {
+      console.warn('Channel tracking unavailable — continuing without it')
+    }
+
     await this.send('🤖 Jarvis bot online. Send /help for commands.')
 
     while (this.running) {

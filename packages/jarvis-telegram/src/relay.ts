@@ -1,10 +1,16 @@
 import { openRuntimeDb } from './config.js'
+import { ChannelStore } from '@jarvis/runtime'
 
 /**
  * Process pending Telegram notifications from runtime.db.
  * Reads pending notifications, delivers them via sendFn, and marks as delivered.
+ * Records outbound deliveries in the channel store if available.
  */
-export async function processTelegramQueue(sendFn: (msg: string) => Promise<void>): Promise<number> {
+export async function processTelegramQueue(
+  sendFn: (msg: string) => Promise<void>,
+  channelStore?: ChannelStore,
+  threadId?: string,
+): Promise<number> {
   let db;
   try {
     db = openRuntimeDb()
@@ -28,6 +34,27 @@ export async function processTelegramQueue(sendFn: (msg: string) => Promise<void
         db.prepare(
           "UPDATE notifications SET status = 'delivered', delivered_at = ? WHERE notification_id = ?"
         ).run(new Date().toISOString(), entry.notification_id)
+
+        // Record outbound delivery in channel store
+        if (channelStore && threadId) {
+          try {
+            const messageId = channelStore.recordMessage({
+              threadId,
+              channel: 'telegram',
+              direction: 'outbound',
+              contentPreview: `[${payload.agent}] ${payload.message}`,
+              sender: 'jarvis',
+            })
+            channelStore.recordDelivery({
+              runId: entry.notification_id,
+              threadId,
+              messageId,
+              channel: 'telegram',
+              artifactType: 'notification',
+              contentPreview: payload.message,
+            })
+          } catch { /* best-effort */ }
+        }
 
         sent++
       } catch {

@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
 import os from 'os'
 import { join } from 'path'
-import { V1_WORKFLOWS } from '@jarvis/runtime'
+import { V1_WORKFLOWS, createCommand } from '@jarvis/runtime'
 
 function getRuntimeDb(): DatabaseSync {
   const dbPath = join(os.homedir(), '.jarvis', 'runtime.db')
@@ -61,11 +61,12 @@ workflowsRouter.post('/:workflowId/start', (req, res) => {
     db.exec("BEGIN IMMEDIATE")
     try {
       for (const agentId of wf.agent_ids) {
-        const commandId = randomUUID()
-        db.prepare(`
-          INSERT INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
-          VALUES (?, 'run_agent', ?, ?, 'queued', 0, ?, 'workflow', ?)
-        `).run(commandId, agentId, JSON.stringify({ ...req.body, workflow_id: wf.workflow_id, preview: req.body?.preview ?? false }), new Date().toISOString(), commandId)
+        const { commandId } = createCommand(db, {
+          agentId,
+          source: 'workflow',
+          payload: { ...req.body, workflow_id: wf.workflow_id, preview: req.body?.preview ?? false },
+          idempotencyKey: randomUUID(),
+        })
         commands.push({ command_id: commandId, agent_id: agentId })
       }
       db.exec("COMMIT")
