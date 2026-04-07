@@ -259,7 +259,7 @@ describe("Migration completeness", () => {
     const migCount = (
       db.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number }
     ).n;
-    expect(migCount).toBe(4);
+    expect(migCount).toBe(5);
 
     db.close();
   });
@@ -272,16 +272,15 @@ describe("Migration completeness", () => {
       .all() as Array<{ id: string }>;
     const ids = rows.map((r) => r.id);
 
-    expect(ids).toEqual(["0001", "0002", "0003", "0004"]);
+    expect(ids).toEqual(["0001", "0002", "0003", "0004", "0005"]);
     db.close();
   });
 
-  it("after migration: 17 tables exist (13 original + 3 channel + schema_migrations)", () => {
+  it("after migration: 19 tables exist (13 original + 3 channel + 2 knowledge_links + schema_migrations)", () => {
     const db = freshDb();
     const tables = tableNames(db);
 
-    // 12 from 0001 + 1 (runs) from 0002 + 3 (channel_*) from 0003 + schema_migrations = 17
-    expect(tables).toHaveLength(17);
+    expect(tables).toHaveLength(19);
 
     // Verify every expected table is present
     const expected = [
@@ -290,9 +289,11 @@ describe("Migration completeness", () => {
       "approvals",
       "artifact_deliveries",
       "audit_log",
+      "canonical_aliases",
       "channel_messages",
       "channel_threads",
       "daemon_heartbeats",
+      "decision_entity_links",
       "model_benchmarks",
       "model_registry",
       "notifications",

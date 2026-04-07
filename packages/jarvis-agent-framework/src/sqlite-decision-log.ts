@@ -73,6 +73,53 @@ export class SqliteDecisionLog {
     return (this.db.prepare("SELECT COUNT(*) AS cnt FROM decisions").get() as { cnt: number }).cnt;
   }
 
+  /**
+   * Link a decision to an entity it affects.
+   * Enables knowledge graph traversal: entity → decisions → runs.
+   */
+  linkDecisionToEntity(decisionId: string, entityId: string, linkType: string): void {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    try {
+      this.db.prepare(`
+        INSERT INTO decision_entity_links (link_id, decision_id, entity_id, link_type, created_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(id, decisionId, entityId, linkType, now);
+    } catch {
+      // Table may not exist on older DBs — best effort
+    }
+  }
+
+  /**
+   * Get all entities linked to decisions for a given entity.
+   */
+  getDecisionsByEntity(entityId: string): DecisionLog[] {
+    try {
+      const rows = this.db.prepare(`
+        SELECT d.* FROM decisions d
+        JOIN decision_entity_links l ON d.decision_id = l.decision_id
+        WHERE l.entity_id = ?
+        ORDER BY d.created_at DESC
+      `).all(entityId) as Array<Record<string, unknown>>;
+      return rows.map(r => this.rowToDecision(r));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Get all entity IDs linked to a decision.
+   */
+  getEntitiesForDecision(decisionId: string): Array<{ entity_id: string; link_type: string }> {
+    try {
+      return this.db.prepare(
+        "SELECT entity_id, link_type FROM decision_entity_links WHERE decision_id = ?",
+      ).all(decisionId) as Array<{ entity_id: string; link_type: string }>;
+    } catch {
+      return [];
+    }
+  }
+
   private rowToDecision(row: Record<string, unknown>): DecisionLog {
     return {
       decision_id: row.decision_id as string,
