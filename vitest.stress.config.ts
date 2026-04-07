@@ -49,7 +49,9 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["tests/**/*.test.ts"],
-    exclude: ["tests/stress/**/*.test.ts"]
+    include: ["tests/stress/**/*.test.ts"],
+    testTimeout: 120_000,
+    pool: "forks",
+    maxConcurrency: 1
   }
 });

@@ -43,6 +43,7 @@ const ConfigSchema = Type.Object({
   toggl: Type.Optional(Type.Object({ api_token: Type.String(), workspace_id: Type.String() })),
   drive: Type.Optional(OAuthCredentials),
   webhook_secret: Type.Optional(Type.String()),
+  anthropic_api_key: Type.Optional(Type.String()),
 });
 
 export type JarvisRuntimeConfig = Static<typeof ConfigSchema>;
@@ -144,6 +145,7 @@ export function loadConfig(): JarvisRuntimeConfig {
     toggl: raw.toggl as JarvisRuntimeConfig["toggl"],
     drive: raw.drive as JarvisRuntimeConfig["drive"],
     webhook_secret: typeof raw.webhook_secret === "string" ? raw.webhook_secret : undefined,
+    anthropic_api_key: typeof raw.anthropic_api_key === "string" ? raw.anthropic_api_key : undefined,
   };
 
   // Environment overrides
@@ -152,6 +154,9 @@ export function loadConfig(): JarvisRuntimeConfig {
   }
   if (process.env.JARVIS_WEBHOOK_SECRET) {
     config.webhook_secret = process.env.JARVIS_WEBHOOK_SECRET;
+  }
+  if (process.env.ANTHROPIC_API_KEY) {
+    config.anthropic_api_key = process.env.ANTHROPIC_API_KEY;
   }
   if (process.env.JARVIS_TELEGRAM_BOT_TOKEN && process.env.JARVIS_TELEGRAM_CHAT_ID) {
     config.telegram = {

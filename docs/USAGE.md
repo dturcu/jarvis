@@ -1,8 +1,8 @@
 # Jarvis — Usage Guide
 
-Jarvis is an autonomous agent system for Thinking in Code. It runs 8 domain agents that handle BD pipeline intelligence, proposal generation, compliance auditing, contract review, staffing monitoring, LinkedIn content, crypto portfolio, and garden management.
+Jarvis is an autonomous agent system for Thinking in Code. It runs 14 domain agents that handle BD pipeline intelligence, proposal generation, compliance auditing, contract review, staffing monitoring, LinkedIn content, crypto portfolio, garden management, email campaigns, social engagement, security monitoring, drive watching, invoice generation, and meeting transcription.
 
-Claude Code is the runtime. Jarvis provides domain knowledge, state persistence (SQLite), and agent definitions (skill files).
+Claude Code is the interactive runtime. Jarvis provides domain knowledge, state persistence (SQLite), and agent definitions (skill files). For autonomous execution, Jarvis also runs as an OpenClaw plugin pack with a full job queue and worker pool.
 
 ---
 
@@ -26,7 +26,7 @@ npm install
 npx tsx scripts/init-jarvis.ts
 
 # 3. Verify everything works
-npm run check     # 769 tests, 0 errors
+npm run check     # 1159 tests, 0 errors
 
 # 4. Check system health
 /health           # (in Claude Code session)
@@ -259,7 +259,7 @@ npm run telegram-bot
 - `/help` — Command list
 
 ### How push notifications work
-After each agent run, a digest is queued in `~/.jarvis/telegram-queue.json`. The bot process sends it to your Telegram chat within 30 seconds.
+After each agent run, a digest is queued in the `notifications` table in `~/.jarvis/runtime.db`. The bot process sends it to your Telegram chat within 30 seconds. (Older skill files may still reference the deprecated `~/.jarvis/telegram-queue.json` path -- this is a legacy mechanism superseded by the DB-backed queue.)
 
 ### How approvals work via Telegram
 For scheduled agents (those running automatically at 8am etc.), when they hit an approval gate, the bot sends:

@@ -8,13 +8,20 @@ export type JarvisConfig = {
     bot_token: string
     chat_id: string
   }
+  anthropic_api_key?: string
 }
 
 export function loadConfig(): JarvisConfig | null {
   const configPath = join(os.homedir(), '.jarvis', 'config.json')
   if (!fs.existsSync(configPath)) return null
   try {
-    return JSON.parse(fs.readFileSync(configPath, 'utf8')) as JarvisConfig
+    const config = JSON.parse(fs.readFileSync(configPath, 'utf8')) as JarvisConfig
+    // Make anthropic_api_key available via env var for chat-handler
+    const apiKey = config.anthropic_api_key ?? process.env.ANTHROPIC_API_KEY
+    if (apiKey) {
+      process.env.ANTHROPIC_API_KEY = apiKey
+    }
+    return config
   } catch {
     return null
   }

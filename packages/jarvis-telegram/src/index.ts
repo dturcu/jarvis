@@ -1,4 +1,4 @@
-import { loadConfig, QUEUE_FILE } from './config.js'
+import { loadConfig } from './config.js'
 import { JarvisBot } from './bot.js'
 import { processTelegramQueue } from './relay.js'
 
