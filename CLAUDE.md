@@ -2,7 +2,7 @@
 
 Jarvis is an autonomous agent system for **Thinking in Code**, Daniel's automotive safety consulting firm (ISO 26262, ASPICE, AUTOSAR, cybersecurity). It runs 14 domain agents that handle BD pipeline intelligence, proposal generation, compliance auditing, contract review, staffing monitoring, LinkedIn content, crypto portfolio, garden management, email campaigns, social engagement, security monitoring, drive watching, invoice generation, and meeting transcription.
 
-The system runs on **OpenClaw** (`^2026.4.5`) as a plugin pack. OpenClaw provides the chat OS layer (session routing, plugin lifecycle, tool execution, model abstraction, Telegram channel). Jarvis provides 17 domain plugins, 14 agent definitions, and a contract-validated job queue.
+The system runs on **OpenClaw** (`^2026.4.5`) as a plugin pack. OpenClaw provides the chat OS layer (session routing, plugin lifecycle, tool execution, model abstraction, Telegram channel). Jarvis provides 19 domain plugins, 14 agent definitions, and a contract-validated job queue.
 
 ## Quick Start
 
@@ -58,14 +58,16 @@ OpenClaw is the plugin gateway. Jarvis plugins register tools, commands, and hoo
 
 ```
 OpenClaw Gateway (WebSocket + HTTP, plugin host)
-    |-- 17 Jarvis Plugins
+    |-- 19 Jarvis Plugins
     |     |-- @jarvis/core     -- planning, approvals, model selection
     |     |-- @jarvis/jobs     -- job queue (claim/heartbeat/callback HTTP routes)
     |     |-- @jarvis/dispatch -- cross-session messaging
+    |     |-- @jarvis/agent    -- agent registration and execution
     |     |-- @jarvis/office   -- Excel/Word/PowerPoint automation
     |     |-- @jarvis/device   -- Windows desktop automation
+    |     |-- @jarvis/system   -- system monitoring and platform hooks
     |     |-- @jarvis/email    -- email management
-    |     '-- ... (11 more plugins)
+    |     '-- ... (10 more plugins)
     |-- Job Queue (submit -> claim -> heartbeat -> callback)
     |-- Worker Pool (in-process and child-process workers)
     '-- Model Router (TaskProfile -> SelectionPolicy -> local model)
@@ -84,31 +86,31 @@ OpenClaw Gateway (WebSocket + HTTP, plugin host)
 ## Packages (43)
 
 ### Core & Framework
-- `jarvis-shared` -- base types, OpenClaw SDK integration, gateway utilities
-- `jarvis-core` -- policy engine: planning, approvals, model selection
-- `jarvis-agent-framework` -- agent runtime, memory, knowledge, entity graph, lesson capture
-- `jarvis-agents` -- 14 agent definitions with system prompts
-- `jarvis-runtime` -- standalone daemon
+- `@jarvis/shared` -- base types, OpenClaw SDK integration, gateway utilities
+- `@jarvis/core` -- policy engine: planning, approvals, model selection
+- `@jarvis/agent-framework` -- agent runtime, memory, knowledge, entity graph, lesson capture
+- `@jarvis/agents` -- 14 agent definitions with system prompts
+- `@jarvis/runtime` -- standalone daemon
 
 ### Infrastructure
-- `jarvis-jobs`, `jarvis-dispatch`, `jarvis-scheduler`, `jarvis-supervisor`
-- `jarvis-inference`, `jarvis-interpreter`, `jarvis-security`, `jarvis-system`, `jarvis-voice`, `jarvis-device`
+- `@jarvis/jobs`, `@jarvis/dispatch`, `@jarvis/scheduler`, `@jarvis/supervisor`
+- `@jarvis/inference`, `@jarvis/interpreter`, `@jarvis/security`, `@jarvis/system`, `@jarvis/voice`, `@jarvis/device`
 
 ### Plugins (6)
-- `jarvis-agent-plugin`, `jarvis-email-plugin`, `jarvis-calendar-plugin`
-- `jarvis-crm-plugin`, `jarvis-web-plugin`, `jarvis-document-plugin`
+- `@jarvis/agent-plugin`, `@jarvis/email-plugin`, `@jarvis/calendar-plugin`
+- `@jarvis/crm-plugin`, `@jarvis/web-plugin`, `@jarvis/document-plugin`
 
 ### Workers (17)
-- `jarvis-agent-worker`, `jarvis-email-worker`, `jarvis-calendar-worker`, `jarvis-crm-worker`
-- `jarvis-web-worker`, `jarvis-document-worker`, `jarvis-browser-worker`, `jarvis-office-worker`
-- `jarvis-inference-worker`, `jarvis-interpreter-worker`, `jarvis-security-worker`, `jarvis-system-worker`
-- `jarvis-voice-worker`, `jarvis-social-worker`, `jarvis-time-worker`, `jarvis-drive-worker`
-- `jarvis-desktop-host-worker`
+- `@jarvis/agent-worker`, `@jarvis/email-worker`, `@jarvis/calendar-worker`, `@jarvis/crm-worker`
+- `@jarvis/web-worker`, `@jarvis/document-worker`, `@jarvis/browser-worker`, `@jarvis/office-worker`
+- `@jarvis/inference-worker`, `@jarvis/interpreter-worker`, `@jarvis/security-worker`, `@jarvis/system-worker`
+- `@jarvis/voice-worker`, `@jarvis/social-worker`, `@jarvis/time-worker`, `@jarvis/drive-worker`
+- `@jarvis/desktop-host-worker`
 
 ### Services
 - `jarvis-dashboard` -- React web dashboard
 - `jarvis-telegram` -- Telegram bot
-- `jarvis-browser`, `jarvis-office`, `jarvis-files`
+- `@jarvis/browser`, `@jarvis/office`, `@jarvis/files`
 
 ## Key Directories
 

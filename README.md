@@ -25,7 +25,7 @@ Dashboard: **http://localhost:4242**
 
 | Requirement | Minimum | Recommended |
 |---|---|---|
-| Node.js | 22+ | 22 LTS |
+| Node.js | >=22.5.0 | 22 LTS |
 | OpenClaw | ^2026.4.5 | Latest |
 | RAM | 8 GB | 16+ GB |
 | Disk | 2 GB free | 10+ GB |
@@ -46,22 +46,24 @@ ollama pull qwen2.5:14b     # Better reasoning, needs 16GB+ RAM
 
 ## Architecture
 
-Jarvis is a plugin pack for OpenClaw. OpenClaw provides the chat OS layer (session routing, plugin lifecycle, tool execution, model abstraction, channel integration). Jarvis provides 17 domain plugins that sit on top.
+Jarvis is a plugin pack for OpenClaw. OpenClaw provides the chat OS layer (session routing, plugin lifecycle, tool execution, model abstraction, channel integration). Jarvis provides 19 domain plugins that sit on top.
 
 ```
 Channels (Telegram, CLI, Web, API)
         |
 OpenClaw Gateway (WebSocket + HTTP)
-  |-- Plugin Manager
+  |-- Plugin Manager (19 plugins)
   |     |-- @jarvis/core        Planning, approvals, model selection
   |     |-- @jarvis/jobs        Job queue (submit, claim, heartbeat, callback)
   |     |-- @jarvis/dispatch    Cross-session messaging
+  |     |-- @jarvis/agent       Agent registration and execution
   |     |-- @jarvis/office      Excel, Word, PowerPoint automation
   |     |-- @jarvis/device      Windows desktop automation
   |     |-- @jarvis/email       Gmail search, read, draft, send
   |     |-- @jarvis/calendar    Calendar intelligence
   |     |-- @jarvis/browser     Chrome automation
   |     |-- @jarvis/files       Safe file operations
+  |     |-- @jarvis/system      System monitoring and platform hooks
   |     |-- @jarvis/inference   Local LLM routing
   |     |-- @jarvis/crm         CRM pipeline management
   |     |-- @jarvis/web         Web intelligence
@@ -85,7 +87,7 @@ Data: ~/.jarvis/
 ### How It Works
 
 1. **Agents** define what to do (system prompts, capabilities, approval gates, schedules)
-2. **Plugins** expose tools to agents via the OpenClaw plugin SDK (`definePluginEntry`)
+2. **Plugins** (19 total) expose tools to agents via the OpenClaw plugin SDK (`definePluginEntry`)
 3. **Tools** submit deterministic job specs to the **job queue**
 4. **Workers** claim jobs via HTTP, execute, and return results via callback
 5. **Model routing** matches agent needs (TaskProfile) to available local models (SelectionPolicy)
@@ -110,9 +112,9 @@ Jarvis supports two execution modes:
 | **portfolio-monitor** | Check crypto prices, calculate drift, recommend rebalance | Daily 8 AM + 8 PM | Operational |
 | **garden-calendar** | Generate weekly garden brief based on date + weather | Mondays 7:00 AM | Operational |
 | **email-campaign** | Manage drip campaigns, follow-up sequences | Manual | Trusted |
-| **social-engagement** | Monitor and respond to social media interactions | Manual | Operational |
-| **security-monitor** | Track security advisories, vulnerability alerts | Manual | Operational |
-| **drive-watcher** | Watch shared drives for new/changed documents | Manual | Operational |
+| **social-engagement** | Monitor and respond to social media interactions | Weekdays 8:30 AM + 6 PM | Operational |
+| **security-monitor** | Track security advisories, vulnerability alerts | Daily 3:00 AM | Operational |
+| **drive-watcher** | Watch shared drives for new/changed documents | Every 5 minutes | Operational |
 | **invoice-generator** | Generate and track invoices for client engagements | Manual | Trusted |
 | **meeting-transcriber** | Transcribe and summarize meeting recordings | Manual | Operational |
 
@@ -129,59 +131,59 @@ Jarvis supports two execution modes:
 
 | Package | Purpose |
 |---|---|
-| `jarvis-shared` | Base types, OpenClaw runtime foundation, gateway utilities |
-| `jarvis-core` | Policy engine: planning, approvals, model selection |
-| `jarvis-agent-framework` | Agent runtime, memory, knowledge, entity graph, lesson capture |
-| `jarvis-agents` | 14 agent definitions with system prompts and registry |
-| `jarvis-runtime` | Standalone daemon for autonomous agent execution |
+| `@jarvis/shared` | Base types, OpenClaw runtime foundation, gateway utilities |
+| `@jarvis/core` | Policy engine: planning, approvals, model selection |
+| `@jarvis/agent-framework` | Agent runtime, memory, knowledge, entity graph, lesson capture |
+| `@jarvis/agents` | 14 agent definitions with system prompts and registry |
+| `@jarvis/runtime` | Standalone daemon for autonomous agent execution |
 
 ### Infrastructure
 
 | Package | Purpose |
 |---|---|
-| `jarvis-jobs` | Job queue: submission, claiming, callbacks, retries |
-| `jarvis-dispatch` | Cross-session messaging and follow-ups |
-| `jarvis-scheduler` | Cron scheduling and alert management |
-| `jarvis-supervisor` | Agent supervision and governance |
-| `jarvis-inference` | LLM inference coordination and model routing |
-| `jarvis-interpreter` | Code/prompt interpretation |
-| `jarvis-security` | Security policies and validation |
-| `jarvis-system` | System monitoring (CPU, memory, disk, processes) |
-| `jarvis-voice` | Voice I/O (Whisper STT, Piper TTS) |
-| `jarvis-device` | Device integration and notifications |
+| `@jarvis/jobs` | Job queue: submission, claiming, callbacks, retries |
+| `@jarvis/dispatch` | Cross-session messaging and follow-ups |
+| `@jarvis/scheduler` | Cron scheduling and alert management |
+| `@jarvis/supervisor` | Agent supervision and governance |
+| `@jarvis/inference` | LLM inference coordination and model routing |
+| `@jarvis/interpreter` | Code/prompt interpretation |
+| `@jarvis/security` | Security policies and validation |
+| `@jarvis/system` | System monitoring (CPU, memory, disk, processes) |
+| `@jarvis/voice` | Voice I/O (Whisper STT, Piper TTS) |
+| `@jarvis/device` | Device integration and notifications |
 
 ### Plugins (Agent-Facing Interfaces)
 
 | Package | Purpose |
 |---|---|
-| `jarvis-agent-plugin` | Agent orchestration plugin |
-| `jarvis-email-plugin` | Email operations (Gmail) |
-| `jarvis-calendar-plugin` | Calendar operations |
-| `jarvis-crm-plugin` | CRM pipeline management |
-| `jarvis-web-plugin` | Web intelligence and scraping |
-| `jarvis-document-plugin` | Document analysis and compliance checking |
+| `@jarvis/agent-plugin` | Agent orchestration plugin |
+| `@jarvis/email-plugin` | Email operations (Gmail) |
+| `@jarvis/calendar-plugin` | Calendar operations |
+| `@jarvis/crm-plugin` | CRM pipeline management |
+| `@jarvis/web-plugin` | Web intelligence and scraping |
+| `@jarvis/document-plugin` | Document analysis and compliance checking |
 
 ### Workers (Async Job Processors)
 
 | Package | Purpose |
 |---|---|
-| `jarvis-agent-worker` | Agent execution |
-| `jarvis-email-worker` | Email sending/receiving |
-| `jarvis-calendar-worker` | Calendar sync |
-| `jarvis-crm-worker` | CRM operations |
-| `jarvis-web-worker` | Web scraping and search |
-| `jarvis-document-worker` | Document processing |
-| `jarvis-browser-worker` | Chrome automation |
-| `jarvis-office-worker` | Office document handling |
-| `jarvis-inference-worker` | LLM inference execution |
-| `jarvis-interpreter-worker` | Code/prompt execution |
-| `jarvis-security-worker` | Security checks |
-| `jarvis-system-worker` | System commands |
-| `jarvis-voice-worker` | Voice I/O processing |
-| `jarvis-social-worker` | Social media monitoring |
-| `jarvis-time-worker` | Time/timezone utilities |
-| `jarvis-drive-worker` | Google Drive monitoring |
-| `jarvis-desktop-host-worker` | Windows desktop automation |
+| `@jarvis/agent-worker` | Agent execution |
+| `@jarvis/email-worker` | Email sending/receiving |
+| `@jarvis/calendar-worker` | Calendar sync |
+| `@jarvis/crm-worker` | CRM operations |
+| `@jarvis/web-worker` | Web scraping and search |
+| `@jarvis/document-worker` | Document processing |
+| `@jarvis/browser-worker` | Chrome automation |
+| `@jarvis/office-worker` | Office document handling |
+| `@jarvis/inference-worker` | LLM inference execution |
+| `@jarvis/interpreter-worker` | Code/prompt execution |
+| `@jarvis/security-worker` | Security checks |
+| `@jarvis/system-worker` | System commands |
+| `@jarvis/voice-worker` | Voice I/O processing |
+| `@jarvis/social-worker` | Social media monitoring |
+| `@jarvis/time-worker` | Time/timezone utilities |
+| `@jarvis/drive-worker` | Google Drive monitoring |
+| `@jarvis/desktop-host-worker` | Windows desktop automation |
 
 ### Services
 
@@ -189,16 +191,16 @@ Jarvis supports two execution modes:
 |---|---|
 | `jarvis-dashboard` | Web dashboard (React) at http://localhost:4242 |
 | `jarvis-telegram` | Telegram bot integration |
-| `jarvis-browser` | Chrome DevTools Protocol integration |
-| `jarvis-office` | Office (Word, Excel, PowerPoint) operations |
-| `jarvis-files` | File system operations |
+| `@jarvis/browser` | Chrome DevTools Protocol integration |
+| `@jarvis/office` | Office (Word, Excel, PowerPoint) operations |
+| `@jarvis/files` | File system operations |
 
 ## Contract System
 
 All job types, tool responses, and worker callbacks conform to the `jarvis.v1` contract — a frozen JSON Schema specification.
 
 - **143 job types** across **22 families**: agent, browser, calendar, crm, device, document, drive, email, files, inference, interpreter, office, python, scheduler, scrape, search, security, social, system, time, voice, web
-- **Schema validation** via `npm run validate:contracts` — validates all schemas and 144 example payloads
+- **Schema validation** via `npm run validate:contracts` — validates schemas and 144 example payloads (some newer job types temporarily excluded from full envelope/result validation)
 - **Contract files** live in `contracts/jarvis/v1/`
 
 ### Job Lifecycle

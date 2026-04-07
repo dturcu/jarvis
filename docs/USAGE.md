@@ -259,7 +259,7 @@ npm run telegram-bot
 - `/help` — Command list
 
 ### How push notifications work
-After each agent run, a digest is queued in the `notifications` table in `~/.jarvis/runtime.db`. The bot process sends it to your Telegram chat within 30 seconds.
+After each agent run, a digest is queued in the `notifications` table in `~/.jarvis/runtime.db`. The bot process sends it to your Telegram chat within 30 seconds. (Older skill files may still reference the deprecated `~/.jarvis/telegram-queue.json` path -- this is a legacy mechanism superseded by the DB-backed queue.)
 
 ### How approvals work via Telegram
 For scheduled agents (those running automatically at 8am etc.), when they hit an approval gate, the bot sends:
