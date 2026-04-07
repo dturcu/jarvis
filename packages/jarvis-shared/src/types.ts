@@ -37,6 +37,32 @@ export type ArtifactRef = {
   size_bytes?: number;
 };
 
+export type ArtifactProvenance = {
+  /** Agent that produced this artifact. */
+  source_agent_id: string;
+  /** Run that produced this artifact. */
+  source_run_id: string;
+  /** Step number within the run. */
+  step_no?: number;
+  /** Action that produced this artifact. */
+  action?: string;
+  /** Source material references (RFQ excerpts, clause IDs, document paths). */
+  source_refs?: ArtifactSourceRef[];
+  /** Assumptions made during generation. */
+  assumptions?: string[];
+};
+
+export type ArtifactSourceRef = {
+  /** Type of source: rfq_excerpt, clause, case_study, document, precedent, work_product. */
+  ref_type: string;
+  /** Human-readable label. */
+  label: string;
+  /** Location or identifier of the source (file path, section ID, URL). */
+  location?: string;
+  /** Excerpt or snippet from the source. */
+  excerpt?: string;
+};
+
 export type ArtifactRecord = {
   artifact_id: string;
   kind: string;
@@ -50,6 +76,8 @@ export type ArtifactRecord = {
   created_at?: string;
   preview?: Record<string, unknown> | null;
   metadata?: Record<string, unknown>;
+  /** Provenance: links this artifact to the agent, run, and source material that produced it. */
+  provenance?: ArtifactProvenance;
 };
 
 export type RetryPolicy = {

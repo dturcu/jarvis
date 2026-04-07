@@ -368,6 +368,20 @@ export async function runAgent(
       try {
         const result = await registry.executeJob(envelope);
 
+        // Attach provenance to any artifacts produced by this step
+        if (result.artifacts) {
+          for (const artifact of result.artifacts) {
+            if (!artifact.provenance) {
+              artifact.provenance = {
+                source_agent_id: agentId,
+                source_run_id: run.run_id,
+                step_no: step.step,
+                action: step.action,
+              };
+            }
+          }
+        }
+
         const outcome = result.status === "completed" ? "completed" : `failed: ${result.error?.message ?? result.summary}`;
         decisionLog.logDecision({
           agent_id: agentId, run_id: run.run_id, step: step.step,
