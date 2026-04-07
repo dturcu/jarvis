@@ -280,6 +280,34 @@ export class SqliteEntityGraph {
     }
   }
 
+  /**
+   * Record a canonical alias for dedup auditing.
+   * When an entity is merged due to canonical key matching, record the alias.
+   */
+  recordCanonicalAlias(canonicalKey: string, aliasKey: string, entityType: string): void {
+    try {
+      this.db.prepare(`
+        INSERT INTO canonical_aliases (alias_id, canonical_key, alias_key, entity_type, created_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(randomUUID(), canonicalKey, aliasKey, entityType, new Date().toISOString());
+    } catch {
+      // Table may not exist on older DBs — best effort
+    }
+  }
+
+  /**
+   * Get all known aliases for a canonical key.
+   */
+  getAliases(canonicalKey: string): Array<{ alias_key: string; entity_type: string }> {
+    try {
+      return this.db.prepare(
+        "SELECT alias_key, entity_type FROM canonical_aliases WHERE canonical_key = ?",
+      ).all(canonicalKey) as Array<{ alias_key: string; entity_type: string }>;
+    } catch {
+      return [];
+    }
+  }
+
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   private parseJson(s: string | null): Record<string, unknown> {
