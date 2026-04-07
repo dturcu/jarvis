@@ -19,6 +19,7 @@ export {
   loadPlugins, installPlugin, uninstallPlugin, listPlugins,
   validateManifest, deriveRequiredPermissions, isActionPermitted,
   PLUGIN_PERMISSIONS,
+  JARVIS_PLATFORM_VERSION,
   type PluginManifest, type PluginPermission, type ManifestValidationResult, type InstallResult,
 } from "./plugin-loader.js";
 export { getHealthReport, getReadinessReport, type HealthReport, type HealthStatus, type ReadinessReport } from "./health.js";
@@ -32,6 +33,14 @@ export { getExecutionPolicy, WORKER_EXECUTION_POLICIES, type WorkerIsolation, ty
 export { validatePath, defaultFilesystemPolicy, loadFilesystemPolicy, type FilesystemPolicy, type PathValidationResult } from "./filesystem-policy.js";
 export { WorkerHealthMonitor, type WorkerHealthStatus, type WorkerHealthEntry } from "./worker-health.js";
 export { setWorkerHealthProvider } from "./health.js";
+export {
+  isValidTransition, getAllowedTransitions, requiresApproval, canDeliver, isTerminal,
+  type ArtifactState, type ArtifactLifecycleEntry,
+} from "./artifact-lifecycle.js";
+export {
+  CURRENT_RELEASE, checkUpgrade, getPlatformVersion,
+  type ReleaseInfo, type UpgradeCheckResult,
+} from "./release-metadata.js";
 export {
   classifyDisagreement, shouldBlockExecution, shouldFlagForReview,
   DEFAULT_DISAGREEMENT_POLICY, MODERATE_DISAGREEMENT_POLICY, MINOR_DISAGREEMENT_POLICY,
