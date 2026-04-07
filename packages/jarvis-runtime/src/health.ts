@@ -42,6 +42,8 @@ export type ReadinessReport = {
     knowledge_db: boolean;
     runtime_db: boolean;
     daemon_running: boolean;
+    config_valid: boolean;
+    channel_tables: boolean;
   };
   details: {
     migrations: { runtime: string | null; crm: string | null; knowledge: string | null };
@@ -197,7 +199,19 @@ export function getReadinessReport(): ReadinessReport {
     knowledge_db: fs.existsSync(KNOWLEDGE_DB_PATH),
     runtime_db: fs.existsSync(RUNTIME_DB_PATH),
     daemon_running: false,
+    config_valid: false,
+    channel_tables: false,
   };
+
+  // Config validation
+  try {
+    const configPath = join(JARVIS_DIR, "config.json");
+    if (fs.existsSync(configPath)) {
+      const raw = fs.readFileSync(configPath, "utf-8");
+      const parsed = JSON.parse(raw);
+      checks.config_valid = !!(parsed.lmstudio_url || parsed.adapter_mode);
+    }
+  } catch { /* config invalid or missing */ }
 
   const details = {
     migrations: {
@@ -231,12 +245,16 @@ export function getReadinessReport(): ReadinessReport {
       details.stale_claims = queryCount(rtDb, "SELECT COUNT(*) as n FROM agent_commands WHERE status = 'claimed' AND claimed_at < datetime('now', '-10 minutes')");
       details.overdue_schedules = queryCount(rtDb, "SELECT COUNT(*) as n FROM schedules WHERE enabled = 1 AND next_fire_at < datetime('now')");
 
+      // Check channel tables exist
+      const channelTableCount = queryCount(rtDb, "SELECT COUNT(*) as n FROM sqlite_master WHERE type='table' AND name IN ('channel_threads','channel_messages','artifact_deliveries')");
+      checks.channel_tables = channelTableCount === 3;
+
       rtDb.close();
     } catch { /* can't check */ }
   }
 
   return {
-    ready: checks.jarvis_dir && checks.crm_db && checks.knowledge_db && checks.runtime_db && checks.daemon_running,
+    ready: checks.jarvis_dir && checks.crm_db && checks.knowledge_db && checks.runtime_db && checks.daemon_running && checks.channel_tables,
     checks,
     details,
   };

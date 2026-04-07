@@ -98,6 +98,66 @@ function checkConfig() {
   }
 }
 
+// ─── Daemon Heartbeat ─────────────────────────────────────────────────────
+
+function checkDaemon() {
+  if (!fs.existsSync(RUNTIME_DB_PATH)) return;
+  try {
+    const db = new DatabaseSync(RUNTIME_DB_PATH);
+    db.exec("PRAGMA journal_mode = WAL;");
+    db.exec("PRAGMA busy_timeout = 5000;");
+    const row = db.prepare(
+      "SELECT pid, last_seen_at FROM daemon_heartbeats ORDER BY last_seen_at DESC LIMIT 1",
+    ).get() as { pid: number; last_seen_at: string } | undefined;
+    db.close();
+
+    if (!row) {
+      warn("Daemon", "No heartbeat found — daemon has never run",
+        "Start daemon with: npm start");
+      return;
+    }
+
+    const staleMs = Date.now() - new Date(row.last_seen_at).getTime();
+    if (staleMs < 30_000) {
+      pass("Daemon", `Running (PID ${row.pid}, last seen ${Math.round(staleMs / 1000)}s ago)`);
+    } else {
+      warn("Daemon", `Not running (PID ${row.pid}, last seen ${Math.round(staleMs / 60_000)}m ago)`,
+        "Start daemon with: npm start");
+    }
+  } catch {
+    warn("Daemon", "Could not check daemon heartbeat");
+  }
+}
+
+// ─── Migration Status ─────────────────────────────────────────────────────
+
+function checkMigrations() {
+  for (const [name, dbPath, expected] of [
+    ["Runtime", RUNTIME_DB_PATH, "0004"],
+    ["CRM", CRM_DB_PATH, "crm_0001"],
+    ["Knowledge", KNOWLEDGE_DB_PATH, "knowledge_0001"],
+  ] as const) {
+    if (!fs.existsSync(dbPath)) continue;
+    try {
+      const db = new DatabaseSync(dbPath);
+      const row = db.prepare(
+        "SELECT id FROM schema_migrations ORDER BY id DESC LIMIT 1",
+      ).get() as { id: string } | undefined;
+      db.close();
+
+      if (!row) {
+        warn(`${name} Migrations`, "No migrations applied",
+          `Run: npx tsx scripts/init-jarvis.ts`);
+      } else if (row.id >= expected) {
+        pass(`${name} Migrations`, `Latest: ${row.id}`);
+      } else {
+        warn(`${name} Migrations`, `Latest: ${row.id} (expected >= ${expected})`,
+          "Restart daemon to auto-apply migrations, or run: npx tsx scripts/init-jarvis.ts");
+      }
+    } catch { /* skip */ }
+  }
+}
+
 // ─── Databases ─────────────────────────────────────────────────────────────
 
 function checkDatabase(name: string, dbPath: string, tables: string[]) {
@@ -143,6 +203,7 @@ function checkDatabases() {
     "schema_migrations", "approvals", "agent_commands", "runs", "run_events",
     "daemon_heartbeats", "notifications", "plugin_installs", "audit_log",
     "settings", "model_registry", "model_benchmarks", "schedules", "agent_memory",
+    "channel_threads", "channel_messages", "artifact_deliveries",
   ]);
 }
 
@@ -305,7 +366,9 @@ async function main() {
   checkJarvisDir();
   checkConfig();
   checkDatabases();
+  checkMigrations();
   checkWalMode();
+  checkDaemon();
   await checkModelRuntime();
   await checkChrome();
   checkDashboard();
