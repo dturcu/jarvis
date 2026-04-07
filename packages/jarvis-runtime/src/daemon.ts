@@ -99,10 +99,12 @@ async function main() {
   const allAgentDefs = [...ALL_AGENTS, ...pluginManifests.map(m => m.agent)];
 
   // Seed schedules from agent triggers (only inserts if not already in DB)
+  // Maturity enforcement: experimental agents are seeded as disabled
   let scheduleCount = 0;
   for (const def of allAgentDefs) {
     for (const trigger of def.triggers) {
       if (trigger.kind === "schedule") {
+        const isExperimental = def.maturity === "experimental" || def.pack === "experimental";
         const nextFire = computeNextFireAt(
           { cron_expression: trigger.cron, interval_seconds: undefined } as Parameters<typeof computeNextFireAt>[0],
           new Date(),
@@ -112,7 +114,7 @@ async function main() {
           input: { agent_id: def.agent_id },
           cron_expression: trigger.cron,
           next_fire_at: nextFire,
-          enabled: true,
+          enabled: !isExperimental,
           scope_group: "agents",
           label: def.label,
         });

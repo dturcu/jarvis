@@ -32,6 +32,8 @@ export type WorkflowDefinition = {
   preview_available: boolean;
   output_fields?: WorkflowOutputField[];
   safety_rules?: WorkflowSafetyRules;
+  /** Pack classification. All V1 workflows are core. */
+  pack?: "core" | "experimental" | "personal";
 };
 
 export const V1_WORKFLOWS: WorkflowDefinition[] = [
@@ -47,6 +49,7 @@ export const V1_WORKFLOWS: WorkflowDefinition[] = [
     ],
     approval_summary: "Report generation requires approval",
     preview_available: true,
+    pack: "core",
     output_fields: [
       { name: "recommendation", label: "Overall recommendation", type: "text", required: true },
       { name: "risks", label: "Identified risks", type: "list", required: true },
@@ -72,6 +75,7 @@ export const V1_WORKFLOWS: WorkflowDefinition[] = [
     ],
     approval_summary: "Outbound emails require approval",
     preview_available: true,
+    pack: "core",
     output_fields: [
       { name: "summary", label: "Analysis summary", type: "text", required: true },
       { name: "gap_matrix", label: "Compliance gap matrix", type: "table", required: true },
@@ -95,6 +99,7 @@ export const V1_WORKFLOWS: WorkflowDefinition[] = [
     ],
     approval_summary: "Emails and CRM stage changes require approval",
     preview_available: true,
+    pack: "core",
     output_fields: [
       { name: "leads", label: "Enriched leads", type: "list", required: true },
       { name: "crm_updates", label: "CRM updates made", type: "list", required: false },
@@ -118,6 +123,7 @@ export const V1_WORKFLOWS: WorkflowDefinition[] = [
     ],
     approval_summary: "Email notifications require approval",
     preview_available: false,
+    pack: "core",
     output_fields: [
       { name: "utilization", label: "Utilization report", type: "text", required: true },
       { name: "gaps", label: "Forecasted gaps", type: "list", required: true },
@@ -140,6 +146,7 @@ export const V1_WORKFLOWS: WorkflowDefinition[] = [
     ],
     approval_summary: "Individual agent approvals apply",
     preview_available: false,
+    pack: "core",
     output_fields: [
       { name: "summary", label: "Weekly summary", type: "text", required: true },
       { name: "action_items", label: "Action items", type: "list", required: true },

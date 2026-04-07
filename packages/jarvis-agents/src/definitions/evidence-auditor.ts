@@ -81,4 +81,5 @@ export const evidenceAuditorAgent: AgentDefinition = {
   output_channels: ["telegram:daniel"],
   planner_mode: "critic",
   maturity: "trusted_with_review",
+  pack: "core",
 };

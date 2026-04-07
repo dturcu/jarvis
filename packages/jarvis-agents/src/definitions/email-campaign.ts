@@ -73,5 +73,6 @@ export const emailCampaignAgent: AgentDefinition = {
   output_channels: ["telegram:daniel", "email:daniel@thinking-in-code.com"],
   planner_mode: "single",
   maturity: "trusted_with_review",
+  pack: "experimental",
   experimental: true,
 };

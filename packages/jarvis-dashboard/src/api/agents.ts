@@ -15,47 +15,96 @@ function getKnowledgeDb() {
   return new DatabaseSync(join(os.homedir(), '.jarvis', 'knowledge.db'))
 }
 
-const AGENT_META: Record<string, { label: string; description: string; schedule: string }> = {
+type AgentMeta = { label: string; description: string; schedule: string; pack: 'core' | 'experimental' | 'personal' }
+
+const AGENT_META: Record<string, AgentMeta> = {
+  // Core — primary consulting product
   'bd-pipeline': {
     label: 'BD Pipeline',
     description: 'Scan for BD signals, enrich leads, draft outreach, update CRM',
-    schedule: 'Weekdays at 8:00 AM'
+    schedule: 'Weekdays at 8:00 AM',
+    pack: 'core',
   },
   'proposal-engine': {
     label: 'Proposal Engine',
     description: 'Analyze RFQ/SOW, build quote structure, draft proposal',
-    schedule: 'On demand'
+    schedule: 'On demand',
+    pack: 'core',
   },
   'evidence-auditor': {
     label: 'Evidence Auditor',
     description: 'Scan project for ISO 26262 work products, produce gap matrix',
-    schedule: 'Mondays at 9:00 AM'
+    schedule: 'Mondays at 9:00 AM',
+    pack: 'core',
   },
   'contract-reviewer': {
     label: 'Contract Reviewer',
     description: 'Analyze NDA/MSA clauses, produce sign/negotiate/escalate recommendation',
-    schedule: 'On demand'
+    schedule: 'On demand',
+    pack: 'core',
   },
   'staffing-monitor': {
     label: 'Staffing Monitor',
     description: 'Calculate team utilization, forecast gaps, match skills to pipeline',
-    schedule: 'Mondays at 9:00 AM'
+    schedule: 'Mondays at 9:00 AM',
+    pack: 'core',
   },
+  // Experimental — work-in-progress
   'content-engine': {
     label: 'Content Engine',
     description: 'Draft LinkedIn post for today\'s content pillar',
-    schedule: 'Mon/Wed/Thu at 7:00 AM'
+    schedule: 'Mon/Wed/Thu at 7:00 AM',
+    pack: 'experimental',
   },
+  'email-campaign': {
+    label: 'Email Campaign',
+    description: 'Manage drip campaigns, follow-up sequences, outreach automation',
+    schedule: 'On demand',
+    pack: 'experimental',
+  },
+  'social-engagement': {
+    label: 'Social Engagement',
+    description: 'Monitor and respond to social media interactions',
+    schedule: 'Weekdays at 8:30 AM & 6:00 PM',
+    pack: 'experimental',
+  },
+  'security-monitor': {
+    label: 'Security Monitor',
+    description: 'Track security advisories, vulnerability alerts, compliance updates',
+    schedule: 'Daily at 3:00 AM',
+    pack: 'experimental',
+  },
+  'drive-watcher': {
+    label: 'Drive Watcher',
+    description: 'Watch shared drives for new/changed documents, trigger workflows',
+    schedule: 'Every 5 minutes',
+    pack: 'experimental',
+  },
+  'invoice-generator': {
+    label: 'Invoice Generator',
+    description: 'Generate and track invoices for client engagements',
+    schedule: 'On demand',
+    pack: 'experimental',
+  },
+  'meeting-transcriber': {
+    label: 'Meeting Transcriber',
+    description: 'Transcribe and summarize meeting recordings',
+    schedule: 'On demand',
+    pack: 'experimental',
+  },
+  // Personal — non-consulting agents
   'portfolio-monitor': {
     label: 'Portfolio Monitor',
     description: 'Check crypto prices, calculate drift, recommend rebalance',
-    schedule: 'Daily at 8:00 AM & 8:00 PM'
+    schedule: 'Daily at 8:00 AM & 8:00 PM',
+    pack: 'personal',
   },
   'garden-calendar': {
     label: 'Garden Calendar',
     description: 'Generate weekly garden brief based on date + weather',
-    schedule: 'Mondays at 7:00 AM'
-  }
+    schedule: 'Mondays at 7:00 AM',
+    pack: 'personal',
+  },
 }
 
 const AGENT_IDS = Object.keys(AGENT_META)
@@ -63,7 +112,9 @@ const AGENT_IDS = Object.keys(AGENT_META)
 export const agentsRouter = Router()
 
 // GET / — list agents with last run from runtime.db runs table
-agentsRouter.get('/', (_req, res) => {
+// Optional query: ?pack=core|experimental|personal (default: all)
+agentsRouter.get('/', (req, res) => {
+  const packFilter = req.query.pack as string | undefined
   let lastRuns: Record<string, Record<string, unknown>> = {}
   try {
     const db = getRuntimeDb()
@@ -83,14 +134,18 @@ agentsRouter.get('/', (_req, res) => {
     // runtime.db may not exist yet
   }
 
-  const agents = AGENT_IDS.map(id => {
-    const meta = AGENT_META[id]
+  const filteredIds = packFilter
+    ? AGENT_IDS.filter(id => AGENT_META[id]?.pack === packFilter)
+    : AGENT_IDS
+  const agents = filteredIds.map(id => {
+    const meta = AGENT_META[id]!
     const last = lastRuns[id]
     return {
       agentId: id,
       label: meta.label,
       description: meta.description,
       schedule: meta.schedule,
+      pack: meta.pack,
       lastRun: last?.started_at ?? null,
       lastOutcome: last?.status ?? null,
       lastStep: last?.current_step ?? null
