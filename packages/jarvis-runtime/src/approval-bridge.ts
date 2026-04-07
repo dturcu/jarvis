@@ -118,6 +118,53 @@ export function resolveApproval(
 }
 
 /**
+ * Delegate a pending approval to another operator.
+ * Records who delegated and why in the approvals table + audit log.
+ */
+export function delegateApproval(
+  db: DatabaseSync,
+  approvalId: string,
+  assignee: string,
+  delegatedBy: string,
+  note?: string,
+): boolean {
+  const now = new Date().toISOString();
+  try {
+    const result = db.prepare(`
+      UPDATE approvals SET assignee = ?, delegated_by = ?, delegation_note = ?
+      WHERE approval_id = ? AND status = 'pending'
+    `).run(assignee, delegatedBy, note ?? null, approvalId);
+
+    if ((result as { changes: number }).changes === 0) return false;
+
+    db.prepare(`
+      INSERT INTO audit_log (audit_id, actor_type, actor_id, action, target_type, target_id, payload_json, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      randomUUID(), "user", delegatedBy, "approval.delegated",
+      "approval", approvalId,
+      JSON.stringify({ assignee, note }), now,
+    );
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * List approvals assigned to a specific user.
+ */
+export function listApprovalsByAssignee(
+  db: DatabaseSync,
+  assignee: string,
+): ApprovalEntry[] {
+  return db.prepare(
+    "SELECT approval_id as id, agent_id as agent, action, payload_json as payload, requested_at as created_at, status, run_id, severity, resolved_at, resolved_by, resolution_note FROM approvals WHERE assignee = ? AND status = 'pending' ORDER BY requested_at DESC",
+  ).all(assignee) as ApprovalEntry[];
+}
+
+/**
  * List approvals, optionally filtered by status.
  */
 export function listApprovals(

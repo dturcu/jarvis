@@ -40,7 +40,7 @@ export class RunStore {
   constructor(private db: DatabaseSync) {}
 
   /** Start a new run. Inserts into runs table and emits run_started event atomically. Returns run_id. */
-  startRun(agentId: string, triggerKind?: string, commandId?: string, goal?: string, runId?: string): string {
+  startRun(agentId: string, triggerKind?: string, commandId?: string, goal?: string, runId?: string, owner?: string): string {
     runId = runId ?? randomUUID();
     const now = new Date().toISOString();
 
@@ -138,6 +138,23 @@ export class RunStore {
     if (meta.total_steps !== undefined) {
       this.db.prepare("UPDATE runs SET total_steps = ? WHERE run_id = ?").run(meta.total_steps, runId);
     }
+  }
+
+  /** Set the owner of a run (who initiated it). */
+  setRunOwner(runId: string, owner: string): void {
+    this.db.prepare("UPDATE runs SET owner = ? WHERE run_id = ?").run(owner, runId);
+  }
+
+  /** Assign a run to a specific operator for review/action. */
+  assignRun(runId: string, assignee: string): void {
+    this.db.prepare("UPDATE runs SET assignee = ? WHERE run_id = ?").run(assignee, runId);
+  }
+
+  /** Get runs owned by or assigned to a specific user. */
+  getRunsByUser(userId: string, limit = 20): Array<Record<string, unknown>> {
+    return this.db.prepare(
+      "SELECT * FROM runs WHERE owner = ? OR assignee = ? ORDER BY started_at DESC LIMIT ?",
+    ).all(userId, userId, limit) as Array<Record<string, unknown>>;
   }
 
   /** Emit a run event without changing status (e.g., step_started within executing). */
