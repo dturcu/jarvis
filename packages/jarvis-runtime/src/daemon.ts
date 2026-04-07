@@ -23,6 +23,9 @@ import type { AgentTrigger } from "@jarvis/agent-framework";
 import { discoverModels, syncModelRegistry } from "@jarvis/inference";
 import { RunStore } from "./run-store.js";
 import { ChannelStore } from "./channel-store.js";
+import { WorkerHealthMonitor } from "./worker-health.js";
+import { WORKER_EXECUTION_POLICIES } from "./execution-policy.js";
+import { setWorkerHealthProvider } from "./health.js";
 import { resolveApproval } from "./approval-bridge.js";
 
 // ─── Restart Policy ──────────────────────────────────────────────────────────
@@ -66,7 +69,11 @@ async function main() {
   const memory = new AgentMemoryStore();
   const runtime = new AgentRuntime(memory);
   const lessonCapture = new LessonCapture(knowledgeStore);
-  const registry = createWorkerRegistry(config, logger, runtimeDb);
+  // Worker health monitor — tracks per-worker execution outcomes
+  const healthMonitor = new WorkerHealthMonitor(WORKER_EXECUTION_POLICIES);
+  setWorkerHealthProvider(() => healthMonitor.getHealthReport());
+
+  const registry = createWorkerRegistry(config, logger, runtimeDb, healthMonitor);
 
   // DB-backed scheduler — persists across restarts
   const scheduler = new DbSchedulerStore(runtimeDb);
@@ -151,7 +158,7 @@ async function main() {
     const tableCheck = runtimeDb.prepare(
       "SELECT COUNT(*) as n FROM sqlite_master WHERE type='table' AND name IN ('runs','approvals','agent_commands','daemon_heartbeats','channel_threads','channel_messages','artifact_deliveries')",
     ).get() as { n: number };
-    if (tableCheck.n < 4) {
+    if (tableCheck.n < 7) {
       safeMode = true;
       safeModeReason = `Missing required tables (found ${tableCheck.n}/7)`;
     }

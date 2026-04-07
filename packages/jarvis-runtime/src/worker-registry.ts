@@ -19,6 +19,9 @@ import { createSecurityWorker, RealSecurityAdapter, MockSecurityAdapter } from "
 import { createTimeWorker, TogglAdapter, MockTimeAdapter } from "@jarvis/time-worker";
 import { createDriveWorker, GoogleDriveAdapter, MockDriveAdapter } from "@jarvis/drive-worker";
 import { createFilesWorkerBridge } from "./files-bridge.js";
+import { loadFilesystemPolicy } from "./filesystem-policy.js";
+import { getExecutionPolicy } from "./execution-policy.js";
+import type { WorkerHealthMonitor } from "./worker-health.js";
 import { CRM_DB_PATH, type JarvisRuntimeConfig } from "./config.js";
 import type { Logger } from "./logger.js";
 import type { DatabaseSync } from "node:sqlite";
@@ -29,9 +32,11 @@ export type WorkerRegistry = {
   executeJob(envelope: JobEnvelope): Promise<JobResult>;
   /** Simple convenience: call inference.chat and return the text content */
   chat(userPrompt: string, systemPrompt?: string): Promise<string>;
+  /** Get the health monitor if available */
+  getHealthMonitor(): WorkerHealthMonitor | undefined;
 };
 
-export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger, runtimeDb?: DatabaseSync): WorkerRegistry {
+export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger, runtimeDb?: DatabaseSync, healthMonitor?: WorkerHealthMonitor): WorkerRegistry {
   const useReal = config.adapter_mode === "real";
 
   // ─── Inference ──────────────────────────────────────────────────────────
@@ -237,9 +242,10 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
   workers.set("drive", driveWorker.execute);
 
   // ─── Files ──────────────────────────────────────────────────────────────
-  const filesWorker = createFilesWorkerBridge();
+  const fsPolicy = loadFilesystemPolicy(config);
+  const filesWorker = createFilesWorkerBridge(fsPolicy);
   workers.set("files", filesWorker.execute);
-  logger.info("Files: using Node.js fs bridge");
+  logger.info("Files: using Node.js fs bridge (policy-enforced)");
 
   logger.info(`Worker registry: ${workers.size} workers registered`);
 
@@ -247,27 +253,77 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
     async executeJob(envelope: JobEnvelope): Promise<JobResult> {
       const prefix = envelope.type.split(".")[0];
       const worker = workers.get(prefix);
+      const failedResult = (code: string, message: string): JobResult => ({
+        contract_version: "jarvis.v1",
+        job_id: envelope.job_id,
+        job_type: envelope.type,
+        status: "failed",
+        summary: message,
+        attempt: envelope.attempt,
+        error: { code, message, retryable: false },
+      });
+
       if (!worker) {
         logger.warn(`No worker for job type: ${envelope.type}`);
-        return {
-          contract_version: "jarvis.v1",
-          job_id: envelope.job_id,
-          job_type: envelope.type,
-          status: "failed",
-          summary: `No worker registered for prefix "${prefix}"`,
-          attempt: envelope.attempt,
-          error: { code: "UNKNOWN_JOB_TYPE", message: `No worker for ${envelope.type}`, retryable: false },
-        };
+        return failedResult("UNKNOWN_JOB_TYPE", `No worker registered for prefix "${prefix}"`);
       }
 
-      logger.debug(`Executing ${envelope.type}`, { job_id: envelope.job_id });
-      const result = await worker(envelope);
-      logger.debug(`Result: ${result.status}`, { job_id: envelope.job_id, summary: result.summary.slice(0, 100) });
-      return result;
+      // ── Approval guard ──
+      // Defense-in-depth: reject jobs that require approval but haven't been approved.
+      // The orchestrator is the primary approval enforcer, but this catches edge cases.
+      const policy = getExecutionPolicy(prefix!);
+      if (policy?.requires_approval_guard) {
+        const { JOB_APPROVAL_REQUIREMENT } = await import("@jarvis/shared");
+        const requirement = JOB_APPROVAL_REQUIREMENT[envelope.type];
+        if (requirement === "required" && envelope.approval_state !== "approved") {
+          logger.warn(`Approval guard: blocked ${envelope.type} (state: ${envelope.approval_state})`);
+          return failedResult("APPROVAL_REQUIRED", `Action "${envelope.type}" requires approval but approval_state is "${envelope.approval_state}"`);
+        }
+      }
+
+      // ── Execute with error boundary + hard timeout ──
+      const timeoutMs = (policy?.timeout_seconds ?? envelope.timeout_seconds ?? 120) * 1000;
+      const startTime = Date.now();
+
+      logger.debug(`Executing ${envelope.type}`, { job_id: envelope.job_id, timeout_ms: timeoutMs });
+
+      try {
+        const timeoutPromise = new Promise<JobResult>((_, reject) => {
+          setTimeout(() => reject(new Error(`Worker timeout after ${timeoutMs}ms`)), timeoutMs);
+        });
+
+        const result = await Promise.race([worker(envelope), timeoutPromise]);
+        const durationMs = Date.now() - startTime;
+
+        // Record health
+        healthMonitor?.recordExecution(prefix!, durationMs, result.status === "completed");
+
+        logger.debug(`Result: ${result.status}`, { job_id: envelope.job_id, duration_ms: durationMs, summary: result.summary.slice(0, 100) });
+        return result;
+      } catch (e) {
+        const durationMs = Date.now() - startTime;
+        const errMsg = e instanceof Error ? e.message : String(e);
+        const isTimeout = errMsg.includes("Worker timeout");
+
+        if (isTimeout) {
+          healthMonitor?.recordTimeout(prefix!);
+          logger.warn(`Worker timeout: ${envelope.type} after ${timeoutMs}ms`, { job_id: envelope.job_id });
+          return failedResult("WORKER_TIMEOUT", `${envelope.type} timed out after ${Math.round(timeoutMs / 1000)}s`);
+        }
+
+        // Error boundary: catch worker crashes without killing the daemon
+        healthMonitor?.recordExecution(prefix!, durationMs, false);
+        logger.error(`Worker crash: ${envelope.type}: ${errMsg}`, { job_id: envelope.job_id });
+        return failedResult("WORKER_CRASH", errMsg);
+      }
     },
 
     async chat(userPrompt: string, systemPrompt?: string): Promise<string> {
       return chatFn(userPrompt, systemPrompt);
+    },
+
+    getHealthMonitor(): WorkerHealthMonitor | undefined {
+      return healthMonitor;
     },
   };
 }

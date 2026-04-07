@@ -2,13 +2,39 @@ import fs from "node:fs";
 import { join, resolve, basename, dirname } from "node:path";
 import { randomUUID } from "node:crypto";
 import type { JobEnvelope, JobResult } from "@jarvis/shared";
+import { validatePath, type FilesystemPolicy } from "./filesystem-policy.js";
 
 /**
  * Thin bridge that wraps Node.js fs operations into the worker execute pattern
- * for files.* job types. The actual jarvis-files package is an OpenClaw plugin
- * and can't be used directly by the daemon.
+ * for files.* job types. When a FilesystemPolicy is provided, all paths are
+ * validated before any fs operation.
  */
-export function createFilesWorkerBridge(): { execute: (envelope: JobEnvelope) => Promise<JobResult> } {
+export function createFilesWorkerBridge(policy?: FilesystemPolicy): { execute: (envelope: JobEnvelope) => Promise<JobResult> } {
+  /** Validate a path against the filesystem policy. Returns a failed JobResult on violation. */
+  function checkPath(absPath: string, base: Record<string, unknown>): JobResult | null {
+    if (!policy) return null;
+
+    // Check metadata.approved_roots for per-job scope extensions
+    const approvedRoots = (base as any)._envelope?.metadata?.approved_roots as string[] | undefined;
+    const effectivePolicy = approvedRoots
+      ? { ...policy, allowed_roots: [...policy.allowed_roots, ...approvedRoots] }
+      : policy;
+
+    const result = validatePath(absPath, effectivePolicy);
+    if (!result.allowed) {
+      return {
+        contract_version: "jarvis.v1",
+        job_id: (base as any)._job_id ?? "",
+        job_type: (base as any)._job_type ?? "",
+        status: "failed",
+        summary: result.reason ?? "Filesystem policy violation",
+        attempt: (base as any)._attempt ?? 1,
+        error: { code: "FILESYSTEM_POLICY_VIOLATION", message: result.reason ?? "Path denied by policy", retryable: false },
+      };
+    }
+    return null;
+  }
+
   return {
     async execute(envelope: JobEnvelope): Promise<JobResult> {
       const base: Omit<JobResult, "status" | "summary" | "structured_output" | "error"> = {
@@ -20,6 +46,19 @@ export function createFilesWorkerBridge(): { execute: (envelope: JobEnvelope) =>
 
       try {
         const input = envelope.input as Record<string, unknown>;
+
+        // Validate paths against filesystem policy for all operations
+        if (policy) {
+          const paths: string[] = [];
+          if (input.path) paths.push(resolve(input.path as string));
+          if (input.source_path) paths.push(resolve(input.source_path as string));
+          if (input.destination_path) paths.push(resolve(input.destination_path as string));
+
+          for (const p of paths) {
+            const violation = checkPath(p, { _job_id: envelope.job_id, _job_type: envelope.type, _attempt: envelope.attempt, _envelope: envelope });
+            if (violation) return violation;
+          }
+        }
 
         switch (envelope.type) {
           case "files.inspect": {

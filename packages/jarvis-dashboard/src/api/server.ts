@@ -99,7 +99,10 @@ app.get('/api/health', (_req, res) => {
     knowledge: report.knowledge,
     runtime: report.runtime,
     daemon: report.daemon,
+    channels: report.channels,
+    workers: report.workers,
     disk_free_gb: report.disk_free_gb,
+    mode: process.env.JARVIS_MODE ?? 'dev',
     distExists: fs.existsSync(indexHtml),
     dashboardUrl: `http://localhost:${PORT}`
   })

@@ -17,6 +17,7 @@ export type CreateCommandOpts = {
   threadId?: string;
   messagePreview?: string;
   sender?: string;
+  externalMessageId?: string;
 };
 
 export type CreateCommandResult = {
@@ -41,8 +42,10 @@ export function createCommand(db: DatabaseSync, opts: CreateCommandOpts): Create
   const idempotencyKey = opts.idempotencyKey ?? `${opts.source}-${opts.agentId}-${Date.now()}`;
   const payloadJson = opts.payload ? JSON.stringify(opts.payload) : JSON.stringify({ triggered_by: opts.source });
 
-  db.prepare(`
-    INSERT INTO agent_commands
+  // Use INSERT OR IGNORE for idempotent webhook/trigger deduplication.
+  // If the idempotency key already exists, the INSERT is a no-op.
+  const result = db.prepare(`
+    INSERT OR IGNORE INTO agent_commands
       (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
     VALUES (?, 'run_agent', ?, ?, 'queued', ?, ?, ?, ?)
   `).run(
@@ -55,14 +58,23 @@ export function createCommand(db: DatabaseSync, opts: CreateCommandOpts): Create
     idempotencyKey,
   );
 
+  // If INSERT was ignored (duplicate idempotency key), return the existing command_id
+  if ((result as { changes: number }).changes === 0) {
+    const existing = db.prepare(
+      "SELECT command_id FROM agent_commands WHERE idempotency_key = ?",
+    ).get(idempotencyKey) as { command_id: string } | undefined;
+    return { commandId: existing?.command_id ?? commandId };
+  }
+
   let messageId: string | undefined;
 
-  // Record channel message if tracking is available
+  // Record channel message if tracking is available (skip on dedup)
   if (opts.channelStore && opts.threadId) {
     try {
       messageId = opts.channelStore.recordMessage({
         threadId: opts.threadId,
         channel: sourceToChannel(opts.source),
+        externalId: opts.externalMessageId,
         direction: "inbound",
         contentPreview: opts.messagePreview ?? `Triggered ${opts.agentId}`,
         sender: opts.sender,

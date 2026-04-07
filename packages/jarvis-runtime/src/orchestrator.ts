@@ -464,10 +464,11 @@ export async function runAgent(
       try {
         const threadId = deps.channelStore.getThreadByCommandId(commandId);
         if (threadId) {
+          const thread = deps.channelStore.getThread(threadId);
           deps.channelStore.recordDelivery({
             runId: run.run_id,
             threadId,
-            channel: "telegram",
+            channel: thread?.channel ?? "dashboard",
             artifactType: "notification",
             contentPreview: summary,
           });
