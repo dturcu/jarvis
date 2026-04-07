@@ -11,6 +11,7 @@ import { buildEnvelope, type WorkerRegistry } from "./worker-registry.js";
 import { writeTelegramQueue } from "./notify.js";
 import { RunStore } from "./run-store.js";
 import { isReadOnlyAction } from "./action-classifier.js";
+import { classifyDisagreement, shouldBlockExecution, shouldFlagForReview, DEFAULT_DISAGREEMENT_POLICY } from "./disagreement-policy.js";
 import { isActionPermitted, type PluginPermission } from "./plugin-loader.js";
 import type { ChannelStore } from "./channel-store.js";
 import type { RagPipeline } from "./rag-pipeline.js";
@@ -126,10 +127,28 @@ export async function runAgent(
         },
       });
 
-      // Disagreement-aware escalation: if planners disagree substantially,
-      // request human approval before proceeding with the selected plan
-      if (result.disagreement.disagreement && runtimeDb) {
-        log.warn(`Planner disagreement: ${result.disagreement.reason}`);
+      // Disagreement-aware escalation with severity classification
+      const disagreementSeverity = classifyDisagreement(result.disagreement, DEFAULT_DISAGREEMENT_POLICY);
+
+      // Emit disagreement classification event for operator visibility
+      if (result.disagreement.disagreement) {
+        runStore?.emitEvent(run.run_id, agentId, "disagreement_classified", {
+          details: {
+            severity: disagreementSeverity,
+            reason: result.disagreement.reason,
+            unique_actions: result.disagreement.details.unique_actions,
+            step_count_range: result.disagreement.details.step_count_range,
+            planner_mode: plannerMode,
+            candidate_count: result.candidates.length,
+            selected_score: result.scores[0]?.total,
+            blocked: shouldBlockExecution(disagreementSeverity),
+            flagged_for_review: shouldFlagForReview(disagreementSeverity),
+          },
+        });
+      }
+
+      if (shouldBlockExecution(disagreementSeverity) && runtimeDb) {
+        log.warn(`Planner disagreement (${disagreementSeverity}): ${result.disagreement.reason}`);
         const approvalPayload = [
           `Multi-viewpoint planners disagreed: ${result.disagreement.reason}`,
           `Unique actions: ${result.disagreement.details.unique_actions.join(", ")}`,
@@ -190,6 +209,10 @@ export async function runAgent(
         run.status = "executing";
         run.updated_at = new Date().toISOString();
         log.info("Disagreement escalation approved — proceeding with selected plan");
+      } else if (shouldFlagForReview(disagreementSeverity)) {
+        // Moderate disagreement: proceed but flag for post-hoc review
+        log.info(`Planner disagreement (${disagreementSeverity}): flagged for review, proceeding`);
+        writeTelegramQueue(agentId, `[REVIEW] Planner disagreement (${disagreementSeverity}): ${result.disagreement.reason}. Run proceeding — review output.`, runtimeDb);
       }
     } else {
       // Default: single planner
