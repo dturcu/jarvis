@@ -32,3 +32,8 @@ export { getExecutionPolicy, WORKER_EXECUTION_POLICIES, type WorkerIsolation, ty
 export { validatePath, defaultFilesystemPolicy, loadFilesystemPolicy, type FilesystemPolicy, type PathValidationResult } from "./filesystem-policy.js";
 export { WorkerHealthMonitor, type WorkerHealthStatus, type WorkerHealthEntry } from "./worker-health.js";
 export { setWorkerHealthProvider } from "./health.js";
+export {
+  classifyDisagreement, shouldBlockExecution, shouldFlagForReview,
+  DEFAULT_DISAGREEMENT_POLICY, MODERATE_DISAGREEMENT_POLICY, MINOR_DISAGREEMENT_POLICY,
+  type DisagreementSeverity, type DisagreementPolicy,
+} from "./disagreement-policy.js";
