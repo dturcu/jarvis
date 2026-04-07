@@ -71,4 +71,5 @@ export const staffingMonitorAgent: AgentDefinition = {
   output_channels: ["telegram:daniel"],
   planner_mode: "single",
   maturity: "operational",
+  pack: "core",
 };

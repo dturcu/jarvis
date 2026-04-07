@@ -67,6 +67,14 @@ export type PlannerMode = "single" | "critic" | "multi";
  */
 export type AgentMaturity = "experimental" | "operational" | "trusted_with_review" | "high_stakes_manual_gate";
 
+/**
+ * Agent pack classification controls product surface placement.
+ * - "core": proposal, contract, evidence, BD, staffing — always visible, primary operator experience
+ * - "experimental": work-in-progress agents not yet production-ready
+ * - "personal": personal-use agents (garden, portfolio) not part of consulting product
+ */
+export type AgentPack = "core" | "experimental" | "personal";
+
 export type AgentDefinition = {
   agent_id: string;
   label: string;
@@ -82,6 +90,8 @@ export type AgentDefinition = {
   output_channels: string[];
   planner_mode?: PlannerMode;
   maturity?: AgentMaturity;
+  /** Pack classification for product surface placement. Defaults to "experimental". */
+  pack?: AgentPack;
   /** When true, the agent is not part of the V1 production set and may be unstable. */
   experimental?: boolean;
 };

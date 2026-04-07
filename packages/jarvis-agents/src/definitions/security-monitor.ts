@@ -72,5 +72,6 @@ export const securityMonitorAgent: AgentDefinition = {
   output_channels: ["telegram:daniel"],
   planner_mode: "single",
   maturity: "operational",
+  pack: "experimental",
   experimental: true,
 };

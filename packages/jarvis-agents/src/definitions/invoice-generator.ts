@@ -64,5 +64,6 @@ export const invoiceGeneratorAgent: AgentDefinition = {
   output_channels: ["email:daniel@thinking-in-code.com"],
   planner_mode: "single",
   maturity: "trusted_with_review",
+  pack: "experimental",
   experimental: true,
 };
