@@ -10,6 +10,7 @@
     "start": "node scripts/start.mjs",
     "build": "tsc -b",
     "test": "vitest run",
+    "test:stress": "vitest run --config vitest.stress.config.ts",
     "validate:contracts": "node ./scripts/validate-contracts.mjs",
     "check": "npm run validate:contracts && npm run test && npm run build",
     "runtime:bootstrap": "node ./scripts/runtime/bootstrap.mjs",
