@@ -275,7 +275,7 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
       if (policy?.requires_approval_guard) {
         const { JOB_APPROVAL_REQUIREMENT } = await import("@jarvis/shared");
         const requirement = JOB_APPROVAL_REQUIREMENT[envelope.type];
-        if (requirement === "required" && envelope.approval_state !== "approved" && envelope.approval_state !== "not_required") {
+        if (requirement === "required" && envelope.approval_state !== "approved") {
           logger.warn(`Approval guard: blocked ${envelope.type} (state: ${envelope.approval_state})`);
           return failedResult("APPROVAL_REQUIRED", `Action "${envelope.type}" requires approval but approval_state is "${envelope.approval_state}"`);
         }

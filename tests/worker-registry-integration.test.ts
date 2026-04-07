@@ -239,6 +239,8 @@ describe("Job Routing", () => {
       code: "1+1",
       timeout_seconds: 10,
     });
+    // interpreter.run_code requires approval — set approved state for routing test
+    env.approval_state = "approved";
     const result = await registry.executeJob(env);
     expect(result.error?.code).not.toBe("UNKNOWN_JOB_TYPE");
     expect(result.job_type).toBe("interpreter.run_code");

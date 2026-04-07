@@ -4,6 +4,7 @@
  */
 
 import os from "node:os";
+import fs from "node:fs";
 import { resolve, normalize, sep } from "node:path";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -52,7 +53,16 @@ export function defaultFilesystemPolicy(projectRoot?: string): FilesystemPolicy 
  * Returns `{ allowed: true }` or `{ allowed: false, reason: "..." }`.
  */
 export function validatePath(targetPath: string, policy: FilesystemPolicy): PathValidationResult {
-  const absPath = normalizePath(resolve(targetPath));
+  let absPath = normalizePath(resolve(targetPath));
+
+  // Resolve symlinks to prevent bypassing allowed_roots via linked paths
+  try {
+    if (fs.existsSync(absPath)) {
+      absPath = normalizePath(fs.realpathSync(absPath));
+    }
+  } catch {
+    // If realpathSync fails (e.g., broken symlink), proceed with lexical path
+  }
 
   // Check against allowed roots
   const inAllowedRoot = policy.allowed_roots.some(root => {
