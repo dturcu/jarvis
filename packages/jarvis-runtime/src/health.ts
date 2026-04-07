@@ -21,6 +21,7 @@ export type HealthReport = {
   schedules: { total: number; enabled: number; overdue: number };
   migrations: { latest_id: string | null; count: number };
   models: { registered: number; enabled: number; models_available: boolean };
+  channels: { ok: boolean; threads: number; messages: number; deliveries: number };
   disk_free_gb: number | null;
 };
 
@@ -63,6 +64,7 @@ export function getHealthReport(): HealthReport {
     schedules: { total: 0, enabled: 0, overdue: 0 },
     migrations: { latest_id: null, count: 0 },
     models: { registered: 0, enabled: 0, models_available: false },
+    channels: { ok: false, threads: 0, messages: 0, deliveries: 0 },
     disk_free_gb: null,
   };
 
@@ -115,6 +117,14 @@ export function getHealthReport(): HealthReport {
     report.models.registered = queryCount(rtDb, "SELECT COUNT(*) as n FROM model_registry");
     report.models.enabled = queryCount(rtDb, "SELECT COUNT(*) as n FROM model_registry WHERE enabled = 1");
     report.models.models_available = report.models.enabled > 0;
+
+    // Channels
+    try {
+      report.channels.threads = queryCount(rtDb, "SELECT COUNT(*) as n FROM channel_threads");
+      report.channels.messages = queryCount(rtDb, "SELECT COUNT(*) as n FROM channel_messages");
+      report.channels.deliveries = queryCount(rtDb, "SELECT COUNT(*) as n FROM artifact_deliveries");
+      report.channels.ok = true;
+    } catch { /* channel tables may not exist on older DBs */ }
 
     // Daemon heartbeat
     const heartbeat = rtDb.prepare(

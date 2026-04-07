@@ -1,10 +1,9 @@
 import { Router } from 'express'
 import { DatabaseSync } from 'node:sqlite'
 import type { SQLInputValue } from 'node:sqlite'
-import { randomUUID } from 'node:crypto'
 import os from 'os'
 import { join } from 'path'
-import { RunStore } from '@jarvis/runtime'
+import { RunStore, ChannelStore, createCommand } from '@jarvis/runtime'
 
 function getRuntimeDb() {
   const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'runtime.db'))
@@ -288,20 +287,34 @@ runsRouter.post('/:runId/retry', (req, res) => {
     const hadOutbound = executedSteps.some(s => outboundActions.includes(s.action))
     const retrySafety = hadOutbound ? 'warn_outbound_effects' : 'safe'
 
-    const commandId = randomUUID()
-    db.prepare(`
-      INSERT INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
-      VALUES (?, 'run_agent', ?, ?, 'queued', 0, ?, 'dashboard', ?)
-    `).run(
-      commandId,
-      run.agent_id,
-      JSON.stringify({ retry_of: run.run_id }),
-      new Date().toISOString(),
-      `retry-${run.run_id}-${Date.now()}`
-    )
+    const { commandId } = createCommand(db, {
+      agentId: run.agent_id,
+      source: 'dashboard',
+      payload: { retry_of: run.run_id },
+      idempotencyKey: `retry-${run.run_id}-${Date.now()}`,
+    })
     res.json({ ok: true, command_id: commandId, agent_id: run.agent_id, retry_of: run.run_id, retry_safety: retrySafety })
   } catch {
     res.status(500).json({ error: 'Failed to queue retry command' })
+  } finally {
+    try { db?.close() } catch { /* best-effort */ }
+  }
+})
+
+// GET /:runId/timeline — unified timeline merging run events, channel messages, and deliveries
+runsRouter.get('/:runId/timeline', (req, res) => {
+  let db: DatabaseSync | undefined
+  try {
+    db = getRuntimeDb()
+    const run = db.prepare('SELECT run_id FROM runs WHERE run_id = ?').get(req.params.runId)
+    if (!run) {
+      res.status(404).json({ error: 'Run not found' })
+      return
+    }
+    const channelStore = new ChannelStore(db)
+    res.json(channelStore.getRunTimeline(req.params.runId))
+  } catch {
+    res.status(500).json({ error: 'Failed to build run timeline' })
   } finally {
     try { db?.close() } catch { /* best-effort */ }
   }

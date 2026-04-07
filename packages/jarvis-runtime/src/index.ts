@@ -26,3 +26,5 @@ export { DbSchedulerStore } from "./db-scheduler.js";
 export { isReadOnlyAction, getReadOnlySuffixes } from "./action-classifier.js";
 export { V1_WORKFLOWS, type WorkflowDefinition, type WorkflowInput, type WorkflowOutputField, type WorkflowSafetyRules } from "./workflows.js";
 export { STARTER_PACKS, type StarterPack } from "./starter-packs.js";
+export { ChannelStore, type ChannelName, type MessageDirection, type DeliveryStatus, type ChannelThread, type ChannelMessage, type ArtifactDelivery, type RunTimelineEntry } from "./channel-store.js";
+export { createCommand, type CommandSource, type CreateCommandOpts, type CreateCommandResult } from "./command-factory.js";

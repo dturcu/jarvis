@@ -1,8 +1,8 @@
 import { Router } from 'express'
 import { DatabaseSync } from 'node:sqlite'
-import { randomUUID } from 'node:crypto'
 import os from 'os'
 import { join } from 'path'
+import { createCommand } from '@jarvis/runtime'
 
 function getRuntimeDb() {
   const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'runtime.db'))
@@ -129,17 +129,7 @@ agentsRouter.post('/:agentId/trigger', (req, res) => {
   }
   const db = getRuntimeDb()
   try {
-    const commandId = randomUUID()
-    db.prepare(`
-      INSERT INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
-      VALUES (?, 'run_agent', ?, ?, 'queued', 0, ?, 'dashboard', ?)
-    `).run(
-      commandId,
-      agentId,
-      JSON.stringify({ triggered_by: 'dashboard' }),
-      new Date().toISOString(),
-      `dashboard-${agentId}-${Date.now()}`
-    )
+    const { commandId } = createCommand(db, { agentId, source: 'dashboard' })
     res.json({ ok: true, command_id: commandId })
   } catch {
     res.status(500).json({ error: 'Failed to queue agent command' })

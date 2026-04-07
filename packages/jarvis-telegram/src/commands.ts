@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'
+import { createCommand, ChannelStore } from '@jarvis/runtime'
 import { CRM_DB, openRuntimeDb } from './config.js'
 import { loadApprovals, resolveApproval } from './approvals.js'
 import { handleFreeText, type ParsedAction } from './chat-handler.js'
@@ -11,7 +11,15 @@ const AGENTS = [
   'invoice-generator', 'meeting-transcriber'
 ]
 
-export async function handleCommand(text: string): Promise<string> {
+export type CommandContext = {
+  channelStore?: ChannelStore
+  threadId?: string
+  telegramMessageId?: string
+  chatId?: string
+  sender?: string
+}
+
+export async function handleCommand(text: string, ctx?: CommandContext): Promise<string> {
   const parts = text.trim().split(/\s+/)
   const cmd = parts[0]?.toLowerCase() ?? ''
   const arg = parts[1] ?? ''
@@ -21,28 +29,28 @@ export async function handleCommand(text: string): Promise<string> {
     switch (cmd) {
       case '/status': return getStatus()
       case '/crm': return getCrmTop5()
-      case '/portfolio': return triggerAgent('portfolio-monitor')
-      case '/garden': return triggerAgent('garden-calendar')
-      case '/bd': return triggerAgent('bd-pipeline')
-      case '/content': return triggerAgent('content-engine')
-      case '/approve': return handleApproval(arg, 'approved')
-      case '/reject': return handleApproval(arg, 'rejected')
+      case '/portfolio': return triggerAgent('portfolio-monitor', text, ctx)
+      case '/garden': return triggerAgent('garden-calendar', text, ctx)
+      case '/bd': return triggerAgent('bd-pipeline', text, ctx)
+      case '/content': return triggerAgent('content-engine', text, ctx)
+      case '/approve': return handleApproval(arg, 'approved', ctx)
+      case '/reject': return handleApproval(arg, 'rejected', ctx)
       case '/help': return getHelp()
       default: return `Unknown command: ${cmd}\n\nSend /help for available commands.`
     }
   }
 
   // Free-text — route through LLM
-  return handleFreeTextMessage(text)
+  return handleFreeTextMessage(text, ctx)
 }
 
-async function handleFreeTextMessage(text: string): Promise<string> {
+async function handleFreeTextMessage(text: string, ctx?: CommandContext): Promise<string> {
   const { text: reply, actions } = await handleFreeText(text)
   const parts: string[] = []
 
   // Execute any actions the LLM requested
   for (const action of actions) {
-    parts.push(await executeAction(action))
+    parts.push(await executeAction(action, text, ctx))
   }
 
   // Combine LLM reply with action results
@@ -52,10 +60,10 @@ async function handleFreeTextMessage(text: string): Promise<string> {
   return reply
 }
 
-async function executeAction(action: ParsedAction): Promise<string> {
+async function executeAction(action: ParsedAction, text: string, ctx?: CommandContext): Promise<string> {
   switch (action.type) {
     case 'trigger':
-      return triggerAgent(action.agentId)
+      return triggerAgent(action.agentId, text, ctx)
     case 'status':
       return getStatus()
     case 'crm':
@@ -114,25 +122,22 @@ function getCrmTop5(): string {
 }
 
 /**
- * Trigger an agent by inserting a command into agent_commands in runtime.db.
- * The daemon polls this table and claims queued commands.
+ * Trigger an agent via the centralized command factory.
+ * Records the inbound message in the channel store if available.
  */
-function triggerAgent(agentId: string): string {
+function triggerAgent(agentId: string, messageText: string, ctx?: CommandContext): string {
   let db: DatabaseSync | undefined
   try {
     db = openRuntimeDb()
-    const commandId = randomUUID()
-    db.prepare(`
-      INSERT INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
-      VALUES (?, 'run_agent', ?, ?, 'queued', 0, ?, 'telegram', ?)
-    `).run(
-      commandId,
+    const { commandId } = createCommand(db, {
       agentId,
-      JSON.stringify({ triggered_by: 'telegram' }),
-      new Date().toISOString(),
-      `telegram-${agentId}-${Date.now()}`
-    )
-    return `Triggered ${agentId}. It will run within the next scheduled cycle.`
+      source: 'telegram',
+      channelStore: ctx?.channelStore,
+      threadId: ctx?.threadId,
+      messagePreview: messageText,
+      sender: ctx?.sender,
+    })
+    return `Triggered ${agentId} (${commandId.slice(0, 8)}). It will run within the next scheduled cycle.`
   } catch (e) {
     return `Failed to trigger ${agentId}: ${String(e)}`
   } finally {
@@ -142,8 +147,9 @@ function triggerAgent(agentId: string): string {
 
 /**
  * Approve or reject a pending approval via runtime.db.
+ * Records the action as a channel message if tracking is available.
  */
-function handleApproval(shortId: string, status: 'approved' | 'rejected'): string {
+function handleApproval(shortId: string, status: 'approved' | 'rejected', ctx?: CommandContext): string {
   if (!shortId) return `Usage: /approve <id> or /reject <id>`
   if (shortId.length < 6) return 'Approval ID must be at least 6 characters for safety.'
 
@@ -156,6 +162,21 @@ function handleApproval(shortId: string, status: 'approved' | 'rejected'): strin
 
     const ok = resolveApproval(db, target.id, status)
     if (!ok) return `Failed to ${status === 'approved' ? 'approve' : 'reject'} — may already be resolved.`
+
+    // Record the approval action as a channel message
+    if (ctx?.channelStore && ctx?.threadId) {
+      try {
+        ctx.channelStore.recordMessage({
+          threadId: ctx.threadId,
+          channel: 'telegram',
+          externalId: ctx.telegramMessageId,
+          direction: 'inbound',
+          contentPreview: `/${status === 'approved' ? 'approve' : 'reject'} ${shortId}`,
+          sender: ctx.sender,
+          runId: target.run_id,
+        })
+      } catch { /* best-effort */ }
+    }
 
     return `${status === 'approved' ? '✅' : '❌'} ${target.action} by ${target.agent} has been ${status}.`
   } catch (e) {
