@@ -19,6 +19,7 @@ import {
 } from "openclaw/plugin-sdk/plugin-entry";
 import {
   createToolResponse,
+  getJarvisState,
   safeJsonParse,
   toCommandReply,
   toToolResult,
@@ -444,6 +445,10 @@ function writeFile(params: FilesWriteParams): ToolResultPayload {
   if (!approval) {
     return approvalRequired("write", params.path);
   }
+  const approvalRecord = getJarvisState().getApproval(approval);
+  if (!approvalRecord || approvalRecord.state !== "approved") {
+    return failure("INVALID_APPROVAL", `Approval "${approval}" is not valid or not in approved state.`, "approvalId");
+  }
 
   const rootPath = normalizeRoot(params.rootPath);
   const filePath = assertPathWithinRoot(rootPath, params.path);
@@ -470,6 +475,10 @@ function patchFile(params: FilesPatchParams): ToolResultPayload {
   const approval = params.approvalId?.trim();
   if (!approval) {
     return approvalRequired("patch", params.path);
+  }
+  const approvalRecord = getJarvisState().getApproval(approval);
+  if (!approvalRecord || approvalRecord.state !== "approved") {
+    return failure("INVALID_APPROVAL", `Approval "${approval}" is not valid or not in approved state.`, "approvalId");
   }
 
   const rootPath = normalizeRoot(params.rootPath);
@@ -518,6 +527,10 @@ function copyFile(params: FilesCopyParams): ToolResultPayload {
   if (!approval) {
     return approvalRequired("copy", `${params.sourcePath} -> ${params.destinationPath}`);
   }
+  const approvalRecord = getJarvisState().getApproval(approval);
+  if (!approvalRecord || approvalRecord.state !== "approved") {
+    return failure("INVALID_APPROVAL", `Approval "${approval}" is not valid or not in approved state.`, "approvalId");
+  }
 
   const rootPath = normalizeRoot(params.rootPath);
   const sourcePath = assertPathWithinRoot(rootPath, params.sourcePath);
@@ -552,6 +565,10 @@ function moveFile(params: FilesMoveParams): ToolResultPayload {
   const approval = params.approvalId?.trim();
   if (!approval) {
     return approvalRequired("move", `${params.sourcePath} -> ${params.destinationPath}`);
+  }
+  const approvalRecord = getJarvisState().getApproval(approval);
+  if (!approvalRecord || approvalRecord.state !== "approved") {
+    return failure("INVALID_APPROVAL", `Approval "${approval}" is not valid or not in approved state.`, "approvalId");
   }
 
   const rootPath = normalizeRoot(params.rootPath);
