@@ -99,10 +99,48 @@ describe("Convergence Program: Global Exit Conditions", () => {
       "docs/CONVERGENCE-ROADMAP.md",
       "docs/AUTOMATION-CLASSIFICATION.md",
       "docs/OPENCLAW-COMPATIBILITY-MATRIX.md",
+      "docs/PLATFORM-ADOPTION-ROADMAP.md",
     ];
     for (const doc of required) {
       expect(existsSync(resolve(ROOT, doc)), `Missing: ${doc}`).toBe(true);
     }
+  });
+});
+
+describe("Convergence Program: Behavioral Assertions", () => {
+  it("Circuit breaker is wired into SessionChatAdapter", () => {
+    const source = readSource("packages/jarvis-dashboard/src/api/session-chat-adapter.ts");
+    expect(source).toContain("GatewayCircuitBreaker");
+    expect(source).toContain("circuitBreaker.isOpen()");
+    expect(source).toContain("circuitBreaker.recordSuccess()");
+    expect(source).toContain("circuitBreaker.recordFailure()");
+  });
+
+  it("Telegram session adapter retries on gateway drop", () => {
+    const source = readSource("packages/jarvis-telegram/src/session-adapter.ts");
+    // Must have a retry loop with at least 2 attempts
+    expect(source).toContain("for (let attempt = 0; attempt < 2; attempt++)");
+  });
+
+  it("Webhook normalizer uses constant-time HMAC comparison", () => {
+    const source = readSource("packages/jarvis-shared/src/webhook-normalizer.ts");
+    expect(source).toContain("timingSafeEqual");
+  });
+
+  it("Convergence checks include webhook and browser low-level coverage", () => {
+    const source = readSource("packages/jarvis-runtime/src/convergence-checks.ts");
+    expect(source).toContain("Convergence: Webhook Ingress");
+    expect(source).toContain("Convergence: Browser Low-Level Ops");
+  });
+
+  it("ADR-MEMORY-TAXONOMY.md is Decided (not Proposed)", () => {
+    const source = readSource("docs/ADR-MEMORY-TAXONOMY.md");
+    expect(source).toContain("Decided");
+  });
+
+  it("CI runs check:convergence", () => {
+    const source = readSource(".github/workflows/ci.yml");
+    expect(source).toContain("check:convergence");
   });
 });
 

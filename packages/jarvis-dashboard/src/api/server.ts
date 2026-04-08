@@ -18,6 +18,7 @@ import { safemodeRouter } from './safemode.js'
 import { portalRouter } from './portal.js'
 import { godmodeRouter } from './godmode.js'
 import { createSessionChatRoute } from './session-chat-adapter.js'
+import { tasksRouter } from './tasks.js'
 import { modelsRouter } from './models.js'
 import { queueRouter } from './queue.js'
 import { policyRouter } from './policy.js'
@@ -111,8 +112,14 @@ app.use('/api/chat', chatRouter)
 app.use('/api/daemon', daemonRouter)
 // Webhook v1 (webhooks.ts) deleted — v2 serves both paths for backward compat.
 // V2 uses shared normalizer from @jarvis/shared and adds X-Jarvis-Deprecation headers.
-app.use('/api/webhooks', webhookV2Router)
-app.use('/api/webhooks-v2', webhookV2Router)
+// Epic 2: Conditional mounting — set JARVIS_WEBHOOK_LEGACY=true to keep dashboard routes
+// during transition to OpenClaw webhook plugin. Default: mounted (plugin not yet deployed).
+if (process.env.JARVIS_WEBHOOK_LEGACY?.toLowerCase() !== 'false') {
+  app.use('/api/webhooks', webhookV2Router)
+  app.use('/api/webhooks-v2', webhookV2Router)
+}
+// Epic 4: Unified task visibility
+app.use('/api/tasks', tasksRouter)
 app.use('/api/plugins', pluginsRouter)
 app.use('/api/runs', runsRouter)
 app.use('/api/attention', attentionRouter)

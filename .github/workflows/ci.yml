@@ -28,6 +28,9 @@ jobs:
       - name: Full check pipeline
         run: npm run check
 
+      - name: Convergence conformance
+        run: npm run check:convergence
+
       - name: Build Dashboard
         run: npm run dashboard:build
 

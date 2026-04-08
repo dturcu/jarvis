@@ -1,5 +1,12 @@
 # Convergence Roadmap: OpenClaw Substrate + Jarvis Domain Kernel
 
+> **Superseded:** Epics 7-12 of this roadmap are superseded by
+> [PLATFORM-ADOPTION-ROADMAP.md](PLATFORM-ADOPTION-ROADMAP.md), which
+> extends the convergence program into deep OpenClaw platform adoption
+> (TaskFlows, `openclaw infer`, memory-wiki, dreaming, managed browser
+> profiles, and `/tasks` operator visibility). Epics 1-6 below are
+> complete (Waves 1-8). This document is retained as historical record.
+
 This document maps the 12 convergence epics onto the quarterly plan. It complements ROADMAP.md (which focuses on product milestones) with the platform/kernel convergence program defined in ADR-PLATFORM-KERNEL-BOUNDARY.md.
 
 ## Architectural Rule

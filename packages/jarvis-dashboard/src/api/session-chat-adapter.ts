@@ -82,17 +82,81 @@ export interface SessionToolRegistration {
   read_only: true
 }
 
+// ---- Circuit Breaker -----------------------------------------------------
+
+/**
+ * Simple circuit breaker for gateway availability probes.
+ * Prevents per-request 3-second probe timeouts when the gateway is down.
+ *
+ * States:
+ *   closed  — probing normally
+ *   open    — skipping probes, returning "unavailable" immediately
+ *
+ * Transitions:
+ *   closed -> open: after `threshold` failures within `windowMs`
+ *   open -> closed: after `cooldownMs` elapses
+ */
+export class GatewayCircuitBreaker {
+  private failureCount = 0
+  private lastFailureAt = 0
+  private openUntil = 0
+
+  constructor(
+    private readonly threshold = 3,
+    private readonly windowMs = 60_000,
+    private readonly cooldownMs = 5 * 60_000,
+  ) {}
+
+  /** Record a successful probe — resets failure counter. */
+  recordSuccess(): void {
+    this.failureCount = 0
+  }
+
+  /** Record a failed probe — may trip the breaker. */
+  recordFailure(): void {
+    const now = Date.now()
+    // Reset counter if outside the window
+    if (now - this.lastFailureAt > this.windowMs) {
+      this.failureCount = 0
+    }
+    this.failureCount++
+    this.lastFailureAt = now
+
+    if (this.failureCount >= this.threshold) {
+      this.openUntil = now + this.cooldownMs
+      console.warn(
+        `[circuit-breaker] Gateway circuit opened after ${this.failureCount} failures. ` +
+        `Skipping probes until ${new Date(this.openUntil).toISOString()}`,
+      )
+    }
+  }
+
+  /** Returns true if the breaker is open (should skip probing). */
+  isOpen(): boolean {
+    if (this.openUntil === 0) return false
+    if (Date.now() >= this.openUntil) {
+      // Cooldown elapsed — close the breaker and allow probing again
+      this.openUntil = 0
+      this.failureCount = 0
+      return false
+    }
+    return true
+  }
+}
+
 // ---- Adapter class -------------------------------------------------------
 
 export class SessionChatAdapter {
   private readonly gatewayUrl: string
   private readonly gatewayToken: string
   private readonly timeoutMs: number
+  readonly circuitBreaker: GatewayCircuitBreaker
 
   constructor(config: {
     gatewayUrl?: string
     gatewayToken?: string
     timeoutMs?: number
+    circuitBreaker?: GatewayCircuitBreaker
   } = {}) {
     this.gatewayUrl =
       config.gatewayUrl ??
@@ -103,6 +167,7 @@ export class SessionChatAdapter {
       process.env.JARVIS_GATEWAY_TOKEN ??
       ''
     this.timeoutMs = config.timeoutMs ?? 60_000
+    this.circuitBreaker = config.circuitBreaker ?? new GatewayCircuitBreaker()
   }
 
   // -- Public API ----------------------------------------------------------
@@ -189,6 +254,11 @@ export class SessionChatAdapter {
    * Returns true if a lightweight method succeeds within a short timeout.
    */
   async isGatewayAvailable(): Promise<boolean> {
+    // Short-circuit if circuit breaker is open
+    if (this.circuitBreaker.isOpen()) {
+      return false
+    }
+
     try {
       await invokeGatewayMethod(
         'sessions.list',
@@ -196,8 +266,10 @@ export class SessionChatAdapter {
         {},
         { ...this.callOptions(), timeoutMs: 3_000 },
       )
+      this.circuitBreaker.recordSuccess()
       return true
     } catch {
+      this.circuitBreaker.recordFailure()
       return false
     }
   }

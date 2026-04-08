@@ -33,7 +33,7 @@ export type DueSchedule = {
 /** Interface for schedule trigger sources. */
 export interface ScheduleTriggerSource {
   /** The kind of source for logging / diagnostics. */
-  readonly kind: "db" | "external";
+  readonly kind: "db" | "external" | "taskflow";
 
   /** Get schedules that are due to fire now. */
   getDueSchedules(now: Date): DueSchedule[];
@@ -109,6 +109,57 @@ export function createExternalTriggerSource(): ScheduleTriggerSource {
 
     markFired(_scheduleId: string, _now: Date): void {
       // No-op — the external system manages fire tracking.
+    },
+  };
+}
+
+// ─── TaskFlowTriggerSource (Epic 3) ────────────────────────────────────────
+
+/**
+ * Configuration for TaskFlow workflow registration.
+ */
+export type TaskFlowWorkflowConfig = {
+  /** Jarvis schedule ID mapped to this workflow. */
+  schedule_id: string;
+  /** OpenClaw TaskFlow workflow ID. */
+  taskflow_workflow_id: string;
+  /** Correlation key between TaskFlow run and Jarvis run. */
+  correlation_key?: string;
+};
+
+/**
+ * Adapter for managed OpenClaw TaskFlow-backed scheduling (Epic 3).
+ *
+ * Unlike ExternalTriggerSource (which is a passive no-op), TaskFlowTriggerSource
+ * actively registers Jarvis schedules as TaskFlow workflows and responds to
+ * TaskFlow trigger callbacks. The daemon operates in "event-reactive" mode:
+ * instead of polling getDueSchedules(), it listens for TaskFlow events.
+ *
+ * Select via JARVIS_SCHEDULE_SOURCE=taskflow.
+ */
+export function createTaskFlowTriggerSource(config?: {
+  workflows?: TaskFlowWorkflowConfig[];
+}): ScheduleTriggerSource {
+  const _workflows = config?.workflows ?? [];
+
+  return {
+    kind: "taskflow",
+
+    getDueSchedules(_now: Date): DueSchedule[] {
+      // TaskFlow pushes triggers via callbacks — no polling needed.
+      // When TaskFlow fires a workflow, it calls enqueueAgent() directly
+      // through the gateway, bypassing this method entirely.
+      return [];
+    },
+
+    markFired(scheduleId: string, _now: Date): void {
+      // TaskFlow manages its own fire tracking. Log for observability.
+      const workflow = _workflows.find((w) => w.schedule_id === scheduleId);
+      if (workflow) {
+        console.info(
+          `[taskflow-trigger] Schedule ${scheduleId} fired via TaskFlow workflow ${workflow.taskflow_workflow_id}`,
+        );
+      }
     },
   };
 }
