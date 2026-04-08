@@ -2,21 +2,15 @@ import http from 'node:http'
 import fs from 'node:fs'
 import os from 'node:os'
 import { join } from 'node:path'
+import type { ChannelStore } from '@jarvis/runtime'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 type ChatMessage = { role: string; content: string }
 
-// ─── Conversation History (per-session, thin layer) ─────────────────────────
-
-const conversationHistory: ChatMessage[] = []
-const MAX_HISTORY = 20
-
-function addToHistory(role: string, content: string) {
-  conversationHistory.push({ role, content })
-  while (conversationHistory.length > MAX_HISTORY) {
-    conversationHistory.shift()
-  }
+export type ChatContext = {
+  channelStore?: ChannelStore
+  threadId?: string
 }
 
 // ─── Jarvis API Relay ───────────────────────────────────────────────────────
@@ -44,6 +38,26 @@ function loadApiToken(): string | null {
     }
   } catch { /* no config */ }
   return null
+}
+
+/**
+ * Load recent conversation history from the channel store (thread-scoped,
+ * durable). Falls back gracefully to empty history if the store is unavailable.
+ */
+function loadThreadHistory(ctx?: ChatContext, limit = 20): ChatMessage[] {
+  if (!ctx?.channelStore || !ctx?.threadId) return []
+
+  try {
+    const messages = ctx.channelStore.getThreadMessages(ctx.threadId, limit)
+    return messages
+      .filter(m => m.content_preview && m.direction)
+      .map(m => ({
+        role: m.direction === 'inbound' ? 'user' : 'assistant',
+        content: m.content_preview!,
+      }))
+  } catch {
+    return []
+  }
 }
 
 function callJarvisApi(message: string, history: ChatMessage[]): Promise<string> {
@@ -103,17 +117,15 @@ function callJarvisApi(message: string, history: ChatMessage[]): Promise<string>
 /**
  * Handle free-text messages from Telegram.
  *
- * This is a relay layer — it sends the message plus recent conversation
- * history to the dashboard API and returns the response. No action-tag
- * parsing, no agent triggering from model output. All agent triggers
- * must come via explicit /slash commands.
+ * Conversation history is loaded from the channel store (thread-scoped,
+ * durable across restarts). No process-global in-memory state.
+ * No action-tag parsing, no agent triggering from model output.
+ * All agent triggers must come via explicit /slash commands.
  */
-export async function handleFreeText(userMessage: string): Promise<{ text: string }> {
-  addToHistory('user', userMessage)
+export async function handleFreeText(userMessage: string, ctx?: ChatContext): Promise<{ text: string }> {
+  // Load prior turns from the durable channel store, not process memory
+  const history = loadThreadHistory(ctx)
 
-  // Pass prior turns so the LLM has multi-turn context
-  const response = await callJarvisApi(userMessage, conversationHistory.slice(0, -1))
-
-  addToHistory('assistant', response)
+  const response = await callJarvisApi(userMessage, history)
   return { text: response }
 }

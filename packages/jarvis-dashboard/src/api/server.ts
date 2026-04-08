@@ -48,9 +48,14 @@ const indexHtml = join(distPath, 'index.html')
   if (applianceMode) {
     console.log('  Appliance mode: enforcing secure defaults')
 
-    // Verify API tokens exist
-    const hasToken = !!process.env.JARVIS_API_TOKEN
-    if (!hasToken) {
+    // Verify API tokens exist — check both env var AND config file
+    const hasEnvToken = !!process.env.JARVIS_API_TOKEN
+    let hasConfigToken = false
+    try {
+      const cfgRaw = cfg as Record<string, unknown>
+      hasConfigToken = !!(cfgRaw.api_token || cfgRaw.api_tokens)
+    } catch { /* already loaded above */ }
+    if (!hasEnvToken && !hasConfigToken) {
       console.error('  FATAL: appliance_mode is enabled but no API token is configured.')
       console.error('  Set JARVIS_API_TOKEN env var or add api_token to ~/.jarvis/config.json.')
       process.exit(1)

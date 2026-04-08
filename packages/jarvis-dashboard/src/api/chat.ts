@@ -377,15 +377,13 @@ const AGENT_TOOLS = [
       parameters: { type: 'object', properties: { query: { type: 'string', description: 'Search topic' }, collection: { type: 'string', description: 'Optional: lessons, playbooks, iso26262, contracts, proposals' } }, required: ['query'] }
     }
   },
+  // trigger_agent REMOVED from the chat surface. It inserts into agent_commands
+  // (a mutation) but chat POST is viewer-level for tokenless dev mode. Agent
+  // triggering must go through explicit Telegram /slash commands or the
+  // dashboard agents API (which requires operator role).
   {
     type: 'function' as const, function: {
-      name: 'trigger_agent', description: 'Trigger a Jarvis agent to run. Agents: bd-pipeline, proposal-engine, evidence-auditor, contract-reviewer, staffing-monitor, content-engine, portfolio-monitor, garden-calendar, email-campaign, social-engagement, security-monitor, drive-watcher, invoice-generator, meeting-transcriber',
-      parameters: { type: 'object', properties: { agent_id: { type: 'string', description: 'Agent ID to trigger' } }, required: ['agent_id'] }
-    }
-  },
-  {
-    type: 'function' as const, function: {
-      name: 'agent_status', description: 'Get status of all Jarvis agents (last run, pending approvals)',
+      name: 'agent_status', description: 'Get status of all Jarvis agents (last run, pending approvals). Read-only.',
       parameters: { type: 'object', properties: {} }
     }
   },
@@ -429,24 +427,9 @@ async function executeAgentTool(name: string, params: Record<string, unknown>): 
         return `Cannot read ${filePath}: ${e instanceof Error ? e.message : String(e)}`
       }
     }
-    case 'trigger_agent': {
-      const agentId = params.agent_id as string
-      try {
-        const { DatabaseSync } = await import('node:sqlite')
-        const { randomUUID } = await import('node:crypto')
-        const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'runtime.db'))
-        db.exec("PRAGMA journal_mode = WAL;")
-        db.exec("PRAGMA busy_timeout = 5000;")
-        const commandId = randomUUID()
-        db.prepare(`INSERT INTO agent_commands (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key) VALUES (?, 'run_agent', ?, ?, 'queued', 0, ?, 'telegram', ?)`).run(
-          commandId, agentId, JSON.stringify({ triggered_by: 'telegram-agent' }), new Date().toISOString(), `telegram-${agentId}-${Date.now()}`
-        )
-        db.close()
-        return `Agent ${agentId} triggered successfully. It will run shortly.`
-      } catch (e) {
-        return `Failed to trigger ${agentId}: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
+    // trigger_agent handler removed — mutation not allowed from viewer-level chat.
+    case 'trigger_agent':
+      return 'Agent triggering is not available from the chat surface. Use Telegram /slash commands (e.g. /bd, /content) or the dashboard agents API.'
     case 'agent_status': {
       try {
         const { DatabaseSync } = await import('node:sqlite')
@@ -670,8 +653,8 @@ RULES:
 6. Today: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
 
 You can SEARCH and READ emails (gmail_search, gmail_read) but CANNOT send emails from this surface.
-To send emails, trigger the email-campaign agent: use trigger_agent with agent_id "email-campaign".
-For other agent tasks, use trigger_agent with the appropriate agent ID.
+To send emails or trigger agents, use Telegram /slash commands (e.g. /bd, /content).
+This surface is read-only — it cannot trigger agents or send emails directly.
 
 CRM/Knowledge:
 ${context.slice(0, 1500)}`
