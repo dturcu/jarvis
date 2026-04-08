@@ -92,14 +92,18 @@ Data: ~/.jarvis/
 4. **Workers** claim jobs via HTTP, execute, and return results via callback
 5. **Model routing** matches agent needs (TaskProfile) to available local models (SelectionPolicy)
 
-### Dual Execution Model
+### Execution Modes
 
 Jarvis supports two execution modes:
 
 - **Claude Code mode** — Agents run as Claude Code skills (`.claude/skills/*.md`), using MCP integrations (Gmail, Chrome, WebSearch) directly. Good for interactive use.
 - **OpenClaw mode** — Agents run through the OpenClaw gateway with the full plugin stack, job queue, and worker pool. Good for autonomous scheduled execution.
 
+The dashboard also provides two read-only copilot surfaces (`/api/chat/telegram` and `/api/godmode`) with their own LLM loops for interactive queries. These cannot mutate state or trigger agents — all mutations flow through the runtime kernel. See [docs/ADR-CHAT-SURFACES.md](docs/ADR-CHAT-SURFACES.md) for the architectural decision behind this.
+
 ## Agents
+
+### Core (production workflows)
 
 | Agent | What it does | Schedule | Maturity |
 |---|---|---|---|
@@ -108,15 +112,25 @@ Jarvis supports two execution modes:
 | **evidence-auditor** | Scan project for ISO 26262 work products, produce gap matrix | Mondays 9:00 AM | Trusted |
 | **contract-reviewer** | Analyze NDA/MSA clauses, produce sign/negotiate/escalate recommendation | Manual | High-stakes |
 | **staffing-monitor** | Calculate team utilization, forecast gaps, match skills to pipeline | Mondays 9:00 AM | Operational |
+
+### Extended
+
+| Agent | What it does | Schedule | Maturity |
+|---|---|---|---|
 | **content-engine** | Draft LinkedIn post for today's content pillar | Mon/Wed/Thu 7:00 AM | Operational |
-| **portfolio-monitor** | Check crypto prices, calculate drift, recommend rebalance | Daily 8 AM + 8 PM | Operational |
-| **garden-calendar** | Generate weekly garden brief based on date + weather | Mondays 7:00 AM | Operational |
 | **email-campaign** | Manage drip campaigns, follow-up sequences | Manual | Trusted |
-| **social-engagement** | Monitor and respond to social media interactions | Weekdays 8:30 AM + 6 PM | Operational |
-| **security-monitor** | Track security advisories, vulnerability alerts | Daily 3:00 AM | Operational |
-| **drive-watcher** | Watch shared drives for new/changed documents | Every 5 minutes | Operational |
 | **invoice-generator** | Generate and track invoices for client engagements | Manual | Trusted |
 | **meeting-transcriber** | Transcribe and summarize meeting recordings | Manual | Operational |
+
+### Personal / Experimental
+
+| Agent | What it does | Schedule | Tier |
+|---|---|---|---|
+| **portfolio-monitor** | Check crypto prices, calculate drift, recommend rebalance | Daily 8 AM + 8 PM | Personal |
+| **garden-calendar** | Generate weekly garden brief based on date + weather | Mondays 7:00 AM | Personal |
+| **social-engagement** | Monitor and respond to social media interactions | Weekdays 8:30 AM + 6 PM | Experimental |
+| **security-monitor** | Track security advisories, vulnerability alerts | Daily 3:00 AM | Experimental |
+| **drive-watcher** | Watch shared drives for new/changed documents | Every 5 minutes | Experimental |
 
 **Maturity levels:**
 - **High-stakes**: Every mutating action requires human approval
@@ -199,8 +213,8 @@ Jarvis supports two execution modes:
 
 All job types, tool responses, and worker callbacks conform to the `jarvis.v1` contract — a frozen JSON Schema specification.
 
-- **143 job types** across **22 families**: agent, browser, calendar, crm, device, document, drive, email, files, inference, interpreter, office, python, scheduler, scrape, search, security, social, system, time, voice, web
-- **Schema validation** via `npm run validate:contracts` — validates schemas and 144 example payloads (some newer job types temporarily excluded from full envelope/result validation)
+- **143 job types** across **23 schema families**: agent, browser, calendar, crm, device, document, drive, email, files, inference, interpreter, office, python, scheduler, scrape, search, security, social, system, time, voice, web
+- **Schema validation** via `npm run validate:contracts` — validates all schemas and 144 example payloads against full envelope/result schemas
 - **Contract files** live in `contracts/jarvis/v1/`
 
 ### Job Lifecycle
@@ -276,18 +290,33 @@ npm run ops:backup            # Create backup bundle
 npm run ops:recover           # Restore from backup
 ```
 
+## Security
+
+Jarvis is designed as a **local operator appliance**, not a cloud service.
+
+- **Localhost by default**: Dashboard API binds to `127.0.0.1` (override with `JARVIS_BIND_HOST`)
+- **Token auth**: API requires Bearer tokens. `init-jarvis.ts` generates one automatically on first run
+- **Fail-closed**: Production/appliance mode blocks startup without tokens. Dev mode allows read-only access only
+- **Appliance mode**: Set `appliance_mode: true` in config for strict enforcement (tokens required, webhook secrets checked)
+- **No side-door execution**: Chat and Telegram surfaces are read-only — no shell, file writes, or email sending. All mutations flow through the approval-backed runtime kernel
+- **Rate limiting**: Auth failures trigger IP blocking after repeated attempts
+
+See [docs/THREAT-MODEL.md](docs/THREAT-MODEL.md) for trust boundaries and [docs/KNOWN-TRUST-GAPS.md](docs/KNOWN-TRUST-GAPS.md) for what's not yet enforced.
+
 ## Configuration
 
-Config lives at `~/.jarvis/config.json`. Use the setup wizard or edit directly:
+Config lives at `~/.jarvis/config.json`. The init script creates it with a secure token. Use the setup wizard to add integrations:
 
 ```json
 {
+  "api_token": "generated-on-init",
   "lmstudio_url": "http://localhost:1234",
   "default_model": "auto",
   "adapter_mode": "real",
   "poll_interval_ms": 60000,
   "max_concurrent": 2,
-  "log_level": "info"
+  "log_level": "info",
+  "appliance_mode": false
 }
 ```
 
@@ -297,7 +326,7 @@ Environment variables override config file values. See `.env.example` for all op
 
 ```bash
 npm run check              # Full pipeline: contracts + tests + build
-npm test                   # Run tests (48 files, 1159 tests)
+npm test                   # Run tests (62 files, 1411+ tests)
 npm run build              # TypeScript compilation
 npm run validate:contracts # Schema + example validation (143 job types)
 npm run dashboard:dev      # Dashboard dev mode (hot reload)
@@ -349,7 +378,11 @@ For more help: `npm run jarvis -- doctor`
 | [USAGE.md](docs/USAGE.md) | Detailed agent usage with examples, Telegram setup, CRM guide |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Five-plane architecture, database layout, execution model |
 | [PRODUCTION-TARGET.md](docs/PRODUCTION-TARGET.md) | Deployment model, trust boundaries, non-goals |
-| [RELEASE-GATES.md](docs/RELEASE-GATES.md) | Four release gates (A-D) with pass criteria |
+| [RELEASE-GATES.md](docs/RELEASE-GATES.md) | Five release gates (A-E) with pass criteria |
+| [THREAT-MODEL.md](docs/THREAT-MODEL.md) | Trust boundaries, attack vectors, security invariants |
+| [KNOWN-TRUST-GAPS.md](docs/KNOWN-TRUST-GAPS.md) | Honest list of what's not yet enforced |
+| [ADR-CHAT-SURFACES.md](docs/ADR-CHAT-SURFACES.md) | Why chat/godmode have separate LLM loops |
+| [OPERATOR-RUNBOOK.md](docs/OPERATOR-RUNBOOK.md) | Secure installation, daily ops, failure recovery |
 | [alpha-operating-guide.md](docs/alpha-operating-guide.md) | Daily workflow, failure taxonomy, metrics |
 
 ### Specs
