@@ -93,6 +93,29 @@ export class ChromeAdapter implements BrowserAdapter {
     return resolved;
   }
 
+  /**
+   * Validate that an output file path (screenshot, task artifact) resolves
+   * within the current working directory or temp directory.
+   * Prevents path traversal via user-controlled screenshot/task paths.
+   */
+  private validateOutputPath(filePath: string): string {
+    const resolved = path.resolve(filePath);
+    const cwd = path.resolve(".");
+    const tmp = path.resolve(os.tmpdir());
+    if (
+      (resolved.startsWith(cwd + path.sep) || resolved === cwd) ||
+      (resolved.startsWith(tmp + path.sep) || resolved === tmp)
+    ) {
+      return resolved;
+    }
+    throw new BrowserWorkerError(
+      "INVALID_INPUT",
+      `Output path "${filePath}" is outside allowed directories (cwd or tmpdir).`,
+      false,
+      { path: filePath },
+    );
+  }
+
   // ── Connection management ──────────────────────────────────────────────────
 
   private async ensureConnected(): Promise<Browser> {
@@ -286,7 +309,7 @@ export class ChromeAdapter implements BrowserAdapter {
   async screenshot(input: BrowserScreenshotInput): Promise<ExecutionOutcome<BrowserScreenshotOutput>> {
     const page = await this.getPage();
     const fullPage = input.full_page ?? false;
-    const outputPath = input.path ?? "screenshot.png";
+    const outputPath = this.validateOutputPath(input.path ?? "screenshot.png");
 
     try {
       if (input.selector) {
@@ -447,7 +470,7 @@ export class ChromeAdapter implements BrowserAdapter {
             }
             break;
           case "screenshot":
-            await page.screenshot({ path: step.value ?? "task-screenshot.png" });
+            await page.screenshot({ path: this.validateOutputPath(step.value ?? "task-screenshot.png") });
             break;
         }
         stepsCompleted++;
