@@ -97,8 +97,9 @@ export function createBuiltInApprovalHook() {
 }
 
 /**
- * Approval gating for Jarvis domain tools that trigger mutating jobs.
- * Complements the built-in approval hook with domain-specific policy.
+ * Approval gating for Jarvis domain tools known to trigger mutations.
+ * Uses a hard-coded tool name set (not the job approval requirement mapping)
+ * as a defense-in-depth complement to the built-in approval hook.
  */
 export function createDomainApprovalHook() {
   // Tools that always need approval when the underlying job requires it
@@ -140,16 +141,19 @@ export function createDomainApprovalHook() {
  * (e.g., read-only operator sessions calling mutating tools).
  */
 export function createCapabilityBoundaryHook() {
+  // Canonical read-only tool set. Mirrors READONLY_TOOL_NAMES from
+  // tool-infra.ts plus Jarvis plugin tools that are purely read-only.
+  // Keep in sync with the dashboard's READONLY_TOOL_NAMES and the
+  // action-classifier's read-only suffix list.
   const READ_ONLY_TOOLS = new Set([
-    "jarvis_plan",
-    "jarvis_get_job",
-    "jarvis_list_artifacts",
-    "job_status",
-    "job_artifacts",
-    "email_search",
-    "email_read",
-    "email_list_threads",
-    "crm_search",
+    // Dashboard copilot tools (from tool-infra.ts READONLY_TOOL_NAMES)
+    "web_search", "web_fetch", "crm_search", "knowledge_search",
+    "system_info", "list_files", "file_read", "file_list",
+    "gmail_search", "gmail_read", "agent_status", "browse_page",
+    // Jarvis plugin read-only tools
+    "jarvis_plan", "jarvis_get_job", "jarvis_list_artifacts",
+    "job_status", "job_artifacts",
+    "email_search", "email_read", "email_list_threads",
     "crm_list_pipeline",
   ]);
 

@@ -468,8 +468,8 @@ async function legacyFallback(
 ): Promise<void> {
   // Dynamic import to avoid circular dependency at module load time.
   // The legacy godmode router is mounted on the same Express app, so
-  // we import its dependencies and call llmChat directly rather than
-  // making an HTTP round-trip.
+  // we issue a loopback HTTP request to the local /api/godmode route
+  // to reuse its existing middleware, auth handling, and SSE behavior.
   try {
     const http = await import('http')
 

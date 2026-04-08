@@ -75,7 +75,14 @@ const indexHtml = join(distPath, 'index.html')
 }
 
 // Request size limit
-app.use(express.json({ limit: '1mb' }))
+app.use(express.json({
+  limit: '1mb',
+  // Capture the raw body for webhook HMAC verification.
+  // GitHub signs the exact bytes, not re-serialized JSON.
+  verify: (req: import('http').IncomingMessage, _res, buf) => {
+    (req as any).rawBody = buf.toString('utf8');
+  },
+}))
 app.use((req, _res, next) => {
   console.log(`[${req.method}] ${req.path}`)
   next()

@@ -123,7 +123,12 @@ export class TelegramSessionAdapter {
    */
   async send(text: string): Promise<void> {
     const truncated = text.slice(0, 4096)
-    const idempotencyKey = `tg-session-${randomUUID()}`
+    // Derive idempotency key from message content + time bucket so retries
+    // within the same 10-second window are deduplicated, not re-sent.
+    const crypto = await import('node:crypto')
+    const contentHash = crypto.createHash('sha256').update(truncated).digest('hex').slice(0, 12)
+    const timeBucket = Math.floor(Date.now() / 10_000)
+    const idempotencyKey = `tg-session-${contentHash}-${timeBucket}`
 
     await sendSessionMessage(
       {

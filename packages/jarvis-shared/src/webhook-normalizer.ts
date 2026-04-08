@@ -89,10 +89,13 @@ export function verifyWebhookSignature(
   sigBuf.copy(paddedSig);
   expBuf.copy(paddedExp);
 
-  return (
-    sigBuf.length === expBuf.length &&
-    crypto.timingSafeEqual(paddedSig, paddedExp)
-  );
+  // Evaluate both conditions without short-circuiting to avoid leaking
+  // length information via timing. timingSafeEqual runs on padded buffers
+  // regardless; the length check is combined afterward.
+  const lengthsMatch = sigBuf.length === expBuf.length;
+  const signaturesMatch = crypto.timingSafeEqual(paddedSig, paddedExp);
+
+  return lengthsMatch && signaturesMatch;
 }
 
 // ─── GitHub Normalizer ──────────────────────────────────────────────────────
