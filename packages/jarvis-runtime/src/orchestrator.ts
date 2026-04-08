@@ -13,6 +13,7 @@ import { RunStore } from "./run-store.js";
 import { isReadOnlyAction } from "./action-classifier.js";
 import { classifyDisagreement, shouldBlockExecution, shouldFlagForReview, DEFAULT_DISAGREEMENT_POLICY } from "./disagreement-policy.js";
 import { isActionPermitted, type PluginPermission } from "./plugin-loader.js";
+import { executeOrchestratedGoal, isMultiAgentGoal } from "./orchestrated-execution.js";
 import type { ChannelStore } from "./channel-store.js";
 import type { RagPipeline } from "./rag-pipeline.js";
 import type { Logger } from "./logger.js";
@@ -111,6 +112,53 @@ export async function runAgent(
   try {
     // 2. Gather context (including RAG-augmented chunks if pipeline is available)
     const context = await gatherContext(def, knowledgeStore, entityGraph, ragPipeline, logger);
+
+    // 2b. Orchestrator intercept: if this is the orchestrator agent and the goal
+    // looks like it needs multiple agents, use DAG-based orchestrated execution.
+    if (agentId === "orchestrator" && isMultiAgentGoal(run.goal, runtime.listAgents().map(d => d.agent_id))) {
+      log.info("Detected multi-agent goal — switching to orchestrated DAG execution");
+      runStore?.emitEvent(run.run_id, agentId, "plan_built", {
+        details: { mode: "orchestrated", goal: run.goal },
+      });
+
+      const allAgents = runtime.listAgents();
+      const orchResult = await executeOrchestratedGoal(run.goal, {
+        registry,
+        agents: allAgents,
+        logger,
+        maxConcurrent: 2,
+      });
+
+      // Record the graph as run metadata
+      runStore?.emitEvent(run.run_id, agentId, "step_completed", {
+        details: {
+          graph_status: orchResult.status,
+          sub_goals: orchResult.graph.sub_goals.length,
+          completed: orchResult.results.filter(r => r.status === "completed").length,
+          failed: orchResult.results.filter(r => r.status === "failed").length,
+        },
+      });
+
+      if (orchResult.status === "completed") {
+        finalizeRun(run);
+        runStore?.transition(run.run_id, agentId, "completed", "run_completed", {
+          details: { merged_output: orchResult.merged_output.slice(0, 500) },
+        });
+      } else {
+        finalizeRun(run, orchResult.aborted_reason ?? "Orchestrated execution failed");
+        runStore?.transition(run.run_id, agentId, "failed", "run_failed", {
+          details: { reason: orchResult.aborted_reason, failed_count: orchResult.results.filter(r => r.status === "failed").length },
+        });
+      }
+
+      // Capture lessons
+      try {
+        lessonCapture.captureFromRun(run, []);
+      } catch { /* best-effort */ }
+
+      statusWriter?.clearCurrentRun();
+      return run;
+    }
 
     // 3. Build plan via inference (dispatch based on planner_mode)
     const plannerParams = {
