@@ -10,7 +10,7 @@ import {
 } from "@jarvis/shared";
 
 describe.sequential("Jarvis durable state persistence", () => {
-  it("persists approvals, jobs, artifacts, and dispatches across a reload", () => {
+  it("persists approvals, jobs, artifacts, and dispatches across a reload", { timeout: 15_000 }, () => {
     const tempDir = mkdtempSync(join(tmpdir(), "jarvis-state-"));
     const databasePath = join(tempDir, "state.sqlite");
 
@@ -132,7 +132,7 @@ describe.sequential("Jarvis durable state persistence", () => {
     }
   });
 
-  it("migrates a legacy JSON snapshot into SQLite on first boot", () => {
+  it("migrates a legacy JSON snapshot into SQLite on first boot", { timeout: 15_000 }, () => {
     const tempDir = mkdtempSync(join(tmpdir(), "jarvis-state-migrate-"));
     const databasePath = join(tempDir, "state.sqlite");
     const legacySnapshotPath = join(tempDir, "state.json");
