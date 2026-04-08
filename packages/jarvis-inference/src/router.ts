@@ -39,7 +39,7 @@ export function inferCapabilities(modelId: string): ModelCapability[] {
     caps.push("code");
   }
 
-  if (/vision|llava|bakllava|minicpm-v|moondream/.test(lower)) {
+  if (/vision|llava|bakllava|minicpm-v|moondream|gemma-[34]|gemma3|gemma4/.test(lower)) {
     caps.push("vision");
   }
 

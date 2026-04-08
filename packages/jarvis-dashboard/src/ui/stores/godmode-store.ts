@@ -280,6 +280,11 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
                 })
                 break
               }
+              case 'model': {
+                const modelId = evt.model as string
+                if (modelId) set({ model: modelId })
+                break
+              }
               case 'error': {
                 set(state => {
                   const msgs = [...state.messages]

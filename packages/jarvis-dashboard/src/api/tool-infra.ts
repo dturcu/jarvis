@@ -25,7 +25,7 @@ export const READONLY_TOOL_NAMES = [
   "web_search", "web_fetch", "crm_search", "knowledge_search",
   "system_info", "list_files", "file_read", "file_list",
   "gmail_search", "gmail_read", "agent_status", "browse_page",
-  "wiki_search",
+  "wiki_search", "drive_list",
 ] as const;
 
 export type ReadOnlyToolName = (typeof READONLY_TOOL_NAMES)[number];
@@ -437,6 +437,59 @@ export function httpsGet(url: string, headers: Record<string, string> = {}): Pro
     req.setTimeout(15000, () => { req.destroy(); reject(new Error('timeout')) })
   })
 }
+
+// ─── LLM Discovery ───────────────────────────────────────────────────────────
+
+const OLLAMA_URL = 'http://localhost:11434'
+const LMSTUDIO_URL = process.env.LMS_URL ?? 'http://localhost:1234'
+
+/** Fetch model IDs from an OpenAI-compatible /v1/models endpoint. */
+export function listLocalModels(baseUrl: string): Promise<string[]> {
+  return new Promise((resolve) => {
+    const parsed = new URL(`${baseUrl}/v1/models`)
+    const transport = parsed.protocol === 'https:' ? https : http
+    const req = transport.get({ hostname: parsed.hostname, port: parsed.port, path: parsed.pathname, timeout: 3000 }, (res) => {
+      let data = ''
+      res.on('data', (c: Buffer) => data += c.toString())
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data)
+          const models = (json.data ?? json.models ?? []) as Array<{ id?: string; name?: string }>
+          resolve(models.map(m => m.id ?? m.name ?? '').filter(Boolean))
+        } catch { resolve([]) }
+      })
+      res.on('error', () => resolve([]))
+    })
+    req.on('error', () => resolve([]))
+    req.setTimeout(3000, () => { req.destroy(); resolve([]) })
+  })
+}
+
+/** Try Ollama first, fall back to LM Studio. Returns the active provider's base URL. */
+export async function detectLlm(): Promise<{ baseUrl: string; provider: 'ollama' | 'lmstudio' }> {
+  const ollamaModels = await listLocalModels(OLLAMA_URL)
+  if (ollamaModels.length > 0) return { baseUrl: OLLAMA_URL, provider: 'ollama' }
+  const lmsModels = await listLocalModels(LMSTUDIO_URL)
+  if (lmsModels.length > 0) return { baseUrl: LMSTUDIO_URL, provider: 'lmstudio' }
+  // Default to LM Studio URL even if unreachable (legacy behavior)
+  return { baseUrl: LMSTUDIO_URL, provider: 'lmstudio' }
+}
+
+/** Query both Ollama and LM Studio, merge model lists. */
+export async function listAllModels(): Promise<{ models: string[]; provider: 'ollama' | 'lmstudio' | 'mixed'; baseUrl: string }> {
+  const [ollamaModels, lmsModels] = await Promise.all([
+    listLocalModels(OLLAMA_URL),
+    listLocalModels(LMSTUDIO_URL),
+  ])
+  const all = [...new Set([...ollamaModels, ...lmsModels])]
+  const provider = ollamaModels.length > 0 && lmsModels.length > 0 ? 'mixed' as const
+    : ollamaModels.length > 0 ? 'ollama' as const
+    : 'lmstudio' as const
+  const baseUrl = ollamaModels.length > 0 ? OLLAMA_URL : LMSTUDIO_URL
+  return { models: all, provider, baseUrl }
+}
+
+// ─── Gmail Helpers ───────────────────────────────────────────────────────────
 
 export async function getGmailAccessToken(): Promise<string | null> {
   const cfg = loadGmailConfig()

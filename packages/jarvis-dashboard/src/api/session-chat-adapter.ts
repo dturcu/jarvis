@@ -431,6 +431,16 @@ export function mapGodmodeToolsToSessionTools(): SessionToolRegistration[] {
         required: ['query'],
       },
     },
+    drive_list: {
+      description: 'List files in Google Drive. Returns file names, types, modified dates, and links.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Optional search query (Google Drive search syntax)' },
+          max_results: { type: 'number', description: 'Max files to return (default 10)' },
+        },
+      },
+    },
   }
 
   // Build registrations only for tools in the canonical READONLY_TOOL_NAMES list

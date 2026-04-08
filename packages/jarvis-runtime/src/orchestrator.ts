@@ -116,8 +116,11 @@ export async function runAgent(
   // Load plugin permissions if this is a plugin agent
   const pluginPermissions = loadPluginPermissions(agentId, runtimeDb);
 
+  // Extract goal from the command payload (Telegram free-text, API task field, etc.)
+  const goalFromPayload = (commandPayload?.task ?? commandPayload?.goal ?? (trigger as { message_preview?: string }).message_preview) as string | undefined;
+
   // 1. Start run — use the same run_id for both in-memory and durable state
-  const run = runtime.startRun(agentId, trigger);
+  const run = runtime.startRun(agentId, trigger, goalFromPayload);
   runStore?.startRun(agentId, trigger.kind, commandId, run.goal, run.run_id, owner);
 
   // Log retry relationship in the audit trail so retry runs are linked to originals

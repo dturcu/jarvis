@@ -21,10 +21,13 @@ import {
   getGmailAccessToken,
   httpsPost,
   httpsGet,
+  detectLlm,
+  listLocalModels,
+  listAllModels,
   type FetchUrlOptions,
 } from './tool-infra.js'
 
-const LMS_URL = process.env.LMS_URL ?? 'http://localhost:1234'
+const FALLBACK_LMS_URL = process.env.LMS_URL ?? 'http://localhost:1234'
 const DEFAULT_MODEL = process.env.LMS_MODEL ?? 'qwen/qwen3.5-35b-a3b'
 
 /** Fetch options for chat.ts -- browser-like User-Agent */
@@ -107,9 +110,9 @@ Rules:
 
 // ─── Non-streaming LLM call (for tool-use follow-up) ──────────────────────────
 
-function llmChat(messages: Array<{ role: string; content: string }>, model: string): Promise<string> {
+function llmChat(messages: Array<{ role: string; content: string }>, model: string, baseUrl?: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const lmsUrl = new URL(`${LMS_URL}/v1/chat/completions`)
+    const lmsUrl = new URL(`${baseUrl ?? FALLBACK_LMS_URL}/v1/chat/completions`)
     const body = JSON.stringify({ model, messages, stream: false, temperature: 0.3, max_tokens: 2048 })
     const req = http.request({
       hostname: lmsUrl.hostname, port: Number(lmsUrl.port) || 1234,
@@ -202,11 +205,12 @@ Be direct and specific. Use your tools actively when the user asks you to look s
   socket?.setNoDelay?.(true)
 
   const chosenModel = model ?? DEFAULT_MODEL
+  const detected = await detectLlm().catch(() => ({ baseUrl: FALLBACK_LMS_URL, provider: 'lmstudio' as const }))
 
   // First pass: stream the LLM response, collecting the full text
   let fullResponse = ''
   try {
-    fullResponse = await streamToClient(res, msgs, chosenModel)
+    fullResponse = await streamToClient(res, msgs, chosenModel, detected.baseUrl)
   } catch (e) {
     res.write(`data: ${JSON.stringify({ error: e instanceof Error ? e.message : String(e) })}\n\n`)
     res.write('data: [DONE]\n\n')
@@ -228,7 +232,7 @@ Be direct and specific. Use your tools actively when the user asks you to look s
       msgs.push({ role: 'user', content: `[Tool Result for ${call.name}]:\n${result}\n\nNow use this information to answer the original question. Do NOT output any more tool calls.` })
 
       try {
-        await streamToClient(res, msgs, chosenModel)
+        await streamToClient(res, msgs, chosenModel, detected.baseUrl)
       } catch { /* best effort */ }
     }
   }
@@ -238,9 +242,9 @@ Be direct and specific. Use your tools actively when the user asks you to look s
 })
 
 // Stream LLM response to SSE client, return full collected text
-function streamToClient(res: import('express').Response, messages: Array<{ role: string; content: string }>, model: string): Promise<string> {
+function streamToClient(res: import('express').Response, messages: Array<{ role: string; content: string }>, model: string, baseUrl?: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const lmsUrl = new URL(`${LMS_URL}/v1/chat/completions`)
+    const lmsUrl = new URL(`${baseUrl ?? FALLBACK_LMS_URL}/v1/chat/completions`)
     const body = JSON.stringify({ model, messages, stream: true, temperature: 0.3, max_tokens: 2048 })
 
     const lmsReq = http.request({
@@ -367,6 +371,12 @@ const AGENT_TOOLS = [
     type: 'function' as const, function: {
       name: 'browse_page', description: 'Open a URL in Chrome and extract the full page content. Better than web_fetch for JavaScript-heavy sites.',
       parameters: { type: 'object', properties: { url: { type: 'string', description: 'URL to navigate to' } }, required: ['url'] }
+    }
+  },
+  {
+    type: 'function' as const, function: {
+      name: 'drive_list', description: 'List files in Google Drive. Returns file names, types, modified dates, and links.',
+      parameters: { type: 'object', properties: { query: { type: 'string', description: 'Optional search query (Google Drive search syntax). Leave empty for recent files.' }, max_results: { type: 'number', description: 'Max files to return (default 10)' } } }
     }
   },
   // gmail_send and gmail_reply REMOVED — email sending must go through
@@ -537,6 +547,24 @@ async function executeAgentTool(name: string, params: Record<string, unknown>): 
       }
     }
 
+    case 'drive_list': {
+      const query = params.query as string | undefined
+      const maxResults = (params.max_results as number) ?? 10
+      try {
+        const token = await getGmailAccessToken()
+        if (!token) return 'Google Drive not configured. Add Gmail credentials to ~/.jarvis/config.json'
+        const q = query ? `&q=${encodeURIComponent(query)}` : ''
+        const url = `https://www.googleapis.com/drive/v3/files?pageSize=${maxResults}&fields=files(id,name,mimeType,modifiedTime,size,webViewLink)${q}&orderBy=modifiedTime desc`
+        const resp = JSON.parse(await httpsGet(url, { Authorization: `Bearer ${token}` }))
+        if (!resp.files || resp.files.length === 0) return query ? `No Drive files found for: ${query}` : 'No files found in Drive'
+        return `Google Drive files${query ? ` (query: ${query})` : ''}:\n\n${(resp.files as Array<{ name: string; mimeType: string; modifiedTime: string; webViewLink?: string; id: string }>).map((f, i) =>
+          `${i + 1}. ${f.name}\n   Type: ${f.mimeType}\n   Modified: ${f.modifiedTime}\n   ${f.webViewLink ? `Link: ${f.webViewLink}` : `ID: ${f.id}`}`
+        ).join('\n\n')}`
+      } catch (e) {
+        return `Drive list failed: ${e instanceof Error ? e.message : String(e)}`
+      }
+    }
+
     // write_file and run_command handlers removed — privileged execution
     // must go through the runtime kernel, not chat surfaces.
     default:
@@ -639,11 +667,11 @@ ${context.slice(0, 1500)}`
         ?? ollamaModels.find(m => m.startsWith('qwen2.5:'))
         ?? ollamaModels[0]!
     } else {
-      llmBaseUrl = LMS_URL
+      llmBaseUrl = FALLBACK_LMS_URL
       llmModel = DEFAULT_MODEL
     }
   } catch {
-    llmBaseUrl = LMS_URL
+    llmBaseUrl = FALLBACK_LMS_URL
     llmModel = DEFAULT_MODEL
   }
 
@@ -694,42 +722,12 @@ ${context.slice(0, 1500)}`
   }
 })
 
-function listLocalModels(baseUrl: string): Promise<string[]> {
-  return new Promise((resolve) => {
-    const mod = baseUrl.startsWith('https') ? https : http
-    const url = new URL(`${baseUrl}/v1/models`)
-    const req = mod.get(url, (res) => {
-      let data = ''
-      res.on('data', (c: Buffer) => data += c.toString())
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data) as { data?: Array<{ id?: string }> }
-          resolve(json.data?.map(m => m.id ?? '').filter(Boolean) ?? [])
-        } catch { resolve([]) }
-      })
-    })
-    req.on('error', () => resolve([]))
-    req.setTimeout(3000, () => { req.destroy(); resolve([]) })
-  })
-}
-
-// GET /api/chat/models
-chatRouter.get('/models', (_req, res) => {
-  const lmsUrl = new URL(`${LMS_URL}/v1/models`)
-  const lmsReq = http.request({
-    hostname: lmsUrl.hostname, port: Number(lmsUrl.port) || 1234,
-    path: lmsUrl.pathname, method: 'GET'
-  }, (lmsRes) => {
-    let body = ''
-    lmsRes.on('data', (c: Buffer) => body += c.toString())
-    lmsRes.on('end', () => {
-      try {
-        const data = JSON.parse(body) as { data: Array<{ id: string }> }
-        res.json({ models: data.data.map(m => m.id), default: DEFAULT_MODEL })
-      } catch { res.json({ models: [], default: DEFAULT_MODEL }) }
-    })
-  })
-  lmsReq.on('error', () => res.json({ models: [], default: DEFAULT_MODEL, error: 'LM Studio unreachable' }))
-  lmsReq.setTimeout(30000, () => { lmsReq.destroy() })
-  lmsReq.end()
+// GET /api/chat/models — queries both Ollama and LM Studio
+chatRouter.get('/models', async (_req, res) => {
+  try {
+    const result = await listAllModels()
+    res.json({ models: result.models, default: result.models[0] ?? DEFAULT_MODEL, provider: result.provider })
+  } catch {
+    res.json({ models: [], default: DEFAULT_MODEL })
+  }
 })

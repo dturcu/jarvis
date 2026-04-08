@@ -11,6 +11,9 @@ type TelegramUpdate = {
     from?: { id: number; username?: string; first_name?: string }
     chat: { id: number }
     text?: string
+    photo?: Array<{ file_id: string; file_unique_id: string; width: number; height: number; file_size?: number }>
+    document?: { file_id: string; file_name?: string; mime_type?: string; file_size?: number }
+    caption?: string
   }
 }
 
@@ -180,6 +183,33 @@ export class JarvisBot {
           }
         } catch (e) {
           await this.send(`Error: ${String(e)}`)
+        }
+      }
+
+      // Handle photo messages
+      const photo = update.message?.photo
+      if (photo && photo.length > 0 && fromChat === this.chatId) {
+        try {
+          const { handleVisionMessage } = await import('./vision-handler.js')
+          const caption = update.message?.caption ?? 'What is in this image?'
+          const highestRes = photo[photo.length - 1]! // Telegram sends sizes ascending
+          const response = await handleVisionMessage(highestRes.file_id, caption, this.config.bot_token)
+          await this.send(response)
+        } catch (e) {
+          await this.send(`Vision processing failed: ${e instanceof Error ? e.message : String(e)}`)
+        }
+      }
+
+      // Handle image documents (files sent as attachments)
+      const doc = update.message?.document
+      if (doc && doc.mime_type?.startsWith('image/') && fromChat === this.chatId) {
+        try {
+          const { handleVisionMessage } = await import('./vision-handler.js')
+          const caption = update.message?.caption ?? 'What is in this image?'
+          const response = await handleVisionMessage(doc.file_id, caption, this.config.bot_token)
+          await this.send(response)
+        } catch (e) {
+          await this.send(`Vision processing failed: ${e instanceof Error ? e.message : String(e)}`)
         }
       }
     }
