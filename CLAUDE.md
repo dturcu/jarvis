@@ -2,7 +2,7 @@
 
 Jarvis is an autonomous agent system for **Thinking in Code**, Daniel's automotive safety consulting firm (ISO 26262, ASPICE, AUTOSAR, cybersecurity). It runs 8 production agents: orchestrator, self-reflection, regulatory-watch, knowledge-curator, proposal-engine, evidence-auditor, contract-reviewer, and staffing-monitor.
 
-The system runs on **OpenClaw** (`^2026.4.5`) as a plugin pack. OpenClaw provides the chat OS layer (session routing, plugin lifecycle, tool execution, model abstraction, Telegram channel). Jarvis provides 19 domain plugins, 8 agent definitions (15 legacy archived), and a contract-validated job queue.
+The system runs on **OpenClaw** (`^2026.4.8`) as a plugin pack. OpenClaw provides the chat OS layer (session routing, plugin lifecycle, tool execution, model abstraction, Telegram channel). Jarvis provides 19 domain plugins, 8 agent definitions (15 legacy archived), and a contract-validated job queue.
 
 ## Quick Start
 

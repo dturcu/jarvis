@@ -26,7 +26,7 @@ Dashboard: **http://localhost:4242**
 | Requirement | Minimum | Recommended |
 |---|---|---|
 | Node.js | >=22.5.0 | 22 LTS |
-| OpenClaw | ^2026.4.5 | Latest |
+| OpenClaw | ^2026.4.8 | Latest |
 | RAM | 8 GB | 16+ GB |
 | Disk | 2 GB free | 10+ GB |
 | Model Runtime | Ollama **or** LM Studio | Both |
