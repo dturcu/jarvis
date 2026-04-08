@@ -32,6 +32,7 @@ jobs:
         run: npm run dashboard:build
 
       - name: Verify copilot surface safety
+        shell: bash
         run: |
           # Ensure no mutation tools are exposed in chat surfaces
           ! grep -n "name: 'run_command'" packages/jarvis-dashboard/src/api/chat.ts

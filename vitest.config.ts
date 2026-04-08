@@ -46,7 +46,8 @@ export default defineConfig({
       "@jarvis/social-worker": `${rootDir}packages/jarvis-social-worker/src/index.ts`,
       "@jarvis/time-worker": `${rootDir}packages/jarvis-time-worker/src/index.ts`,
       "@jarvis/drive-worker": `${rootDir}packages/jarvis-drive-worker/src/index.ts`,
-      "@jarvis/runtime": `${rootDir}packages/jarvis-runtime/src/index.ts`
+      "@jarvis/runtime": `${rootDir}packages/jarvis-runtime/src/index.ts`,
+      "@jarvis/observability": `${rootDir}packages/jarvis-observability/src/index.ts`
     }
   },
   test: {

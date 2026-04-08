@@ -6,6 +6,7 @@ import type {
   KnowledgeSearchResult,
   PlaybookEntry,
 } from "./knowledge.js";
+import type { EmbeddingPipeline } from "./embedding-pipeline.js";
 
 /**
  * SQLite-backed knowledge store.
@@ -14,15 +15,17 @@ import type {
  * persists all data to a SQLite database.  The constructor expects the path to
  * an **already-initialised** database (created by `scripts/init-jarvis.ts`).
  *
- * Search uses SQL LIKE queries rather than vector similarity — a future
- * iteration can layer FTS5 or embeddings on top.
+ * When an {@link EmbeddingPipeline} is provided, documents are automatically
+ * chunked and embedded on ingest for hybrid RAG retrieval.
  */
 export class SqliteKnowledgeStore {
   private db: DatabaseSync;
+  private embeddingPipeline?: EmbeddingPipeline;
 
-  constructor(dbPath: string) {
+  constructor(dbPath: string, embeddingPipeline?: EmbeddingPipeline) {
     this.db = new DatabaseSync(dbPath);
     this.db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
+    this.embeddingPipeline = embeddingPipeline;
     // Create FTS5 virtual table for full-text search if not exists
     try {
       this.db.exec(`
@@ -84,6 +87,14 @@ export class SqliteKnowledgeStore {
           doc.doc_id, doc.title, doc.content, doc.tags.join(" "),
         );
       } catch { /* FTS sync failure is non-fatal */ }
+    }
+
+    // Auto-embed for hybrid RAG if pipeline is configured
+    if (this.embeddingPipeline) {
+      // Fire-and-forget: embedding failure must not block document storage
+      this.embeddingPipeline
+        .ingestDocument(doc.doc_id, doc.content, doc.collection)
+        .catch(() => { /* embedding failure is non-fatal */ });
     }
 
     return doc;
@@ -204,6 +215,12 @@ export class SqliteKnowledgeStore {
     const result = this.db
       .prepare("DELETE FROM documents WHERE doc_id = ?")
       .run(docId);
+
+    // Clean up embeddings if pipeline is configured
+    if (result.changes > 0 && this.embeddingPipeline) {
+      this.embeddingPipeline.deleteDocument(docId);
+    }
+
     return result.changes > 0;
   }
 

@@ -33,6 +33,7 @@ const EXPECTED_EXPERIMENTAL_IDS = [
   "email-campaign",
   "meeting-transcriber",
   "drive-watcher",
+  "self-reflection",
 ];
 
 // ---------------------------------------------------------------------------
@@ -40,8 +41,8 @@ const EXPECTED_EXPERIMENTAL_IDS = [
 // ---------------------------------------------------------------------------
 
 describe("agent pack classification", () => {
-  it("all 14 agents have a pack field defined", () => {
-    expect(ALL_AGENTS).toHaveLength(14);
+  it("all 15 agents have a pack field defined", () => {
+    expect(ALL_AGENTS).toHaveLength(15);
     for (const agent of ALL_AGENTS) {
       expect(agent.pack, `${agent.agent_id} missing pack`).toBeDefined();
     }
@@ -59,10 +60,10 @@ describe("agent pack classification", () => {
     expect(personal).toHaveLength(2);
   });
 
-  it('remaining 7 agents have pack "experimental"', () => {
+  it('remaining 8 agents have pack "experimental"', () => {
     const experimental = ALL_AGENTS.filter(a => a.pack === "experimental");
     expect(experimental.map(a => a.agent_id).sort()).toEqual([...EXPECTED_EXPERIMENTAL_IDS].sort());
-    expect(experimental).toHaveLength(7);
+    expect(experimental).toHaveLength(8);
   });
 
   it("core agents have appropriate maturity levels (not experimental)", () => {
@@ -120,9 +121,9 @@ describe("starter pack consistency", () => {
     expect(automotivePack.enabled_agents).toHaveLength(5);
   });
 
-  it('"development" pack enables all 14 agents', () => {
+  it('"development" pack enables all 15 agents', () => {
     expect(devPack).toBeDefined();
-    expect(devPack.enabled_agents).toHaveLength(14);
+    expect(devPack.enabled_agents).toHaveLength(15);
     for (const agent of ALL_AGENTS) {
       expect(
         devPack.enabled_agents,

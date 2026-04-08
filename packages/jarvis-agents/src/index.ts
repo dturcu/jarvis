@@ -12,4 +12,5 @@ export { invoiceGeneratorAgent, INVOICE_GENERATOR_SYSTEM_PROMPT } from "./defini
 export { emailCampaignAgent, EMAIL_CAMPAIGN_SYSTEM_PROMPT } from "./definitions/email-campaign.js";
 export { meetingTranscriberAgent, MEETING_TRANSCRIBER_SYSTEM_PROMPT } from "./definitions/meeting-transcriber.js";
 export { driveWatcherAgent, DRIVE_WATCHER_SYSTEM_PROMPT } from "./definitions/drive-watcher.js";
+export { selfReflectionAgent, SELF_REFLECTION_SYSTEM_PROMPT } from "./definitions/self-reflection.js";
 export { ALL_AGENTS, getAgent, listAgents } from "./registry.js";

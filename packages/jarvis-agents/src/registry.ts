@@ -13,6 +13,7 @@ import { invoiceGeneratorAgent } from "./definitions/invoice-generator.js";
 import { emailCampaignAgent } from "./definitions/email-campaign.js";
 import { meetingTranscriberAgent } from "./definitions/meeting-transcriber.js";
 import { driveWatcherAgent } from "./definitions/drive-watcher.js";
+import { selfReflectionAgent } from "./definitions/self-reflection.js";
 
 export const ALL_AGENTS: AgentDefinition[] = [
   bdPipelineAgent,
@@ -29,6 +30,7 @@ export const ALL_AGENTS: AgentDefinition[] = [
   emailCampaignAgent,
   meetingTranscriberAgent,
   driveWatcherAgent,
+  selfReflectionAgent,
 ];
 
 export function getAgent(agentId: string): AgentDefinition | undefined {
