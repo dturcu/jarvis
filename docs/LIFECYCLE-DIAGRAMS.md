@@ -40,7 +40,7 @@ sequenceDiagram
     participant Worker
     participant Delivery as Channel Delivery
 
-    Operator->>Channel: /bd-pipeline (command)
+    Operator->>Channel: /proposal-engine (command)
     Channel->>Kernel: command record
     Kernel->>Agent: create run (queued)
     Agent->>Agent: planning phase

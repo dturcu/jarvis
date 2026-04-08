@@ -18,92 +18,53 @@ function getKnowledgeDb() {
 type AgentMeta = { label: string; description: string; schedule: string; pack: 'core' | 'experimental' | 'personal' }
 
 const AGENT_META: Record<string, AgentMeta> = {
-  // Core — primary consulting product
-  'bd-pipeline': {
-    label: 'BD Pipeline',
-    description: 'Scan for BD signals, enrich leads, draft outreach, update CRM',
-    schedule: 'Weekdays at 8:00 AM',
+  'orchestrator': {
+    label: 'Orchestrator',
+    description: 'Top-level coordinator: decomposes goals into agent DAGs, manages execution, enforces approval gates, merges outputs',
+    schedule: 'On demand',
+    pack: 'core',
+  },
+  'self-reflection': {
+    label: 'Self-Reflection & Improvement',
+    description: 'Weekly analysis of agent performance, approval friction, and knowledge quality — produces ranked improvement proposals',
+    schedule: 'Sundays at 6:00 AM',
+    pack: 'core',
+  },
+  'regulatory-watch': {
+    label: 'Regulatory Intelligence Watch',
+    description: 'Tracks ISO 26262, ISO 21434, ASPICE, UNECE, and EU regulatory changes — feeds intelligence into knowledge store',
+    schedule: 'Mon/Thu at 7:00 AM',
+    pack: 'core',
+  },
+  'knowledge-curator': {
+    label: 'Knowledge Curator',
+    description: 'Maintains knowledge store: ingests documents and meetings, resolves entities, deduplicates, monitors collection health',
+    schedule: 'Weekdays at 6:00 AM',
     pack: 'core',
   },
   'proposal-engine': {
-    label: 'Proposal Engine',
-    description: 'Analyze RFQ/SOW, build quote structure, draft proposal',
+    label: 'Proposal & Quote Engine',
+    description: 'Analyzes RFQs/SOWs, builds defensible quote structures, generates proposals, handles invoicing',
     schedule: 'On demand',
     pack: 'core',
   },
   'evidence-auditor': {
-    label: 'Evidence Auditor',
-    description: 'Scan project for ISO 26262 work products, produce gap matrix',
+    label: 'ISO 26262 / ASPICE Evidence Auditor',
+    description: 'Audits project evidence against ISO 26262 and ASPICE baselines, produces gap matrices and traceability findings',
     schedule: 'Mondays at 9:00 AM',
     pack: 'core',
   },
   'contract-reviewer': {
     label: 'Contract Reviewer',
-    description: 'Analyze NDA/MSA clauses, produce sign/negotiate/escalate recommendation',
+    description: 'Analyzes NDA/MSA/SOW clauses against TIC baseline and regulatory landscape',
     schedule: 'On demand',
     pack: 'core',
   },
   'staffing-monitor': {
     label: 'Staffing Monitor',
-    description: 'Calculate team utilization, forecast gaps, match skills to pipeline',
+    description: 'Tracks 23-engineer utilization, forecasts gaps 4-6 weeks ahead, matches skills to CRM pipeline',
     schedule: 'Mondays at 9:00 AM',
     pack: 'core',
-  },
-  // Experimental — work-in-progress
-  'content-engine': {
-    label: 'Content Engine',
-    description: 'Draft LinkedIn post for today\'s content pillar',
-    schedule: 'Mon/Wed/Thu at 7:00 AM',
-    pack: 'experimental',
-  },
-  'email-campaign': {
-    label: 'Email Campaign',
-    description: 'Manage drip campaigns, follow-up sequences, outreach automation',
-    schedule: 'On demand',
-    pack: 'experimental',
-  },
-  'social-engagement': {
-    label: 'Social Engagement',
-    description: 'Monitor and respond to social media interactions',
-    schedule: 'Weekdays at 8:30 AM & 6:00 PM',
-    pack: 'experimental',
-  },
-  'security-monitor': {
-    label: 'Security Monitor',
-    description: 'Track security advisories, vulnerability alerts, compliance updates',
-    schedule: 'Daily at 3:00 AM',
-    pack: 'experimental',
-  },
-  'drive-watcher': {
-    label: 'Drive Watcher',
-    description: 'Watch shared drives for new/changed documents, trigger workflows',
-    schedule: 'Every 5 minutes',
-    pack: 'experimental',
-  },
-  'invoice-generator': {
-    label: 'Invoice Generator',
-    description: 'Generate and track invoices for client engagements',
-    schedule: 'On demand',
-    pack: 'experimental',
-  },
-  'meeting-transcriber': {
-    label: 'Meeting Transcriber',
-    description: 'Transcribe and summarize meeting recordings',
-    schedule: 'On demand',
-    pack: 'experimental',
-  },
-  // Personal — non-consulting agents
-  'portfolio-monitor': {
-    label: 'Portfolio Monitor',
-    description: 'Check crypto prices, calculate drift, recommend rebalance',
-    schedule: 'Daily at 8:00 AM & 8:00 PM',
-    pack: 'personal',
-  },
-  'garden-calendar': {
-    label: 'Garden Calendar',
-    description: 'Generate weekly garden brief based on date + weather',
-    schedule: 'Mondays at 7:00 AM',
-    pack: 'personal',
   },
 }
 

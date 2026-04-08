@@ -40,14 +40,14 @@ export type CasestudyFragment = {
 // ─── AGENT → COLLECTION MAPPING ──────────────────────────────────────────────
 
 export const AGENT_DEFAULT_COLLECTION: Record<string, KnowledgeCollection> = {
-  "bd-pipeline": "lessons",
+  "orchestrator": "playbooks",
+  "self-reflection": "lessons",
+  "regulatory-watch": "regulatory",
+  "knowledge-curator": "lessons",
   "proposal-engine": "proposals",
   "evidence-auditor": "iso26262",
   "contract-reviewer": "contracts",
   "staffing-monitor": "lessons",
-  "content-engine": "lessons",
-  "portfolio-monitor": "lessons",
-  "garden-calendar": "garden",
 };
 
 function resolveCollection(agentId: string): KnowledgeCollection {

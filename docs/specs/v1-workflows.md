@@ -80,51 +80,44 @@ Operator-focused specs for the five production workflows in Jarvis V1.
 
 ---
 
-## 3. BD Pipeline Intelligence
+## 3. Orchestrated Workflows
 
-**Agent:** bd-pipeline
+**Agent:** orchestrator
 
 **Trigger:**
-- Schedule: weekday 8:00 AM (`0 8 * * 1-5`)
-- Webhook: `issues` event (new lead or CRM update)
-- Manual: CLI invocation
+- Manual: CLI invocation or dashboard
+- Webhook: `issues` event (new lead or workflow trigger)
 
 **Input:**
-- Email inbox scan (replies, new threads from prospects)
-- Web signals (job postings, news, trigger events)
-- CRM pipeline data (current contacts, stages, scores)
+- High-level workflow request (BD outreach, content planning, etc.)
+- Context documents or CRM data as needed
 
 **Workflow steps:**
-1. `web.search_news` -- scan target accounts for trigger events
-2. `web.track_jobs` -- check hiring pages for safety/AUTOSAR/cyber roles
-3. `email.search` -- scan inbox for replies or new threads
-4. `crm.list_pipeline` -- get current pipeline state
-5. `inference.chat` -- analyze signals, score leads, decide who to contact
-6. `web.enrich_contact` -- enrich top new leads
-7. `crm.add_contact` or `crm.update_contact` -- update CRM
-8. `email.draft` -- draft personalized outreach for top 3 scored leads
-9. `crm.digest` -- generate daily pipeline summary
-10. `device.notify` -- push summary notification
+1. `inference.chat` -- decompose request into sub-tasks
+2. Delegate sub-tasks to appropriate agents (proposal-engine, evidence-auditor, etc.)
+3. `crm.list_pipeline` -- get current pipeline state if relevant
+4. Coordinate cross-agent state and handoffs
+5. Aggregate results into unified digest
+6. `device.notify` -- push summary notification
 
 **Approval gates:**
+- Inherits approval gates from delegated sub-tasks
 - `email.send` -- critical (never auto-send outreach)
 - `crm.move_stage` -- warning (flag for review)
 
-**Planner mode:** critic -- plan generated, then critic reviews for signal quality and outreach tone before finalizing
+**Planner mode:** critic -- plan generated, then critic reviews for coordination quality before finalizing
 
 **Output:**
-- Daily summary: top 3 leads to contact (with score + wedge)
-- Pipeline delta (new leads, stage changes, stale contacts)
-- Recommended next action per lead
-- CRM updates applied
-- Outreach drafts awaiting approval
+- Unified workflow digest with results from all sub-tasks
+- Delegated agent outputs (proposals, audits, reviews)
+- Recommended next actions
 
-**Retry:** Next scheduled run picks up where previous left off; manual retry via CLI
+**Retry:** Manual re-invocation via CLI or dashboard
 
 **Failure handling:**
 - Logged in `run_events`
 - Telegram notification on failure
-- Partial CRM updates preserved (enrichment data saved even if outreach drafting fails)
+- Partial results preserved from completed sub-tasks
 
 ---
 
@@ -175,27 +168,22 @@ Operator-focused specs for the five production workflows in Jarvis V1.
 **Agents:** All agents with schedule triggers
 
 **Trigger:** Cron expressions defined in each agent's `triggers` array:
-- bd-pipeline: `0 8 * * 1-5` (weekday 8 AM)
 - evidence-auditor: `0 9 * * 1` (Monday 9 AM)
 - staffing-monitor: `0 9 * * 1` (Monday 9 AM)
-- content-engine: `0 7 * * 1,3,4` (Mon/Wed/Thu 7 AM) -- experimental
-- portfolio-monitor: `0 8 * * *` + `0 20 * * *` (8 AM + 8 PM daily) -- experimental
-- garden-calendar: `0 7 * * 1` (Monday 7 AM) -- experimental
-- social-engagement: `30 8 * * 1-5` + `0 18 * * 1-5` (weekday 8:30 AM + 6 PM) -- experimental
-- security-monitor: `0 3 * * *` (daily 3 AM) -- experimental
-- drive-watcher: `*/5 * * * *` (every 5 minutes) -- experimental
+- regulatory-watch: `0 7 * * 1,4` (Mon/Thu 7 AM)
+- knowledge-curator: `0 6 * * 1-5` (weekdays 6 AM)
+- self-reflection: `0 6 * * 0` (Sunday 6 AM)
 
 **Input:** Agent-defined (see individual agent definitions)
 
 **Approval gates per agent:**
-- bd-pipeline: `email.send` (critical), `crm.move_stage` (warning)
+- orchestrator: `email.send` (critical), `crm.move_stage` (warning)
 - evidence-auditor: `document.generate_report` (warning)
 - staffing-monitor: `email.send` (critical)
-- content-engine: `publish_post` (critical)
-- portfolio-monitor: `trade_execute` (critical), `email.send` (critical)
-- social-engagement: `post_comment` (critical)
-- security-monitor: `security.lockdown` (critical), `security.firewall_rule` (critical)
-- garden-calendar, meeting-transcriber, drive-watcher: none (read-only)
+- proposal-engine: `email.send` (critical), `document.generate_report` (warning)
+- contract-reviewer: `document.generate_report` (warning)
+- knowledge-curator: none (read-only)
+- regulatory-watch, self-reflection: none (read-only)
 
 **Output:** Each agent produces its own report format, delivered via configured `output_channels` (typically `telegram:daniel`)
 
@@ -204,4 +192,4 @@ Operator-focused specs for the five production workflows in Jarvis V1.
 - Failed runs trigger Telegram notification
 - Experimental agents are clearly marked in dashboards and logs
 
-**Note:** Only V1 production agents (bd-pipeline, evidence-auditor, staffing-monitor) run on schedule in production. Experimental agents with schedules are disabled until promoted to production status.
+**Note:** Only V1 production agents (evidence-auditor, staffing-monitor, regulatory-watch, knowledge-curator, self-reflection) run on schedule in production.

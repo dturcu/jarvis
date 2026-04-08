@@ -14,20 +14,14 @@ function getRuntimeDb() {
 
 /** Human-readable agent labels for explanation summaries. */
 const AGENT_LABELS: Record<string, string> = {
-  'bd-pipeline': 'BD Pipeline',
-  'proposal-engine': 'Proposal Engine',
-  'evidence-auditor': 'Evidence Auditor',
+  'orchestrator': 'Orchestrator',
+  'self-reflection': 'Self-Reflection & Improvement',
+  'regulatory-watch': 'Regulatory Intelligence Watch',
+  'knowledge-curator': 'Knowledge Curator',
+  'proposal-engine': 'Proposal & Quote Engine',
+  'evidence-auditor': 'ISO 26262 / ASPICE Evidence Auditor',
   'contract-reviewer': 'Contract Reviewer',
   'staffing-monitor': 'Staffing Monitor',
-  'content-engine': 'Content Engine',
-  'portfolio-monitor': 'Portfolio Monitor',
-  'garden-calendar': 'Garden Calendar',
-  'social-engagement': 'Social Engagement',
-  'security-monitor': 'Security Monitor',
-  'invoice-generator': 'Invoice Generator',
-  'email-campaign': 'Email Campaign',
-  'meeting-transcriber': 'Meeting Transcriber',
-  'drive-watcher': 'Drive Watcher',
 }
 
 /** Build a human-readable trigger description from trigger_kind. */

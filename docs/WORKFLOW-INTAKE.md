@@ -60,23 +60,19 @@ Fill out the relevant form before invoking the agent to ensure all required cont
 
 ---
 
-## 4. BD Pipeline Intake (bd-pipeline)
+## 4. Orchestrated Workflow Intake (orchestrator)
 
 | Field | Required | Description |
 |---|---|---|
-| Signal source | Yes | LinkedIn, referral, RFQ portal, conference, inbound email, job board |
-| Company name | Yes | Target company |
-| Industry segment | No | Powertrain, ADAS, chassis, body electronics, EV, general automotive |
-| Company size | No | Approximate headcount or tier classification (OEM, Tier-1, Tier-2) |
-| Contact name | If known | Name of the person to reach |
-| Contact role | If known | Job title |
-| Contact email | If known | Email address |
-| Opportunity description | Yes | What triggered this lead and what TIC could offer |
-| Estimated value range | No | Expected engagement size (EUR) |
-| Urgency | No | Time-sensitive signal (active RFQ, hiring freeze ending, etc.) |
-| CRM status | No | New lead, or existing contact with known stage |
+| Workflow type | Yes | BD outreach, content planning, multi-agent coordination, custom |
+| Objective | Yes | What the orchestrated workflow should accomplish |
+| Target agents | No | Specific agents to involve (default: auto-selected based on objective) |
+| Context documents | No | File paths or URLs providing context for the workflow |
+| CRM context | No | Relevant pipeline stage or contact information |
+| Priority | No | Normal, high, or urgent |
+| Constraints | No | Deadline, budget, scope limitations |
 
-**Minimum viable intake:** Signal source, company name, opportunity description.
+**Minimum viable intake:** Workflow type, objective.
 
 ---
 

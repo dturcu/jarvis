@@ -12,7 +12,7 @@ const JARVIS_DIR = join(os.homedir(), '.jarvis')
 const GITHUB_EVENT_TO_AGENT: Record<string, string> = {
   push: 'evidence-auditor',
   pull_request: 'contract-reviewer',
-  issues: 'bd-pipeline',
+  issues: 'orchestrator',
 }
 
 function loadWebhookSecret(): string | undefined {

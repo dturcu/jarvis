@@ -319,7 +319,8 @@ async function main() {
       for (const schedule of due) {
         const agentId = (schedule.input as { agent_id: string }).agent_id;
         const cronTrigger: AgentTrigger = { kind: "schedule", cron: schedule.cron_expression! };
-        agentQueue.enqueue(agentId, cronTrigger);
+        // Pass "scheduler" as owner so scheduled runs have attribution in audit trail
+        agentQueue.enqueue(agentId, cronTrigger, 0, undefined, undefined, "scheduler");
         scheduler.markFired(schedule.schedule_id);
         const nextFire = computeNextFireAt(schedule, now);
         scheduler.updateNextFireAt(schedule.schedule_id, nextFire);

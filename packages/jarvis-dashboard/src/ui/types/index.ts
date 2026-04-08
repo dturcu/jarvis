@@ -279,20 +279,14 @@ export interface ModelHealthReport {
 /* ── Utilities ────────────────────────────────────────────── */
 
 export const AGENT_LABELS: Record<string, string> = {
-  'bd-pipeline': 'BD Pipeline',
-  'proposal-engine': 'Proposal Engine',
-  'evidence-auditor': 'Evidence Auditor',
+  'orchestrator': 'Orchestrator',
+  'self-reflection': 'Self-Reflection & Improvement',
+  'regulatory-watch': 'Regulatory Intelligence Watch',
+  'knowledge-curator': 'Knowledge Curator',
+  'proposal-engine': 'Proposal & Quote Engine',
+  'evidence-auditor': 'ISO 26262 / ASPICE Evidence Auditor',
   'contract-reviewer': 'Contract Reviewer',
   'staffing-monitor': 'Staffing Monitor',
-  'content-engine': 'Content Engine',
-  'portfolio-monitor': 'Portfolio Monitor',
-  'garden-calendar': 'Garden Calendar',
-  'email-campaign': 'Email Campaign',
-  'social-engagement': 'Social Engagement',
-  'security-monitor': 'Security Monitor',
-  'drive-watcher': 'Drive Watcher',
-  'invoice-generator': 'Invoice Generator',
-  'meeting-transcriber': 'Meeting Transcriber',
 }
 
 export function agentLabel(id: string): string {

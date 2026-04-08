@@ -18,6 +18,7 @@ export { RagPipeline } from "./rag-pipeline.js";
 export {
   loadPlugins, installPlugin, uninstallPlugin, listPlugins,
   validateManifest, deriveRequiredPermissions, isActionPermitted,
+  canonicalSerialize,
   PLUGIN_PERMISSIONS,
   JARVIS_PLATFORM_VERSION,
   type PluginManifest, type PluginPermission, type ManifestValidationResult, type InstallResult,
@@ -39,6 +40,7 @@ export {
 } from "./artifact-lifecycle.js";
 export {
   CURRENT_RELEASE, checkUpgrade, getPlatformVersion, persistRelease, loadInstalledVersion,
+  verifyMigrationConsistency,
   type ReleaseInfo, type UpgradeCheckResult,
 } from "./release-metadata.js";
 export {

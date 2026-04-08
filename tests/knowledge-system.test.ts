@@ -443,12 +443,12 @@ describe("LessonCapture", () => {
     expect(lessons.every(l => l.collection === "iso26262")).toBe(true);
   });
 
-  it("routes garden-calendar lessons to garden collection", () => {
+  it("routes regulatory-watch lessons to regulatory collection", () => {
     const run: AgentRun = {
-      run_id: "run-garden",
-      agent_id: "garden-calendar",
+      run_id: "run-regulatory",
+      agent_id: "regulatory-watch",
       trigger: { kind: "manual" },
-      goal: "Generate garden brief",
+      goal: "Check regulatory changes",
       status: "completed",
       current_step: 3,
       total_steps: 5,
@@ -457,6 +457,6 @@ describe("LessonCapture", () => {
       completed_at: "2026-04-04T07:05:00.000Z",
     };
     const lessons = capture.captureFromRun(run, []);
-    expect(lessons.every(l => l.collection === "garden")).toBe(true);
+    expect(lessons.every(l => l.collection === "regulatory")).toBe(true);
   });
 });

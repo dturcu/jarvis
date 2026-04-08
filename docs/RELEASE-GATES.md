@@ -36,7 +36,7 @@ Each gate has objective pass criteria. A gate is either passed or not -- no part
 - [ ] Smoke test suite passes: clean init, migration, daemon boot, health check, simple agent run, approval flow, restart recovery, backup/restore.
 - [ ] Backup creates a restorable artifact including runtime.db, crm.db, knowledge.db, config, and plugin manifests.
 - [ ] Restore validates integrity before applying and works end-to-end.
-- [ ] At least one agent (garden-calendar) runs fully on the new durable control plane.
+- [ ] At least one agent (evidence-auditor) runs fully on the new durable control plane.
 - [ ] Structured logging includes correlation IDs (run_id, agent_id, command_id).
 - [ ] CI workflow runs install + typecheck + test + `npm run check` + smoke subset.
 

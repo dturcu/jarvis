@@ -128,7 +128,7 @@ Workers are categorized by risk level:
 ### Agent Queue
 
 - Max concurrent agents: configurable (default 2)
-- Browser-dependent agents (content-engine, social-engagement) serialize on a shared resource lock
+- The browser resource lock in agent-queue.ts is currently empty. Future agents that require browser access will be registered there
 - Queue is priority-ordered, then FIFO
 - Drain mode prevents new enqueues
 

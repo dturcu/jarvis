@@ -88,7 +88,7 @@ describe("createAgentWorker", () => {
   it("executes a job via the worker facade", async () => {
     const worker = createAgentWorker({ adapter: new MockAgentAdapter() });
     const envelope = makeEnvelope("agent.start", {
-      agent_id: "bd-pipeline",
+      agent_id: "orchestrator",
       trigger_kind: "manual"
     });
     const result = await worker.execute(envelope);
@@ -107,7 +107,7 @@ describe("executeAgentJob — agent.start", () => {
 
   it("happy path — result.status is completed and run_id exists", async () => {
     const envelope = makeEnvelope("agent.start", {
-      agent_id: "bd-pipeline",
+      agent_id: "orchestrator",
       trigger_kind: "manual"
     });
     const result = await executeAgentJob(envelope, adapter);
@@ -117,7 +117,7 @@ describe("executeAgentJob — agent.start", () => {
     const out = result.structured_output as Record<string, unknown>;
     expect(typeof out.run_id).toBe("string");
     expect(out.run_id).toBeTruthy();
-    expect(out.agent_id).toBe("bd-pipeline");
+    expect(out.agent_id).toBe("orchestrator");
     expect(out.status).toBe("planning");
   });
 
@@ -149,7 +149,7 @@ describe("executeAgentJob — agent.start", () => {
 
   it("start with trigger_kind manual succeeds", async () => {
     const envelope = makeEnvelope("agent.start", {
-      agent_id: "content-engine",
+      agent_id: "self-reflection",
       trigger_kind: "manual"
     });
     const result = await executeAgentJob(envelope, adapter);
@@ -158,7 +158,7 @@ describe("executeAgentJob — agent.start", () => {
 
   it("start with trigger_kind schedule succeeds", async () => {
     const envelope = makeEnvelope("agent.start", {
-      agent_id: "garden-calendar",
+      agent_id: "regulatory-watch",
       trigger_kind: "schedule"
     });
     const result = await executeAgentJob(envelope, adapter);
@@ -176,7 +176,7 @@ describe("executeAgentJob — agent.step", () => {
 
   it("happy path — structured_output.step is 1", async () => {
     const startEnvelope = makeEnvelope("agent.start", {
-      agent_id: "bd-pipeline",
+      agent_id: "orchestrator",
       trigger_kind: "manual"
     });
     const startResult = await executeAgentJob(startEnvelope, adapter);
@@ -228,12 +228,12 @@ describe("executeAgentJob — agent.status", () => {
   });
 
   it("returns active_runs count correctly (0 before any starts)", async () => {
-    const envelope = makeEnvelope("agent.status", { agent_id: "bd-pipeline" });
+    const envelope = makeEnvelope("agent.status", { agent_id: "orchestrator" });
     const result = await executeAgentJob(envelope, adapter);
 
     expect(result.status).toBe("completed");
     const out = result.structured_output as Record<string, unknown>;
-    expect(out.agent_id).toBe("bd-pipeline");
+    expect(out.agent_id).toBe("orchestrator");
     expect(out.active_runs).toBe(0);
     expect(out.total_runs).toBe(0);
   });
@@ -327,7 +327,7 @@ describe("executeAgentJob — agent.resume", () => {
 
   it("resume after pause sets status to executing", async () => {
     const startResult = await executeAgentJob(
-      makeEnvelope("agent.start", { agent_id: "portfolio-monitor", trigger_kind: "schedule" }),
+      makeEnvelope("agent.start", { agent_id: "knowledge-curator", trigger_kind: "schedule" }),
       adapter
     );
     const run_id = (startResult.structured_output as Record<string, unknown>).run_id as string;
@@ -348,7 +348,7 @@ describe("executeAgentJob — agent.resume", () => {
 
   it("pause then resume full sequence works", async () => {
     const startResult = await executeAgentJob(
-      makeEnvelope("agent.start", { agent_id: "content-engine", trigger_kind: "manual" }),
+      makeEnvelope("agent.start", { agent_id: "self-reflection", trigger_kind: "manual" }),
       adapter
     );
     const run_id = (startResult.structured_output as Record<string, unknown>).run_id as string;
@@ -380,7 +380,7 @@ describe("executeAgentJob — agent.configure", () => {
   it("applied_updates includes the updated key", async () => {
     const result = await executeAgentJob(
       makeEnvelope("agent.configure", {
-        agent_id: "bd-pipeline",
+        agent_id: "orchestrator",
         updates: { task_profile: { objective: "plan" } }
       }),
       adapter
@@ -427,7 +427,7 @@ describe("executeAgentJob — agent.configure", () => {
   it("configure max_steps_per_run update", async () => {
     const result = await executeAgentJob(
       makeEnvelope("agent.configure", {
-        agent_id: "garden-calendar",
+        agent_id: "regulatory-watch",
         updates: { max_steps_per_run: 20 }
       }),
       adapter
@@ -449,7 +449,7 @@ describe("executeAgentJob — metrics and callbacks", () => {
 
   it("result metrics include worker_id = agent-worker", async () => {
     const envelope = makeEnvelope("agent.start", {
-      agent_id: "bd-pipeline",
+      agent_id: "orchestrator",
       trigger_kind: "manual"
     });
     const result = await executeAgentJob(envelope, adapter);
@@ -471,7 +471,7 @@ describe("executeAgentJob — metrics and callbacks", () => {
   it("toCallback produces valid WorkerCallback structure", async () => {
     const worker = createAgentWorker({ adapter: new MockAgentAdapter() });
     const envelope = makeEnvelope("agent.start", {
-      agent_id: "content-engine",
+      agent_id: "self-reflection",
       trigger_kind: "schedule"
     });
     const result = await worker.execute(envelope);
@@ -488,16 +488,16 @@ describe("executeAgentJob — metrics and callbacks", () => {
 
   it("multiple starts for same agent are tracked separately", async () => {
     await executeAgentJob(
-      makeEnvelope("agent.start", { agent_id: "bd-pipeline", trigger_kind: "manual" }),
+      makeEnvelope("agent.start", { agent_id: "orchestrator", trigger_kind: "manual" }),
       adapter
     );
     await executeAgentJob(
-      makeEnvelope("agent.start", { agent_id: "bd-pipeline", trigger_kind: "schedule" }),
+      makeEnvelope("agent.start", { agent_id: "orchestrator", trigger_kind: "schedule" }),
       adapter
     );
 
     const statusResult = await executeAgentJob(
-      makeEnvelope("agent.status", { agent_id: "bd-pipeline" }),
+      makeEnvelope("agent.status", { agent_id: "orchestrator" }),
       adapter
     );
 

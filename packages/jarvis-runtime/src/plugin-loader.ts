@@ -248,18 +248,28 @@ export function isActionPermitted(action: string, grantedPermissions: PluginPerm
 // ── Checksum Verification ─────────────────────────────────────────────────
 
 /**
+ * Canonical JSON serialization for checksum computation.
+ * Sorted keys, 2-space indent, excludes checksum_sha256 and installed_at.
+ * This ensures checksums are stable regardless of key ordering in the source file.
+ */
+export function canonicalSerialize(manifest: Record<string, unknown>): string {
+  const clone = { ...manifest };
+  delete clone.checksum_sha256;
+  delete clone.installed_at;
+  return JSON.stringify(clone, Object.keys(clone).sort(), 2);
+}
+
+/**
  * Verify the SHA-256 checksum of a plugin manifest file.
  * If the manifest doesn't include a checksum, verification is skipped (optional field).
- * The checksum is computed over the manifest content with the checksum field removed.
+ * Uses canonical serialization (sorted keys) so re-saved manifests still verify.
  */
 function verifyManifestChecksum(manifestPath: string, manifest: PluginManifest): boolean {
   if (!manifest.checksum_sha256) return true; // Optional field — skip if not provided
   const content = fs.readFileSync(manifestPath, "utf8");
-  // Remove the checksum field itself before hashing (it was added after content was hashed)
-  const withoutChecksum = JSON.parse(content);
-  delete withoutChecksum.checksum_sha256;
-  delete withoutChecksum.installed_at; // Added post-hash by installPlugin()
-  const hash = createHash("sha256").update(JSON.stringify(withoutChecksum, null, 2)).digest("hex");
+  const parsed = JSON.parse(content);
+  const canonical = canonicalSerialize(parsed);
+  const hash = createHash("sha256").update(canonical).digest("hex");
   return hash === manifest.checksum_sha256;
 }
 
@@ -368,10 +378,20 @@ export function installPlugin(
   if (fs.existsSync(backupDir)) fs.rmSync(backupDir, { recursive: true });
 
   try {
-    // Step 1: Copy to temp directory
+    // Step 0: Verify source checksum BEFORE any mutation
+    if (manifest.checksum_sha256) {
+      const sourceCanonical = canonicalSerialize(raw as Record<string, unknown>);
+      const sourceHash = createHash("sha256").update(sourceCanonical).digest("hex");
+      if (sourceHash !== manifest.checksum_sha256) {
+        throw new Error(`Source manifest checksum mismatch (expected ${manifest.checksum_sha256}, got ${sourceHash})`);
+      }
+    }
+
+    // Step 1: Copy to temp directory (mutate only after verification)
     fs.mkdirSync(tempDir, { recursive: true });
     manifest.installed_at = new Date().toISOString();
-    fs.writeFileSync(join(tempDir, "manifest.json"), JSON.stringify(manifest, null, 2));
+    // Write with sorted keys to maintain canonical form for future verification
+    fs.writeFileSync(join(tempDir, "manifest.json"), JSON.stringify(manifest, Object.keys(manifest).sort(), 2));
 
     // Copy prompt files
     const promptsDir = join(sourcePath, "prompts");

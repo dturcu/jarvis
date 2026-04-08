@@ -22,7 +22,7 @@ function getDb(): DatabaseSync {
  *
  * @param actor - Who performed the action (e.g., "dashboard:admin", "webhook:github")
  * @param action - What was done (e.g., "approval.approved", "settings.updated")
- * @param target - What was affected (e.g., "approval:abc-123", "agent:bd-pipeline")
+ * @param target - What was affected (e.g., "approval:abc-123", "agent:proposal-engine")
  * @param payload - Additional context
  */
 export function writeAuditLog(
