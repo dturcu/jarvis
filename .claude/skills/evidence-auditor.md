@@ -85,3 +85,10 @@ Note: In practice, construct the `summary` variable from the actual output of pr
 
 ## No Approval Gates
 This agent is read-only analysis. No emails, no modifications.
+
+### Source Attribution
+When presenting results, always note which data sources were consulted:
+- CRM data: note the query and result count
+- Knowledge base: note which collections were searched
+- Web sources: include URLs of consulted pages
+- Email: note the search query used

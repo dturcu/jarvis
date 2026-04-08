@@ -400,6 +400,25 @@ async function main() {
       }
     }, 5 * 60 * 1000);
     activeIntervals.push(modelRediscoveryInterval);
+
+    // ─── Daily maintenance: compact old events, archive old content, vacuum ──
+    const maintenanceInterval = setInterval(() => {
+      try {
+        const runStore = new RunStore(runtimeDb);
+        const eventsCompacted = runStore.compactOldEvents(90);
+        if (eventsCompacted > 0) logger.info(`Maintenance: compacted ${eventsCompacted} old run events`);
+
+        const cs = new ChannelStore(runtimeDb);
+        const contentArchived = cs.archiveOldContent(30);
+        if (contentArchived > 0) logger.info(`Maintenance: archived ${contentArchived} old message contents`);
+
+        // Vacuum to reclaim space
+        runtimeDb.exec("PRAGMA incremental_vacuum(100)");
+      } catch (e) {
+        logger.warn(`Maintenance error: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }, 24 * 60 * 60 * 1000); // Every 24 hours
+    activeIntervals.push(maintenanceInterval);
   }
 
   // ─── Conditional interval startup ──────────────────────────────────────────

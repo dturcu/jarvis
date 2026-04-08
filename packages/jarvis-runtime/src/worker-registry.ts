@@ -39,6 +39,16 @@ export type WorkerRegistry = {
 export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger, runtimeDb?: DatabaseSync, healthMonitor?: WorkerHealthMonitor): WorkerRegistry {
   const useReal = config.adapter_mode === "real";
 
+  // Audit helper: log credential access for security trail (best-effort)
+  const auditCredentialAccess = (workerId: string, credentialType: string) => {
+    if (!runtimeDb) return;
+    try {
+      runtimeDb.prepare(
+        "INSERT INTO audit_log (event_type, actor, target, details_json, created_at) VALUES (?, ?, ?, ?, ?)"
+      ).run("credential_access", "worker-registry", workerId, JSON.stringify({ credential_type: credentialType }), new Date().toISOString());
+    } catch { /* best-effort — audit table may not exist yet */ }
+  };
+
   // ─── Inference ──────────────────────────────────────────────────────────
   const inferenceAdapter = useReal ? new DefaultInferenceAdapter(runtimeDb, config.lmstudio_url) : new MockInferenceAdapter();
   const inferenceWorker = createInferenceWorker({ adapter: inferenceAdapter });
@@ -92,6 +102,7 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
   if (useReal && config.gmail) {
     logger.info("Email: using Gmail API adapter");
     emailAdapter = new GmailAdapter(config.gmail);
+    auditCredentialAccess("email", "gmail");
   } else {
     logger.info("Email: using mock adapter");
     emailAdapter = new MockEmailAdapter();
@@ -136,6 +147,7 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
   if (useReal && config.calendar) {
     logger.info("Calendar: using Google Calendar API adapter");
     calendarAdapter = new GoogleCalendarAdapter(config.calendar);
+    auditCredentialAccess("calendar", "calendar");
   } else {
     logger.info("Calendar: using mock adapter");
     calendarAdapter = new MockCalendarAdapter();
@@ -158,6 +170,7 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
   if (useReal && config.chrome) {
     logger.info(`Browser: using Chrome adapter (${config.chrome.debugging_url})`);
     browserAdapter = new ChromeAdapter({ debugging_url: config.chrome.debugging_url });
+    auditCredentialAccess("browser", "chrome");
   } else {
     logger.info("Browser: using mock adapter");
     browserAdapter = new MockBrowserAdapter();
@@ -222,6 +235,7 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
   if (useReal && config.toggl) {
     logger.info("Time: using Toggl adapter");
     timeAdapter = new TogglAdapter(config.toggl);
+    auditCredentialAccess("time", "toggl");
   } else {
     logger.info("Time: using mock adapter");
     timeAdapter = new MockTimeAdapter();
@@ -234,6 +248,7 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
   if (useReal && config.drive) {
     logger.info("Drive: using Google Drive adapter");
     driveAdapter = new GoogleDriveAdapter(config.drive);
+    auditCredentialAccess("drive", "drive");
   } else {
     logger.info("Drive: using mock adapter");
     driveAdapter = new MockDriveAdapter();

@@ -10,6 +10,10 @@ import {
   executeTool,
   extractToolCalls,
   buildContext,
+  loadGmailConfig,
+  getGmailAccessToken,
+  httpsPost,
+  httpsGet,
   type FetchUrlOptions,
 } from './tool-infra.js'
 
@@ -56,57 +60,6 @@ function chatExecuteTool(name: string, params: Record<string, unknown>): Promise
     fetch: CHAT_FETCH_OPTS,
     webSearch: { handler: googleNewsSearch },
   })
-}
-
-// ─── Gmail Helper ────────────────────────────────────────────────────────────
-
-function loadGmailConfig(): { client_id: string; client_secret: string; refresh_token: string } | null {
-  try {
-    const raw = JSON.parse(fs.readFileSync(join(os.homedir(), '.jarvis', 'config.json'), 'utf8'))
-    return raw.gmail ?? null
-  } catch { return null }
-}
-
-function httpsPost(url: string, body: string, headers: Record<string, string> = {}): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const parsed = new URL(url)
-    const req = https.request({
-      hostname: parsed.hostname, port: 443, path: parsed.pathname + parsed.search,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body), ...headers }
-    }, (res) => {
-      let data = ''
-      res.on('data', (c: Buffer) => data += c.toString())
-      res.on('end', () => resolve(data))
-      res.on('error', reject)
-    })
-    req.on('error', reject)
-    req.setTimeout(15000, () => { req.destroy(); reject(new Error('timeout')) })
-    req.write(body)
-    req.end()
-  })
-}
-
-function httpsGet(url: string, headers: Record<string, string> = {}): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const parsed = new URL(url)
-    const req = https.get({ hostname: parsed.hostname, port: 443, path: parsed.pathname + parsed.search, headers }, (res) => {
-      let data = ''
-      res.on('data', (c: Buffer) => data += c.toString())
-      res.on('end', () => resolve(data))
-      res.on('error', reject)
-    })
-    req.on('error', reject)
-    req.setTimeout(15000, () => { req.destroy(); reject(new Error('timeout')) })
-  })
-}
-
-async function getGmailAccessToken(): Promise<string | null> {
-  const cfg = loadGmailConfig()
-  if (!cfg) return null
-  const body = `client_id=${cfg.client_id}&client_secret=${cfg.client_secret}&refresh_token=${cfg.refresh_token}&grant_type=refresh_token`
-  const resp = JSON.parse(await httpsPost('https://oauth2.googleapis.com/token', body))
-  return resp.access_token ?? null
 }
 
 // ─── Tool Definitions ─────────────────────────────────────────────────────────
@@ -333,6 +286,7 @@ function streamToClient(res: import('express').Response, messages: Array<{ role:
 }
 
 // ─── Tool Definitions for Function Calling ───────────────────────────────────
+// Tool list must be a subset of READONLY_TOOL_NAMES from tool-infra.ts
 
 const AGENT_TOOLS = [
   {

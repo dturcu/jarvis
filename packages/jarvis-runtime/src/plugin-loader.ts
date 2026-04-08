@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import os from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 import { Type, type Static } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
 import type { AgentDefinition } from "@jarvis/agent-framework";
@@ -189,8 +191,25 @@ export function validateManifest(data: unknown): ManifestValidationResult {
   return { valid: errors.length === 0, errors };
 }
 
+/** Load platform version from root package.json instead of hardcoding. */
+function loadPlatformVersion(): string {
+  try {
+    // Walk up from this file to find root package.json
+    let dir = dirname(fileURLToPath(import.meta.url));
+    for (let i = 0; i < 5; i++) {
+      const pkgPath = join(dir, "package.json");
+      if (fs.existsSync(pkgPath)) {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+        if (pkg.name === "jarvis-plugin-pack") return pkg.version;
+      }
+      dir = dirname(dir);
+    }
+  } catch { /* fallback below */ }
+  return "0.1.0"; // fallback
+}
+
 /** Current Jarvis platform version for compatibility gating. */
-export const JARVIS_PLATFORM_VERSION = "0.1.0";
+export const JARVIS_PLATFORM_VERSION = loadPlatformVersion();
 
 /** Simple semver comparison. Returns -1 if a < b, 0 if equal, 1 if a > b. */
 function compareSemver(a: string, b: string): number {
@@ -226,6 +245,23 @@ export function isActionPermitted(action: string, grantedPermissions: PluginPerm
   return grantedPermissions.includes(required);
 }
 
+// ── Checksum Verification ─────────────────────────────────────────────────
+
+/**
+ * Verify the SHA-256 checksum of a plugin manifest file.
+ * If the manifest doesn't include a checksum, verification is skipped (optional field).
+ * The checksum is computed over the manifest content with the checksum field removed.
+ */
+function verifyManifestChecksum(manifestPath: string, manifest: PluginManifest): boolean {
+  if (!manifest.checksum_sha256) return true; // Optional field — skip if not provided
+  const content = fs.readFileSync(manifestPath, "utf8");
+  // Remove the checksum field itself before hashing (it was added after content was hashed)
+  const withoutChecksum = JSON.parse(content);
+  delete withoutChecksum.checksum_sha256;
+  const hash = createHash("sha256").update(JSON.stringify(withoutChecksum, null, 2)).digest("hex");
+  return hash === manifest.checksum_sha256;
+}
+
 // ── Loading ────────────────────────────────────────────────────────────────
 
 /**
@@ -252,6 +288,11 @@ export function loadPlugins(logger?: { warn: (msg: string) => void }): PluginMan
       const validation = validateManifest(raw);
       if (!validation.valid) {
         logger?.warn(`Plugin ${dir}: invalid manifest — ${validation.errors.join("; ")}`);
+        continue;
+      }
+      // Verify checksum integrity before accepting the plugin
+      if (!verifyManifestChecksum(manifestPath, raw as PluginManifest)) {
+        logger?.warn(`Plugin ${dir}: checksum mismatch — manifest may have been tampered with`);
         continue;
       }
       manifests.push(raw as PluginManifest);

@@ -325,6 +325,23 @@ export class ChannelStore {
     return entries;
   }
 
+  // ─── Retention ──────────────────────────────────────────────────────────
+
+  /**
+   * NULL out content_full for messages older than maxAgeDays. Keeps the
+   * message row and content_preview for thread-continuity queries.
+   * Returns the number of messages archived (0 if column doesn't exist yet).
+   */
+  archiveOldContent(maxAgeDays = 30): number {
+    const cutoff = new Date(Date.now() - maxAgeDays * 86400000).toISOString();
+    try {
+      const result = this.db.prepare(
+        "UPDATE channel_messages SET content_full = NULL WHERE created_at < ? AND content_full IS NOT NULL"
+      ).run(cutoff);
+      return (result as { changes: number }).changes;
+    } catch { return 0; }
+  }
+
   // ─── Thread status (#43) ──────────────────────────────────────────────
 
   /** Update the status of a thread (active, resolved, archived). */

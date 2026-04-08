@@ -31,6 +31,14 @@ jobs:
       - name: Build Dashboard
         run: npm run dashboard:build
 
+      - name: Verify copilot surface safety
+        run: |
+          # Ensure no mutation tools are exposed in chat surfaces
+          ! grep -n "name: 'run_command'" packages/jarvis-dashboard/src/api/chat.ts
+          ! grep -n "name: 'write_file'" packages/jarvis-dashboard/src/api/chat.ts
+          ! grep -n "name: 'gmail_send'" packages/jarvis-dashboard/src/api/chat.ts
+          echo "Copilot surface safety check passed"
+
       - name: Audit dependencies
         run: npm audit --audit-level=high
         continue-on-error: true

@@ -83,4 +83,6 @@ export const evidenceAuditorAgent: AgentDefinition = {
   maturity: "trusted_with_review",
   pack: "core",
   product_tier: "core",
+  turnaround_target_hours: 4,
+  review_required: true,
 };

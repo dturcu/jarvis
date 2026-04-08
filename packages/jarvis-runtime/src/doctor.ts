@@ -22,6 +22,7 @@ import {
   validateConfig,
 } from "./config.js";
 import { JARVIS_PLATFORM_VERSION } from "./plugin-loader.js";
+import { RUNTIME_MIGRATIONS, CRM_MIGRATIONS, KNOWLEDGE_MIGRATIONS } from "./migrations/runner.js";
 
 type CheckResult = {
   name: string;
@@ -134,9 +135,9 @@ function checkDaemon() {
 
 function checkMigrations() {
   for (const [name, dbPath, expected] of [
-    ["Runtime", RUNTIME_DB_PATH, "0008"],
-    ["CRM", CRM_DB_PATH, "crm_0001"],
-    ["Knowledge", KNOWLEDGE_DB_PATH, "knowledge_0001"],
+    ["Runtime", RUNTIME_DB_PATH, RUNTIME_MIGRATIONS[RUNTIME_MIGRATIONS.length - 1].id],
+    ["CRM", CRM_DB_PATH, CRM_MIGRATIONS[CRM_MIGRATIONS.length - 1].id],
+    ["Knowledge", KNOWLEDGE_DB_PATH, KNOWLEDGE_MIGRATIONS[KNOWLEDGE_MIGRATIONS.length - 1].id],
   ] as const) {
     if (!fs.existsSync(dbPath)) continue;
     try {
@@ -421,6 +422,89 @@ function checkDiskSpace() {
   }
 }
 
+// ─── Config Permissions ───────────────────────────────────────────────────
+
+function checkConfigPermissions() {
+  if (process.platform === "win32") {
+    // File mode checks are not meaningful on Windows
+    return;
+  }
+
+  const configPath = join(JARVIS_DIR, "config.json");
+  if (!fs.existsSync(configPath)) return;
+
+  try {
+    const stat = fs.statSync(configPath);
+    // Check if world-readable (others have read permission: mode & 0o004)
+    if (stat.mode & 0o004) {
+      warn("Config Permissions", `${configPath} is world-readable`,
+        "Run: chmod 600 ~/.jarvis/config.json",
+        "chmod 600 " + configPath);
+    } else {
+      pass("Config Permissions", "config.json is not world-readable");
+    }
+  } catch {
+    warn("Config Permissions", "Could not check file permissions");
+  }
+}
+
+// ─── Dead Letter Jobs ─────────────────────────────────────────────────────
+
+function checkDeadLetterJobs() {
+  if (!fs.existsSync(RUNTIME_DB_PATH)) return;
+
+  try {
+    const db = new DatabaseSync(RUNTIME_DB_PATH);
+    db.exec("PRAGMA journal_mode = WAL;");
+    db.exec("PRAGMA busy_timeout = 5000;");
+
+    const row = db.prepare(
+      `SELECT COUNT(*) as cnt FROM agent_commands
+       WHERE status = 'queued'
+       AND created_at < datetime('now', '-1 hour')`,
+    ).get() as { cnt: number } | undefined;
+    db.close();
+
+    const count = row?.cnt ?? 0;
+    if (count === 0) {
+      pass("Dead Letter Jobs", "No stale queued jobs");
+    } else {
+      warn("Dead Letter Jobs", `${count} job(s) stuck in 'queued' for > 1 hour`,
+        "Inspect with: SELECT * FROM agent_commands WHERE status='queued' AND created_at < datetime('now','-1 hour')");
+    }
+  } catch {
+    warn("Dead Letter Jobs", "Could not check for stale jobs");
+  }
+}
+
+// ─── DB Growth ────────────────────────────────────────────────────────────
+
+function checkDbGrowth() {
+  const dbFiles = [
+    ["Runtime", RUNTIME_DB_PATH],
+    ["CRM", CRM_DB_PATH],
+    ["Knowledge", KNOWLEDGE_DB_PATH],
+  ] as const;
+
+  const MAX_SIZE_BYTES = 500 * 1024 * 1024; // 500 MB
+
+  for (const [name, dbPath] of dbFiles) {
+    if (!fs.existsSync(dbPath)) continue;
+    try {
+      const stat = fs.statSync(dbPath);
+      const sizeMB = stat.size / (1024 * 1024);
+      if (stat.size > MAX_SIZE_BYTES) {
+        warn(`${name} DB Size`, `${sizeMB.toFixed(1)} MB — exceeds 500 MB threshold`,
+          `Consider running VACUUM on ${dbPath} or archiving old data`);
+      } else {
+        pass(`${name} DB Size`, `${sizeMB.toFixed(1)} MB`);
+      }
+    } catch {
+      warn(`${name} DB Size`, "Could not check database file size");
+    }
+  }
+}
+
 // ─── Run ───────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -439,6 +523,9 @@ async function main() {
   checkWalMode();
   checkDaemon();
   checkSecurityPosture();
+  checkConfigPermissions();
+  checkDeadLetterJobs();
+  checkDbGrowth();
   await checkModelRuntime();
   await checkChrome();
   checkDashboard();

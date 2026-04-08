@@ -105,4 +105,8 @@ export type AgentDefinition = {
   experimental?: boolean;
   /** Product tier: core, extended, personal, or experimental. See {@link ProductTier}. */
   product_tier?: ProductTier;
+  /** Target turnaround time in hours for this agent's runs. */
+  turnaround_target_hours?: number;
+  /** Whether operator review is required after every run. */
+  review_required?: boolean;
 };

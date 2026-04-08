@@ -79,4 +79,6 @@ export const bdPipelineAgent: AgentDefinition = {
   maturity: "trusted_with_review",
   pack: "core",
   product_tier: "core",
+  turnaround_target_hours: 2,
+  review_required: false,
 };

@@ -45,6 +45,11 @@ const ConfigSchema = Type.Object({
   webhook_secret: Type.Optional(Type.String()),
   anthropic_api_key: Type.Optional(Type.String()),
   appliance_mode: Type.Boolean(),
+  api_token: Type.Optional(Type.String()),
+  api_tokens: Type.Optional(Type.Record(Type.String(), Type.String())),
+  mode: Type.Optional(Type.Union([Type.Literal("dev"), Type.Literal("production")])),
+  bind_host: Type.Optional(Type.String()),
+  trust_proxy: Type.Optional(Type.Boolean()),
 });
 
 export type JarvisRuntimeConfig = Static<typeof ConfigSchema>;
@@ -116,6 +121,9 @@ export function loadConfig(): JarvisRuntimeConfig {
     max_concurrent: 2,
     log_level: "info",
     appliance_mode: false,
+    mode: undefined,
+    bind_host: undefined,
+    trust_proxy: undefined,
   };
 
   const configPath = join(JARVIS_DIR, "config.json");
@@ -149,6 +157,11 @@ export function loadConfig(): JarvisRuntimeConfig {
     webhook_secret: typeof raw.webhook_secret === "string" ? raw.webhook_secret : undefined,
     anthropic_api_key: typeof raw.anthropic_api_key === "string" ? raw.anthropic_api_key : undefined,
     appliance_mode: typeof raw.appliance_mode === "boolean" ? raw.appliance_mode : defaults.appliance_mode,
+    api_token: typeof raw.api_token === "string" ? raw.api_token : undefined,
+    api_tokens: isStringRecord(raw.api_tokens) ? raw.api_tokens : undefined,
+    mode: raw.mode === "dev" || raw.mode === "production" ? raw.mode : defaults.mode,
+    bind_host: typeof raw.bind_host === "string" ? raw.bind_host : defaults.bind_host,
+    trust_proxy: typeof raw.trust_proxy === "boolean" ? raw.trust_proxy : defaults.trust_proxy,
   };
 
   // Environment overrides
@@ -169,6 +182,12 @@ export function loadConfig(): JarvisRuntimeConfig {
   }
   if (process.env.JARVIS_APPLIANCE_MODE === "true") {
     config.appliance_mode = true;
+  }
+  if (process.env.JARVIS_MODE === "dev" || process.env.JARVIS_MODE === "production") {
+    config.mode = process.env.JARVIS_MODE;
+  }
+  if (process.env.JARVIS_BIND_HOST) {
+    config.bind_host = process.env.JARVIS_BIND_HOST;
   }
 
   // Validate
@@ -236,4 +255,9 @@ export function getCredentialsForWorker(
 
 function isLogLevel(v: unknown): v is JarvisRuntimeConfig["log_level"] {
   return v === "debug" || v === "info" || v === "warn" || v === "error";
+}
+
+function isStringRecord(v: unknown): v is Record<string, string> {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return false;
+  return Object.values(v).every(val => typeof val === "string");
 }

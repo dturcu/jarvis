@@ -44,17 +44,27 @@ function loadApiToken(): string | null {
  * Load recent conversation history from the channel store (thread-scoped,
  * durable). Falls back gracefully to empty history if the store is unavailable.
  */
-function loadThreadHistory(ctx?: ChatContext, limit = 20): ChatMessage[] {
+function loadThreadHistory(ctx?: ChatContext, limit = 20, maxChars = 4000): ChatMessage[] {
   if (!ctx?.channelStore || !ctx?.threadId) return []
 
   try {
     const messages = ctx.channelStore.getThreadMessages(ctx.threadId, limit)
-    return messages
       .filter(m => m.content_preview && m.direction)
       .map(m => ({
         role: m.direction === 'inbound' ? 'user' : 'assistant',
         content: m.content_preview!,
       }))
+
+    // Truncate from the oldest end to stay within maxChars budget
+    let totalChars = 0
+    const windowed: ChatMessage[] = []
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const len = messages[i]!.content.length
+      if (totalChars + len > maxChars) break
+      totalChars += len
+      windowed.unshift(messages[i]!)
+    }
+    return windowed
   } catch {
     return []
   }
