@@ -258,6 +258,7 @@ function verifyManifestChecksum(manifestPath: string, manifest: PluginManifest):
   // Remove the checksum field itself before hashing (it was added after content was hashed)
   const withoutChecksum = JSON.parse(content);
   delete withoutChecksum.checksum_sha256;
+  delete withoutChecksum.installed_at; // Added post-hash by installPlugin()
   const hash = createHash("sha256").update(JSON.stringify(withoutChecksum, null, 2)).digest("hex");
   return hash === manifest.checksum_sha256;
 }

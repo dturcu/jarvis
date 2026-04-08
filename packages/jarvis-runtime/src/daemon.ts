@@ -328,8 +328,8 @@ async function main() {
       // Check queued commands in runtime.db
       try {
         const commands = runtimeDb.prepare(
-          "SELECT command_id, command_type, target_agent_id, payload_json FROM agent_commands WHERE status = 'queued' ORDER BY priority DESC, created_at ASC LIMIT 10",
-        ).all() as Array<{ command_id: string; command_type: string; target_agent_id: string; payload_json: string | null }>;
+          "SELECT command_id, command_type, target_agent_id, payload_json, created_by FROM agent_commands WHERE status = 'queued' ORDER BY priority DESC, created_at ASC LIMIT 10",
+        ).all() as Array<{ command_id: string; command_type: string; target_agent_id: string; payload_json: string | null; created_by: string | null }>;
 
         for (const cmd of commands) {
           // Claim the command
@@ -350,7 +350,9 @@ async function main() {
 
             // Enqueue the agent with command_id + payload for atomic linkage.
             // If enqueue is a no-op (agent already running/queued), revert the claim.
-            const enqueued = agentQueue.enqueue(cmd.target_agent_id, { kind: "manual" }, 0, cmd.command_id, commandPayload);
+            // Pass created_by as owner so run ownership is tracked
+            const owner = cmd.created_by ?? undefined;
+            const enqueued = agentQueue.enqueue(cmd.target_agent_id, { kind: "manual" }, 0, cmd.command_id, commandPayload, owner);
             if (!enqueued) {
               runtimeDb.prepare(
                 "UPDATE agent_commands SET status = 'queued', claimed_at = NULL WHERE command_id = ?",

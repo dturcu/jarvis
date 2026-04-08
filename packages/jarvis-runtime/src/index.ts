@@ -38,7 +38,7 @@ export {
   type ArtifactState, type ArtifactLifecycleEntry,
 } from "./artifact-lifecycle.js";
 export {
-  CURRENT_RELEASE, checkUpgrade, getPlatformVersion,
+  CURRENT_RELEASE, checkUpgrade, getPlatformVersion, persistRelease, loadInstalledVersion,
   type ReleaseInfo, type UpgradeCheckResult,
 } from "./release-metadata.js";
 export {

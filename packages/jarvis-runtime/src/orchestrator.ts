@@ -82,16 +82,17 @@ export async function runAgent(
   // Initialize durable run tracking if runtime DB is available
   const runStore = runtimeDb ? new RunStore(runtimeDb) : null;
 
-  // command_id and command_payload are carried directly on the trigger by AgentQueue (atomic linkage)
+  // command_id, command_payload, and owner are carried directly on the trigger by AgentQueue (atomic linkage)
   const commandId = (trigger as { command_id?: string }).command_id;
   const commandPayload = (trigger as { command_payload?: Record<string, unknown> }).command_payload;
+  const owner = (trigger as { owner?: string }).owner;
 
   // Load plugin permissions if this is a plugin agent
   const pluginPermissions = loadPluginPermissions(agentId, runtimeDb);
 
   // 1. Start run — use the same run_id for both in-memory and durable state
   const run = runtime.startRun(agentId, trigger);
-  runStore?.startRun(agentId, trigger.kind, commandId, run.goal, run.run_id);
+  runStore?.startRun(agentId, trigger.kind, commandId, run.goal, run.run_id, owner);
 
   // Log retry relationship in the audit trail so retry runs are linked to originals
   if (commandPayload?.retry_of && runStore) {
