@@ -13,6 +13,7 @@ export default defineConfig({
       "@jarvis/dispatch": `${rootDir}packages/jarvis-dispatch/src/index.ts`,
       "@jarvis/office": `${rootDir}packages/jarvis-office/src/index.ts`,
       "@jarvis/files": `${rootDir}packages/jarvis-files/src/index.ts`,
+      "@jarvis/browser/openclaw-bridge": `${rootDir}packages/jarvis-browser/src/openclaw-bridge.ts`,
       "@jarvis/browser": `${rootDir}packages/jarvis-browser/src/index.ts`,
       "@jarvis/device": `${rootDir}packages/jarvis-device/src/index.ts`,
       "@jarvis/desktop-host-worker": `${rootDir}packages/jarvis-desktop-host-worker/src/index.ts`,

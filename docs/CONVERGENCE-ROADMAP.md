@@ -80,6 +80,15 @@ OpenClaw owns channels, sessions, browser lifecycle, webhook ingress, automation
 - Browser tasks produce equivalent artifacts
 - Approval enforcement still works for risky browser actions
 
+### Progress (as of Wave 4)
+
+| Duplication Target | Status | Notes |
+|---|---|---|
+| Webhook ingress | **Eliminated** | `webhooks.ts` deleted; v2 normalizer serves both paths |
+| Telegram transport | **Bridged** | Session adapter wired; orchestrator notifications use dispatcher |
+| Operator chat (godmode) | **Bridged** | Session adapter + v2 route; free-text session path added |
+| Browser runtime | **Bridged** | BrowserBridge factory; wiring into worker dispatch |
+
 **Year 1 Success Metric:** Four primary-path duplications eliminated. The biggest duplications (Telegram, webhooks, operator chat, browser) are gone or behind thin compatibility bridges.
 
 ## Year 2: Operational Strength

@@ -1,36 +1,25 @@
-import { randomUUID } from 'node:crypto'
 import { DatabaseSync } from 'node:sqlite'
 import {
   sendSessionMessage,
   type GatewayCallOptions,
 } from '@jarvis/shared'
-import { createCommand, ChannelStore } from '@jarvis/runtime'
+import { ChannelStore } from '@jarvis/runtime'
 import type { ApprovalEntry } from './approvals.js'
-import { loadApprovals, resolveApproval, claimUnnotifiedPending, formatApprovalMessage } from './approvals.js'
-import { openRuntimeDb, CRM_DB } from './config.js'
+import { claimUnnotifiedPending, formatApprovalMessage } from './approvals.js'
+import { openRuntimeDb } from './config.js'
 import { handleFreeText, type ChatContext } from './chat-handler.js'
+import {
+  getStatus,
+  getCrmTop5,
+  triggerAgent,
+  handleApproval,
+  getHelpText,
+  COMMAND_TO_AGENT,
+  TRIGGER_AGENTS,
+  type TriggerAgentId,
+} from './command-handlers.js'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
-
-/** Agents that can be triggered via slash commands. */
-const TRIGGER_AGENTS = [
-  'orchestrator', 'self-reflection', 'regulatory-watch', 'knowledge-curator',
-  'proposal-engine', 'evidence-auditor', 'contract-reviewer', 'staffing-monitor',
-] as const
-
-type TriggerAgentId = (typeof TRIGGER_AGENTS)[number]
-
-/** Map of Telegram slash commands to agent IDs. */
-const COMMAND_TO_AGENT: Record<string, TriggerAgentId> = {
-  '/orchestrator': 'orchestrator',
-  '/reflect': 'self-reflection',
-  '/regulatory': 'regulatory-watch',
-  '/knowledge': 'knowledge-curator',
-  '/proposal': 'proposal-engine',
-  '/evidence': 'evidence-auditor',
-  '/contract': 'contract-reviewer',
-  '/staffing': 'staffing-monitor',
-}
 
 type TelegramCommand =
   | { kind: 'status' }
@@ -249,36 +238,30 @@ export class TelegramSessionAdapter {
   async handleMessage(text: string, sender?: string): Promise<string> {
     const command = mapTelegramCommandToSession(text)
 
+    const handlerCtx = {
+      channelStore: this.channelStore,
+      threadId: this.threadId,
+      sender,
+    }
+
     switch (command.kind) {
       case 'status':
-        return getStatusViaSession()
+        return getStatus()
 
       case 'crm':
-        return getCrmTop5ViaSession()
+        return getCrmTop5()
 
       case 'approve':
-        return handleApprovalViaSession(command.shortId, 'approved', {
-          channelStore: this.channelStore,
-          threadId: this.threadId,
-          sender,
-        })
+        return handleApproval(command.shortId, 'approved', handlerCtx)
 
       case 'reject':
-        return handleApprovalViaSession(command.shortId, 'rejected', {
-          channelStore: this.channelStore,
-          threadId: this.threadId,
-          sender,
-        })
+        return handleApproval(command.shortId, 'rejected', handlerCtx)
 
       case 'help':
         return getHelpText()
 
       case 'agent_trigger':
-        return triggerAgentViaSession(command.agentId, command.rawText, {
-          channelStore: this.channelStore,
-          threadId: this.threadId,
-          sender,
-        })
+        return triggerAgent(command.agentId, command.rawText, handlerCtx)
 
       case 'free_text': {
         // When sessionChat is enabled, route free-text through the OpenClaw
@@ -313,151 +296,3 @@ export class TelegramSessionAdapter {
   }
 }
 
-// ─── Session-mode query handlers ────────────────────────────────────────────
-//
-// These mirror the functions in commands.ts but are designed for the session
-// adapter path. They read from the same databases but deliver results via
-// the session channel rather than direct Telegram API.
-
-function getStatusViaSession(): string {
-  const agents = [
-    'orchestrator', 'self-reflection', 'regulatory-watch', 'knowledge-curator',
-    'proposal-engine', 'evidence-auditor', 'contract-reviewer', 'staffing-monitor',
-  ]
-  const lines = ['JARVIS STATUS\n']
-  let db: DatabaseSync | undefined
-
-  try {
-    db = openRuntimeDb()
-
-    for (const agentId of agents) {
-      const row = db.prepare(
-        'SELECT started_at, status FROM runs WHERE agent_id = ? ORDER BY started_at DESC LIMIT 1'
-      ).get(agentId) as { started_at: string; status: string } | undefined
-      const ts = row ? new Date(row.started_at).toLocaleDateString() : 'never'
-      const status = row?.status ?? ''
-      lines.push(`${agentId}: ${ts}${status ? ` (${status})` : ''}`)
-    }
-
-    const pending = loadApprovals(db, 'pending')
-    lines.push(`\nPending approvals: ${pending.length}`)
-  } catch {
-    lines.push('(could not read runtime.db)')
-  } finally {
-    try { db?.close() } catch { /* ignore */ }
-  }
-
-  return lines.join('\n')
-}
-
-function getCrmTop5ViaSession(): string {
-  let db: DatabaseSync | undefined
-  try {
-    db = new DatabaseSync(CRM_DB)
-    const contacts = db.prepare(
-      "SELECT name, company, stage, score FROM contacts WHERE stage NOT IN ('won','lost','parked') ORDER BY score DESC LIMIT 5"
-    ).all() as Array<{ name: string; company: string; stage: string; score: number }>
-
-    if (contacts.length === 0) return 'CRM: No active contacts.'
-    const lines = ['TOP CRM CONTACTS\n']
-    for (const c of contacts) {
-      lines.push(`${c.name} @ ${c.company} -- ${c.stage} (score: ${c.score})`)
-    }
-    return lines.join('\n')
-  } catch {
-    return 'CRM: Could not read database.'
-  } finally {
-    try { db?.close() } catch { /* ignore */ }
-  }
-}
-
-type SessionCommandContext = {
-  channelStore?: ChannelStore
-  threadId?: string
-  sender?: string
-}
-
-function triggerAgentViaSession(
-  agentId: string,
-  messageText: string,
-  ctx: SessionCommandContext,
-): string {
-  let db: DatabaseSync | undefined
-  try {
-    db = openRuntimeDb()
-    const { commandId } = createCommand(db, {
-      agentId,
-      source: 'telegram',
-      channelStore: ctx.channelStore,
-      threadId: ctx.threadId,
-      messagePreview: messageText,
-      sender: ctx.sender,
-    })
-    return `Triggered ${agentId} (${commandId.slice(0, 8)}). It will run within the next scheduled cycle.`
-  } catch (e) {
-    return `Failed to trigger ${agentId}: ${String(e)}`
-  } finally {
-    try { db?.close() } catch { /* ignore */ }
-  }
-}
-
-function handleApprovalViaSession(
-  shortId: string,
-  status: 'approved' | 'rejected',
-  ctx: SessionCommandContext,
-): string {
-  if (!shortId) return 'Usage: /approve <id> or /reject <id>'
-  if (shortId.length < 6) return 'Approval ID must be at least 6 characters for safety.'
-
-  let db: DatabaseSync | undefined
-  try {
-    db = openRuntimeDb()
-    const pending = loadApprovals(db, 'pending')
-    const target = pending.find(a => a.id.startsWith(shortId))
-    if (!target) return `No pending approval found with ID starting: ${shortId}`
-
-    const ok = resolveApproval(db, target.id, status)
-    if (!ok) return `Failed to ${status === 'approved' ? 'approve' : 'reject'} -- may already be resolved.`
-
-    // Record the approval action in the channel store
-    if (ctx.channelStore && ctx.threadId) {
-      try {
-        ctx.channelStore.recordMessage({
-          threadId: ctx.threadId,
-          channel: 'telegram',
-          direction: 'inbound',
-          contentPreview: `/${status === 'approved' ? 'approve' : 'reject'} ${shortId}`,
-          sender: ctx.sender,
-          runId: target.run_id,
-        })
-      } catch { /* best-effort */ }
-    }
-
-    const icon = status === 'approved' ? '[OK]' : '[REJECTED]'
-    return `${icon} ${target.action} by ${target.agent} has been ${status}.`
-  } catch (e) {
-    return `Failed to process approval: ${String(e)}`
-  } finally {
-    try { db?.close() } catch { /* ignore */ }
-  }
-}
-
-function getHelpText(): string {
-  return `JARVIS BOT COMMANDS
-
-/status        -- All agents last-run + pending approvals
-/crm           -- Top 5 active pipeline contacts
-/orchestrator  -- Trigger orchestrator
-/reflect       -- Trigger self-reflection
-/regulatory    -- Trigger regulatory watch
-/knowledge     -- Trigger knowledge curator
-/proposal      -- Trigger proposal engine
-/evidence      -- Trigger evidence auditor
-/contract      -- Trigger contract reviewer
-/staffing      -- Trigger staffing monitor
-/approve <id>  -- Approve a gated action
-/reject <id>   -- Reject a gated action
-/help          -- This message
-
-You can also send free-text messages and I'll understand what you need.`
-}

@@ -1,13 +1,12 @@
-import { DatabaseSync } from 'node:sqlite'
-import { createCommand, ChannelStore } from '@jarvis/runtime'
-import { CRM_DB, openRuntimeDb } from './config.js'
-import { loadApprovals, resolveApproval } from './approvals.js'
+import { ChannelStore } from '@jarvis/runtime'
+import {
+  getStatus,
+  getCrmTop5,
+  triggerAgent,
+  handleApproval,
+  getHelpText,
+} from './command-handlers.js'
 import { handleFreeText, type ChatContext } from './chat-handler.js'
-
-const AGENTS = [
-  'orchestrator', 'self-reflection', 'regulatory-watch', 'knowledge-curator',
-  'proposal-engine', 'evidence-auditor', 'contract-reviewer', 'staffing-monitor',
-]
 
 export type CommandContext = {
   channelStore?: ChannelStore
@@ -24,20 +23,27 @@ export async function handleCommand(text: string, ctx?: CommandContext): Promise
 
   // Slash commands — fast path, no LLM needed
   if (cmd.startsWith('/')) {
+    const handlerCtx = {
+      channelStore: ctx?.channelStore,
+      threadId: ctx?.threadId,
+      telegramMessageId: ctx?.telegramMessageId,
+      sender: ctx?.sender,
+    }
+
     switch (cmd) {
       case '/status': return getStatus()
       case '/crm': return getCrmTop5()
-      case '/orchestrator': return triggerAgent('orchestrator', text, ctx)
-      case '/reflect': return triggerAgent('self-reflection', text, ctx)
-      case '/regulatory': return triggerAgent('regulatory-watch', text, ctx)
-      case '/knowledge': return triggerAgent('knowledge-curator', text, ctx)
-      case '/proposal': return triggerAgent('proposal-engine', text, ctx)
-      case '/evidence': return triggerAgent('evidence-auditor', text, ctx)
-      case '/contract': return triggerAgent('contract-reviewer', text, ctx)
-      case '/staffing': return triggerAgent('staffing-monitor', text, ctx)
-      case '/approve': return handleApproval(arg, 'approved', ctx)
-      case '/reject': return handleApproval(arg, 'rejected', ctx)
-      case '/help': return getHelp()
+      case '/orchestrator': return triggerAgent('orchestrator', text, handlerCtx)
+      case '/reflect': return triggerAgent('self-reflection', text, handlerCtx)
+      case '/regulatory': return triggerAgent('regulatory-watch', text, handlerCtx)
+      case '/knowledge': return triggerAgent('knowledge-curator', text, handlerCtx)
+      case '/proposal': return triggerAgent('proposal-engine', text, handlerCtx)
+      case '/evidence': return triggerAgent('evidence-auditor', text, handlerCtx)
+      case '/contract': return triggerAgent('contract-reviewer', text, handlerCtx)
+      case '/staffing': return triggerAgent('staffing-monitor', text, handlerCtx)
+      case '/approve': return handleApproval(arg, 'approved', handlerCtx)
+      case '/reject': return handleApproval(arg, 'rejected', handlerCtx)
+      case '/help': return getHelpText()
       default: return `Unknown command: ${cmd}\n\nSend /help for available commands.`
     }
   }
@@ -50,142 +56,4 @@ export async function handleCommand(text: string, ctx?: CommandContext): Promise
   }
   const { text: reply } = await handleFreeText(text, chatCtx)
   return reply
-}
-
-function getStatus(): string {
-  const lines = ['JARVIS STATUS\n']
-  let db: DatabaseSync | undefined
-
-  try {
-    db = openRuntimeDb()
-
-    // Last run per agent from runtime.db runs table
-    for (const agentId of AGENTS) {
-      const row = db.prepare(
-        'SELECT started_at, status FROM runs WHERE agent_id = ? ORDER BY started_at DESC LIMIT 1'
-      ).get(agentId) as { started_at: string; status: string } | undefined
-      const ts = row ? new Date(row.started_at).toLocaleDateString() : 'never'
-      const status = row?.status ?? ''
-      lines.push(`${agentId}: ${ts}${status ? ` (${status})` : ''}`)
-    }
-
-    // Pending approvals from runtime.db
-    const pending = loadApprovals(db, 'pending')
-    lines.push(`\nPending approvals: ${pending.length}`)
-  } catch {
-    lines.push('(could not read runtime.db)')
-  } finally {
-    try { db?.close() } catch {}
-  }
-
-  return lines.join('\n')
-}
-
-function getCrmTop5(): string {
-  let db: DatabaseSync | undefined
-  try {
-    db = new DatabaseSync(CRM_DB)
-    const contacts = db.prepare(
-      "SELECT name, company, stage, score FROM contacts WHERE stage NOT IN ('won','lost','parked') ORDER BY score DESC LIMIT 5"
-    ).all() as Array<{ name: string; company: string; stage: string; score: number }>
-
-    if (contacts.length === 0) return 'CRM: No active contacts.'
-    const lines = ['TOP CRM CONTACTS\n']
-    for (const c of contacts) {
-      lines.push(`${c.name} @ ${c.company} — ${c.stage} (score: ${c.score})`)
-    }
-    return lines.join('\n')
-  } catch {
-    return 'CRM: Could not read database.'
-  } finally {
-    db?.close()
-  }
-}
-
-/**
- * Trigger an agent via the centralized command factory.
- * Records the inbound message in the channel store if available.
- */
-function triggerAgent(agentId: string, messageText: string, ctx?: CommandContext): string {
-  let db: DatabaseSync | undefined
-  try {
-    db = openRuntimeDb()
-    const { commandId } = createCommand(db, {
-      agentId,
-      source: 'telegram',
-      channelStore: ctx?.channelStore,
-      threadId: ctx?.threadId,
-      messagePreview: messageText,
-      sender: ctx?.sender,
-    })
-    return `Triggered ${agentId} (${commandId.slice(0, 8)}). It will run within the next scheduled cycle.`
-  } catch (e) {
-    return `Failed to trigger ${agentId}: ${String(e)}`
-  } finally {
-    try { db?.close() } catch {}
-  }
-}
-
-/**
- * Approve or reject a pending approval via runtime.db.
- * Records the action as a channel message if tracking is available.
- */
-function handleApproval(shortId: string, status: 'approved' | 'rejected', ctx?: CommandContext): string {
-  if (!shortId) return `Usage: /approve <id> or /reject <id>`
-  if (shortId.length < 6) return 'Approval ID must be at least 6 characters for safety.'
-
-  let db: DatabaseSync | undefined
-  try {
-    db = openRuntimeDb()
-    const pending = loadApprovals(db, 'pending')
-    const target = pending.find(a => a.id.startsWith(shortId))
-    if (!target) return `No pending approval found with ID starting: ${shortId}`
-
-    const ok = resolveApproval(db, target.id, status)
-    if (!ok) return `Failed to ${status === 'approved' ? 'approve' : 'reject'} — may already be resolved.`
-
-    // Record the approval action as a channel message
-    if (ctx?.channelStore && ctx?.threadId) {
-      try {
-        ctx.channelStore.recordMessage({
-          threadId: ctx.threadId,
-          channel: 'telegram',
-          externalId: ctx.telegramMessageId,
-          direction: 'inbound',
-          contentPreview: `/${status === 'approved' ? 'approve' : 'reject'} ${shortId}`,
-          sender: ctx.sender,
-          runId: target.run_id,
-        })
-      } catch { /* best-effort */ }
-    }
-
-    return `${status === 'approved' ? '✅' : '❌'} ${target.action} by ${target.agent} has been ${status}.`
-  } catch (e) {
-    return `Failed to process approval: ${String(e)}`
-  } finally {
-    try { db?.close() } catch {}
-  }
-}
-
-function getHelp(): string {
-  return `JARVIS BOT COMMANDS
-
-/status        — All agents last-run + pending approvals
-/crm           — Top 5 active pipeline contacts
-/orchestrator  — Trigger orchestrator
-/reflect       — Trigger self-reflection
-/regulatory    — Trigger regulatory watch
-/knowledge     — Trigger knowledge curator
-/proposal      — Trigger proposal engine
-/evidence      — Trigger evidence auditor
-/contract      — Trigger contract reviewer
-/staffing      — Trigger staffing monitor
-/approve <id>  — Approve a gated action
-/reject <id>   — Reject a gated action
-/help          — This message
-
-You can also send free-text messages and I'll understand what you need. Try:
-• "what's the system status?"
-• "run the evidence auditor"
-• "check staffing for next quarter"`
 }

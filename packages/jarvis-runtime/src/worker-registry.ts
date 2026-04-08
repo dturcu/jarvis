@@ -10,6 +10,7 @@ import { createWebWorker, MockWebAdapter, RealWebAdapter } from "@jarvis/web-wor
 import { createCalendarWorker, MockCalendarAdapter, GoogleCalendarAdapter } from "@jarvis/calendar-worker";
 import { createDesktopHostWorker, PowerShellDesktopHostAdapter, MockDesktopHostAdapter } from "@jarvis/desktop-host-worker";
 import { createBrowserWorker, ChromeAdapter, MockBrowserAdapter } from "@jarvis/browser-worker";
+import { createBrowserBridge } from "@jarvis/browser/openclaw-bridge";
 import { createSocialWorker, BrowserSocialAdapter, MockSocialAdapter } from "@jarvis/social-worker";
 import { createSystemWorker, NodeSystemAdapter, MockSystemAdapter } from "@jarvis/system-worker";
 import { createOfficeWorker, RealOfficeAdapter, MockOfficeAdapter } from "@jarvis/office-worker";
@@ -235,7 +236,20 @@ export function createWorkerRegistry(
     logger.info("Browser: using mock adapter");
     browserAdapter = new MockBrowserAdapter();
   }
-  const browserWorker = createBrowserWorker({ adapter: browserAdapter });
+
+  // Create the BrowserBridge via the factory.  When JARVIS_BROWSER_MODE=openclaw
+  // the bridge routes through the OpenClaw gateway; otherwise it wraps the
+  // existing ChromeAdapter through the LegacyPuppeteerBridge.
+  const browserBridge = createBrowserBridge({
+    debuggingUrl: config.chrome?.debugging_url,
+  });
+  const browserMode = (process.env.JARVIS_BROWSER_MODE ?? "legacy").toLowerCase();
+  logger.info(`Browser bridge: ${browserMode} mode`);
+
+  const browserWorker = createBrowserWorker({
+    adapter: browserAdapter,
+    bridge: browserBridge,
+  });
 
   // ─── Social Media ──────────────────────────────────────────────────────
   let socialAdapter;
