@@ -13,8 +13,8 @@ interface Decision {
 }
 
 const AGENT_IDS = [
-  'bd-pipeline', 'proposal-engine', 'evidence-auditor', 'contract-reviewer',
-  'staffing-monitor', 'content-engine', 'portfolio-monitor', 'garden-calendar'
+  'orchestrator', 'self-reflection', 'regulatory-watch', 'knowledge-curator',
+  'proposal-engine', 'evidence-auditor', 'contract-reviewer', 'staffing-monitor',
 ]
 
 const OUTCOME_COLORS: Record<string, string> = {

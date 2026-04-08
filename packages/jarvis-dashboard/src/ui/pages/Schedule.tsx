@@ -59,15 +59,12 @@ function nextFireTime(cron: string): string {
 // ── Static task definitions ─────────────────────────────────
 
 const TASK_DEFS = [
-  { id: 'jarvis-bd-pipeline', agentId: 'bd-pipeline', label: 'BD Pipeline', cron: '0 8 * * 1-5', description: 'Scan for BD signals, enrich leads, draft outreach' },
-  { id: 'jarvis-evidence-auditor', agentId: 'evidence-auditor', label: 'Evidence Auditor', cron: '0 9 * * 1', description: 'Scan project for ISO 26262 work products' },
-  { id: 'jarvis-staffing-monitor', agentId: 'staffing-monitor', label: 'Staffing Monitor', cron: '0 9 * * 1', description: 'Calculate team utilization, forecast gaps' },
-  { id: 'jarvis-content-monday', agentId: 'content-engine', label: 'Content Engine (Mon)', cron: '0 7 * * 1', description: 'Draft LinkedIn post for Monday pillar' },
-  { id: 'jarvis-content-wednesday', agentId: 'content-engine', label: 'Content Engine (Wed)', cron: '0 7 * * 3', description: 'Draft LinkedIn post for Wednesday pillar' },
-  { id: 'jarvis-content-thursday', agentId: 'content-engine', label: 'Content Engine (Thu)', cron: '0 7 * * 4', description: 'Draft LinkedIn post for Thursday pillar' },
-  { id: 'jarvis-portfolio-am', agentId: 'portfolio-monitor', label: 'Portfolio Monitor (AM)', cron: '0 8 * * *', description: 'Check crypto prices, calculate drift' },
-  { id: 'jarvis-portfolio-pm', agentId: 'portfolio-monitor', label: 'Portfolio Monitor (PM)', cron: '0 20 * * *', description: 'Evening portfolio check and summary' },
-  { id: 'jarvis-garden-calendar', agentId: 'garden-calendar', label: 'Garden Calendar', cron: '0 7 * * 1', description: 'Generate weekly garden brief' },
+  { id: 'jarvis-evidence-auditor', agentId: 'evidence-auditor', label: 'Evidence Auditor', cron: '0 9 * * 1', description: 'Audit project evidence against ISO 26262 and ASPICE baselines' },
+  { id: 'jarvis-staffing-monitor', agentId: 'staffing-monitor', label: 'Staffing Monitor', cron: '0 9 * * 1', description: 'Track utilization, forecast gaps, match skills to pipeline' },
+  { id: 'jarvis-regulatory-mon', agentId: 'regulatory-watch', label: 'Regulatory Watch (Mon)', cron: '0 7 * * 1', description: 'Track regulatory and standards changes' },
+  { id: 'jarvis-regulatory-thu', agentId: 'regulatory-watch', label: 'Regulatory Watch (Thu)', cron: '0 7 * * 4', description: 'Track regulatory and standards changes' },
+  { id: 'jarvis-knowledge-curator', agentId: 'knowledge-curator', label: 'Knowledge Curator', cron: '0 6 * * 1-5', description: 'Ingest documents, resolve entities, monitor collection health' },
+  { id: 'jarvis-self-reflection', agentId: 'self-reflection', label: 'Self-Reflection', cron: '0 6 * * 0', description: 'Weekly system health analysis and improvement proposals' },
 ]
 
 export default function Schedule() {

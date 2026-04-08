@@ -37,7 +37,7 @@ export const MATURITY_LADDER: PromotionCriteria[] = [
       "Retrieval grounding score >= 0.6 average across runs",
       "Approval correctness: 0 false-negatives (missed gates) in last 20 runs",
       "Artifact completeness >= 80% across runs",
-      "Shadow-mode run with no regressions vs prior version",
+      "Preview-mode run with no regressions vs prior version",
     ],
     rollback_triggers: [
       "2+ critical failures in any 7-day window",
