@@ -9,7 +9,7 @@ export { buildPlanMultiViewpoint, type MultiPlanResult } from "./planner-multi.j
 export { scorePlan, rankPlans, detectDisagreement, type PlanScore } from "./plan-evaluator.js";
 export { runAgent, type OrchestratorDeps } from "./orchestrator.js";
 export { RunStore, type RunStatus, type RunEventType } from "./run-store.js";
-export { requestApproval, waitForApproval, resolveApproval, delegateApproval, listApprovals, listApprovalsByAssignee, type ApprovalEntry } from "./approval-bridge.js";
+export { requestApproval, waitForApproval, resolveApproval, delegateApproval, listApprovals, listApprovalsByAssignee, getApprovalMetrics, type ApprovalEntry, type ApprovalMetrics } from "./approval-bridge.js";
 export { writeTelegramQueue } from "./notify.js";
 export { createFilesWorkerBridge } from "./files-bridge.js";
 export { StatusWriter, type DaemonStatusData } from "./status-writer.js";

@@ -188,3 +188,67 @@ export function listApprovals(
     "SELECT approval_id as id, agent_id as agent, action, payload_json as payload, requested_at as created_at, status, run_id, severity, resolved_at, resolved_by, resolution_note FROM approvals ORDER BY requested_at DESC",
   ).all() as ApprovalEntry[];
 }
+
+// ─── Approval analytics for self-reflection ───────────────────────────────
+
+export type ApprovalMetrics = {
+  total: number;
+  approved: number;
+  rejected: number;
+  expired: number;
+  pending: number;
+  rejection_rate: number;
+  avg_latency_ms: number | null;
+  by_action: Array<{ action: string; total: number; rejected: number }>;
+  by_severity: Array<{ severity: string; total: number; rejected: number }>;
+};
+
+/** Aggregated approval metrics over the past N days. */
+export function getApprovalMetrics(db: DatabaseSync, days = 7): ApprovalMetrics {
+  const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+
+  const totals = db.prepare(`
+    SELECT
+      COUNT(*) as total,
+      SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
+      SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
+      SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) as expired,
+      SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
+    FROM approvals
+    WHERE requested_at >= ?
+  `).get(cutoff) as any;
+
+  const latency = db.prepare(`
+    SELECT AVG(
+      (julianday(resolved_at) - julianday(requested_at)) * 86400000
+    ) as avg_ms
+    FROM approvals
+    WHERE requested_at >= ? AND resolved_at IS NOT NULL
+  `).get(cutoff) as { avg_ms: number | null };
+
+  const byAction = db.prepare(`
+    SELECT action,
+           COUNT(*) as total,
+           SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected
+    FROM approvals
+    WHERE requested_at >= ?
+    GROUP BY action ORDER BY total DESC
+  `).all(cutoff) as any[];
+
+  const bySeverity = db.prepare(`
+    SELECT severity,
+           COUNT(*) as total,
+           SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected
+    FROM approvals
+    WHERE requested_at >= ?
+    GROUP BY severity ORDER BY total DESC
+  `).all(cutoff) as any[];
+
+  return {
+    ...totals,
+    rejection_rate: totals.total > 0 ? Math.round((totals.rejected / totals.total) * 1000) / 1000 : 0,
+    avg_latency_ms: latency.avg_ms ? Math.round(latency.avg_ms) : null,
+    by_action: byAction,
+    by_severity: bySeverity,
+  };
+}

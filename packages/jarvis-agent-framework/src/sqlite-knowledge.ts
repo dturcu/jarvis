@@ -322,6 +322,43 @@ export class SqliteKnowledgeStore {
     };
   }
 
+  // ─── Analytics for self-reflection ──────────────────────────────────────────
+
+  /** Find documents not updated in the past N days. */
+  getStaleDocuments(ageDays = 30, collection?: string): KnowledgeDocument[] {
+    const cutoff = new Date(Date.now() - ageDays * 86400000).toISOString();
+    const sql = collection
+      ? "SELECT * FROM documents WHERE updated_at < ? AND collection = ? ORDER BY updated_at ASC LIMIT 50"
+      : "SELECT * FROM documents WHERE updated_at < ? ORDER BY updated_at ASC LIMIT 50";
+    const params = collection ? [cutoff, collection] : [cutoff];
+    const rows = this.db.prepare(sql).all(...params) as Array<Record<string, unknown>>;
+    return rows.map(r => this.rowToDocument(r));
+  }
+
+  /** Find collections with fewer than minDocs documents. */
+  getThinCollections(minDocs = 3): Array<{ collection: string; count: number }> {
+    return this.db.prepare(`
+      SELECT collection, COUNT(*) as count
+      FROM documents
+      GROUP BY collection
+      HAVING COUNT(*) < ?
+      ORDER BY count ASC
+    `).all(minDocs) as any[];
+  }
+
+  /** Collection freshness: latest document date per collection. */
+  getCollectionFreshness(): Array<{ collection: string; count: number; newest: string; oldest: string }> {
+    return this.db.prepare(`
+      SELECT collection,
+             COUNT(*) as count,
+             MAX(updated_at) as newest,
+             MIN(created_at) as oldest
+      FROM documents
+      GROUP BY collection
+      ORDER BY newest DESC
+    `).all() as any[];
+  }
+
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   private rowToDocument(row: Record<string, unknown>): KnowledgeDocument {

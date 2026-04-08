@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "jarvis.v1.review-report",
+  "title": "Self-Reflection Review Report",
+  "description": "Structured weekly review artifact produced by the self-reflection agent.",
+  "definitions": {
+    "ProposalCategory": {
+      "type": "string",
+      "enum": [
+        "prompt_change",
+        "schema_enhancement",
+        "knowledge_gap",
+        "retrieval_miss",
+        "approval_friction",
+        "workflow_optimization"
+      ]
+    },
+    "ProposalPriority": {
+      "type": "string",
+      "enum": ["critical", "high", "medium", "low"]
+    },
+    "ImprovementProposal": {
+      "type": "object",
+      "required": ["category", "target", "observation", "recommendation", "expected_impact", "priority"],
+      "properties": {
+        "category": { "$ref": "#/definitions/ProposalCategory" },
+        "target": {
+          "type": "string",
+          "description": "Which agent, schema, collection, or workflow is affected."
+        },
+        "observation": {
+          "type": "string",
+          "description": "What the data shows, with specific numbers."
+        },
+        "recommendation": {
+          "type": "string",
+          "description": "Concrete action to take."
+        },
+        "expected_impact": {
+          "type": "string",
+          "description": "Estimated improvement."
+        },
+        "priority": { "$ref": "#/definitions/ProposalPriority" },
+        "source_run_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Run IDs that evidence this proposal."
+        },
+        "source_approval_ids": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Approval IDs that evidence this proposal."
+        }
+      }
+    },
+    "ReviewReport": {
+      "type": "object",
+      "required": ["report_id", "period_start", "period_end", "health_score", "proposals", "agent_metrics", "approval_metrics", "knowledge_metrics"],
+      "properties": {
+        "report_id": { "type": "string" },
+        "period_start": { "type": "string", "format": "date-time" },
+        "period_end": { "type": "string", "format": "date-time" },
+        "health_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "proposals": {
+          "type": "array",
+          "minItems": 5,
+          "items": { "$ref": "#/definitions/ImprovementProposal" }
+        },
+        "agent_metrics": {
+          "type": "object",
+          "description": "Per-agent success/failure/step metrics."
+        },
+        "approval_metrics": {
+          "type": "object",
+          "description": "Approval funnel: rejection rate, latency, by action and severity."
+        },
+        "knowledge_metrics": {
+          "type": "object",
+          "description": "Collection coverage, staleness, thin collections."
+        },
+        "previous_report_id": {
+          "type": "string",
+          "description": "ID of the prior weekly report for week-over-week comparison."
+        }
+      }
+    }
+  }
+}
