@@ -14,6 +14,7 @@
     "validate:contracts": "node ./scripts/validate-contracts.mjs",
     "check": "npm run validate:contracts && npm run test && npm run build",
     "check:architecture": "vitest run tests/architecture-boundary.test.ts tests/hook-catalog.test.ts tests/credential-audit.test.ts tests/convergence-wiring.test.ts",
+    "check:convergence": "vitest run tests/architecture-boundary.test.ts tests/hook-catalog.test.ts tests/credential-audit.test.ts tests/convergence-wiring.test.ts tests/smoke/convergence-session-path.test.ts tests/convergence-final.test.ts",
     "runtime:bootstrap": "node ./scripts/runtime/bootstrap.mjs",
     "smoke:runtime": "node ./scripts/smoke-openclaw-lmstudio.mjs",
     "ops:health": "node ./scripts/ops/healthcheck.mjs",

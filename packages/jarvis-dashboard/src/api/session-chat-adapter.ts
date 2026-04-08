@@ -12,9 +12,9 @@
  *                                          |
  *                                          '--> Legacy godmode (fallback)
  *
- * The v2 route provides the same REST interface as /api/godmode but
- * delegates to the session adapter. When the gateway is unreachable it
- * falls back to the legacy godmode endpoint transparently.
+ * This adapter is mounted at /api/godmode (the primary path) and
+ * delegates to the OpenClaw session layer. When the gateway is
+ * unreachable it falls back to the legacy godmode endpoint transparently.
  */
 
 import { Router } from 'express'

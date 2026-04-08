@@ -1,3 +1,7 @@
+// CONVERGENCE STATUS: Fully deprecated (Wave 8). Session-backed adapter at
+// /api/godmode is the primary path. This file is retained only as a fallback
+// at /api/godmode/legacy. All direct LM Studio calls below are deprecated.
+
 /**
  * @deprecated This module's LLM orchestration loop (intent classification,
  * streaming, tool-call-then-synthesize) is superseded by session-chat-adapter.ts,
@@ -90,6 +94,11 @@ interface IntentResult {
   tools: string[]
 }
 
+/**
+ * @deprecated Calls LM Studio directly. Use the session-backed adapter
+ * (session-chat-adapter.ts) which delegates intent classification to the
+ * OpenClaw gateway.
+ */
 async function classifyIntent(message: string, model: string): Promise<IntentResult> {
   const fallback: IntentResult = { intent: 'chat', surfaces: ['chat'], tools: [] }
   try {
@@ -228,6 +237,10 @@ function extractArtifacts(text: string): Array<{ kind: string; title: string; co
 // streaming. This is separate from the runtime kernel's inference pipeline.
 // These calls power read-only research and generation only -- no tool mutations.
 
+/**
+ * @deprecated Calls LM Studio directly via HTTP. Use the session-backed adapter
+ * (session-chat-adapter.ts) which routes inference through the OpenClaw gateway.
+ */
 function llmChat(messages: Array<{ role: string; content: string }>, model: string, temperature = 0.3, maxTokens = 2048): Promise<string> {
   return new Promise((resolve, reject) => {
     const lmsUrl = new URL(`${LMS_URL}/v1/chat/completions`)
@@ -253,6 +266,11 @@ function llmChat(messages: Array<{ role: string; content: string }>, model: stri
   })
 }
 
+/**
+ * @deprecated Streams from LM Studio directly via HTTP. Use the session-backed
+ * adapter (session-chat-adapter.ts) which routes streaming through the OpenClaw
+ * gateway.
+ */
 function streamLlm(
   res: import('express').Response,
   messages: Array<{ role: string; content: string }>,
