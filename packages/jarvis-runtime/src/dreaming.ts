@@ -61,6 +61,26 @@ export const DEFAULT_DREAMING_CONFIG: DreamingConfig = {
   require_approval: true,
 }
 
+/**
+ * Pilot dreaming configuration for the 3 best-candidate agents
+ * (per CLAUDE.md and Platform Adoption Roadmap Epic 8).
+ *
+ * These agents produce the most knowledge store writes and benefit
+ * from cross-run consolidation:
+ *   - proposal-engine: repeated client/offer patterns
+ *   - regulatory-watch: evolving standards and regulatory landscape
+ *   - knowledge-curator: high-volume document/meeting ingestion
+ *
+ * Usage: `new DreamingOrchestrator(PILOT_DREAMING_CONFIG)`
+ */
+export const PILOT_DREAMING_CONFIG: DreamingConfig = {
+  enabled_agents: ['proposal-engine', 'regulatory-watch', 'knowledge-curator'],
+  schedule_cron: '0 3 * * *',   // 3 AM daily
+  max_duration_ms: 10 * 60 * 1000,
+  synthesis_modes: ['lesson_consolidation', 'entity_dedup', 'cross_reference'],
+  require_approval: true,
+}
+
 // ---- Dreaming orchestrator ------------------------------------------------
 
 export class DreamingOrchestrator {

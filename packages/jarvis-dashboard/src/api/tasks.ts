@@ -166,6 +166,44 @@ tasksRouter.get('/', (_req: Request, res: Response) => {
   }
 })
 
+// POST /:id/cancel — cancel a running task (Epic 4 acceptance: cancel from task surface)
+tasksRouter.post('/:id/cancel', (req: Request, res: Response) => {
+  const db = openDb()
+  if (!db) {
+    res.status(404).json({ error: 'runtime.db not found' })
+    return
+  }
+
+  try {
+    const { id } = req.params
+
+    const row = db.prepare('SELECT run_id, status FROM runs WHERE run_id = ?').get(id) as Record<string, unknown> | undefined
+    if (!row) {
+      res.status(404).json({ error: 'Task not found' })
+      return
+    }
+
+    const currentStatus = String(row.status)
+    if (['completed', 'succeeded', 'failed', 'cancelled'].includes(currentStatus)) {
+      res.status(409).json({ error: `Task is already ${currentStatus} and cannot be cancelled` })
+      return
+    }
+
+    db.prepare('UPDATE runs SET status = ?, updated_at = ? WHERE run_id = ?')
+      .run('cancelled', new Date().toISOString(), id)
+
+    // Cancel pending jobs for this run
+    db.prepare("UPDATE jobs SET status = 'cancelled' WHERE run_id = ? AND status IN ('queued', 'claimed')")
+      .run(id)
+
+    res.json({ task_id: id, status: 'cancelled', cancelled_at: new Date().toISOString() })
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
+  } finally {
+    try { db.close() } catch { /* ignore */ }
+  }
+})
+
 tasksRouter.get('/:id', (req: Request, res: Response) => {
   const db = openDb()
   if (!db) {

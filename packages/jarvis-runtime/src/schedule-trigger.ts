@@ -128,6 +128,61 @@ export type TaskFlowWorkflowConfig = {
 };
 
 /**
+ * Predefined TaskFlow workflow templates for the 6 candidate workflows
+ * identified in the Platform Adoption Roadmap (Epic 3).
+ */
+export const TASKFLOW_WORKFLOW_TEMPLATES: Array<{
+  name: string;
+  agent_id: string;
+  description: string;
+  steps: string[];
+  schedule_cron?: string;
+}> = [
+  {
+    name: "lead-intake",
+    agent_id: "orchestrator",
+    description: "Inbound lead intake: normalize, enrich, classify, route to CRM pipeline",
+    steps: ["normalize_contact", "enrich_company_data", "classify_opportunity", "create_crm_entry", "notify_operator"],
+    schedule_cron: undefined, // webhook-triggered, not scheduled
+  },
+  {
+    name: "proposal-generation",
+    agent_id: "proposal-engine",
+    description: "Proposal pack generation: analyze RFQ, build quote, generate deliverables, review",
+    steps: ["analyze_rfq", "estimate_effort", "build_quote", "generate_proposal_doc", "submit_for_approval"],
+    schedule_cron: undefined, // on-demand
+  },
+  {
+    name: "contract-triage",
+    agent_id: "contract-reviewer",
+    description: "Contract triage: ingest document, extract clauses, risk assessment, produce recommendation",
+    steps: ["ingest_document", "extract_clauses", "assess_risk", "produce_recommendation", "notify_operator"],
+    schedule_cron: undefined, // on-demand
+  },
+  {
+    name: "regulatory-digest",
+    agent_id: "regulatory-watch",
+    description: "Regulatory monitoring digest: scan sources, extract changes, assess impact, compile digest",
+    steps: ["scan_regulatory_sources", "extract_changes", "assess_impact", "compile_digest", "distribute"],
+    schedule_cron: "0 7 * * 1", // Weekly Monday 7 AM
+  },
+  {
+    name: "delivery-readiness",
+    agent_id: "evidence-auditor",
+    description: "Weekly delivery-readiness report: audit evidence, check gaps, compile matrix, notify",
+    steps: ["collect_evidence_status", "check_gaps", "compile_gap_matrix", "generate_report", "distribute"],
+    schedule_cron: "0 8 * * 5", // Weekly Friday 8 AM
+  },
+  {
+    name: "health-escalation",
+    agent_id: "orchestrator",
+    description: "System health escalation: check daemon, workers, queues, models, escalate if needed",
+    steps: ["check_daemon_health", "check_worker_health", "check_queue_depth", "check_model_availability", "escalate_if_needed"],
+    schedule_cron: "*/30 * * * *", // Every 30 minutes
+  },
+];
+
+/**
  * Adapter for managed OpenClaw TaskFlow-backed scheduling (Epic 3).
  *
  * Unlike ExternalTriggerSource (which is a passive no-op), TaskFlowTriggerSource
