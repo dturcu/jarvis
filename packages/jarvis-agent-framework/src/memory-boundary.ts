@@ -37,6 +37,19 @@ export interface BoundaryValidation {
   target_store: TargetStore
 }
 
+// ---- Error class ----------------------------------------------------------
+
+/**
+ * Thrown when a memory boundary violation occurs in enforce mode.
+ * Callers should catch this and treat it as a hard rejection.
+ */
+export class MemoryBoundaryError extends Error {
+  constructor(message: string) {
+    super(`[memory-boundary] BLOCKED: ${message}`)
+    this.name = 'MemoryBoundaryError'
+  }
+}
+
 // ---- Ownership matrix -----------------------------------------------------
 
 const ALLOWED_STORES: Record<MemoryCategory, TargetStore[]> = {
@@ -87,10 +100,11 @@ export class MemoryBoundaryChecker {
 
     this.violations.push(violation)
 
-    if (this.mode === 'warn') {
-      console.warn(`[memory-boundary] VIOLATION (warn mode): ${violation.violation}`)
+    if (this.mode === 'enforce') {
+      throw new MemoryBoundaryError(violation.violation!)
     }
 
+    console.warn(`[memory-boundary] VIOLATION (warn mode): ${violation.violation}`)
     return violation
   }
 
@@ -121,9 +135,12 @@ export class MemoryBoundaryChecker {
         violation: `Compliance collection "${collection}" must NOT be written to ${targetStore}. Use knowledge_db or runtime_db.`,
       }
       this.violations.push(violation)
-      if (this.mode === 'warn') {
-        console.warn(`[memory-boundary] COMPLIANCE VIOLATION: ${violation.violation}`)
+
+      if (this.mode === 'enforce') {
+        throw new MemoryBoundaryError(violation.violation!)
       }
+
+      console.warn(`[memory-boundary] COMPLIANCE VIOLATION: ${violation.violation}`)
       return violation
     }
 

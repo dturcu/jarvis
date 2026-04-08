@@ -6,7 +6,8 @@ import { agentsRouter } from './agents.js'
 import { approvalsRouter } from './approvals.js'
 import { chatRouter } from './chat.js'
 import { daemonRouter } from './daemon.js'
-import { webhookV2Router } from './webhooks-v2.js'
+// webhookV2Router removed — Wave 1 retirement (Epic 8). Ingress is OpenClaw-owned.
+// import { webhookV2Router } from './webhooks-v2.js'
 import { pluginsRouter } from './plugins.js'
 import { runsRouter } from './runs.js'
 import { attentionRouter } from './attention.js'
@@ -110,14 +111,10 @@ app.use('/api/agents', agentsRouter)
 app.use('/api/approvals', approvalsRouter)
 app.use('/api/chat', chatRouter)
 app.use('/api/daemon', daemonRouter)
-// Webhook v1 (webhooks.ts) deleted — v2 serves both paths for backward compat.
-// V2 uses shared normalizer from @jarvis/shared and adds X-Jarvis-Deprecation headers.
-// Epic 2: Webhook ingress cutover — dashboard routes OFF by default.
-// Set JARVIS_WEBHOOK_LEGACY=true to re-enable during transition.
-if (process.env.JARVIS_WEBHOOK_LEGACY?.toLowerCase() === 'true') {
-  app.use('/api/webhooks', webhookV2Router)
-  app.use('/api/webhooks-v2', webhookV2Router)
-}
+// Wave 1 retirement: Dashboard webhook routes REMOVED.
+// Webhook ingress is now exclusively OpenClaw-owned.
+// The normalizer in @jarvis/shared remains for the OpenClaw webhook plugin.
+// Legacy route code retained in webhooks-v2.ts for reference only.
 // Epic 4: Unified task visibility
 app.use('/api/tasks', tasksRouter)
 app.use('/api/plugins', pluginsRouter)

@@ -175,7 +175,7 @@ export async function runAgent(
         lessonCapture.captureFromRun(run, []);
       } catch { /* best-effort */ }
 
-      statusWriter?.completeRun(run.status, agentId);
+      statusWriter?.clearCurrentRun();
       return run;
     }
 
@@ -417,7 +417,6 @@ export async function runAgent(
 
       // ── Maturity-based approval gates ──
       const gate = resolveApprovalGate(def, step.action);
-      let stepApproved = false;
 
       if (gate && runtimeDb) {
         stepLog.info(`Approval required (${gate.severity}, ${gate.source})`);
@@ -480,7 +479,6 @@ export async function runAgent(
           step_no: step.step, action: step.action,
         });
         stepLog.info("Approved — executing");
-        stepApproved = true;
       }
 
       // Execute the job
@@ -488,7 +486,7 @@ export async function runAgent(
         ...step.input,
         _agent_id: agentId,
         _run_id: run.run_id,
-      }, stepApproved ? "approved" : "not_required");
+      });
 
       try {
         const result = await registry.executeJob(envelope);

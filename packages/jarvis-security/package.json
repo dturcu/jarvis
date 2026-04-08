@@ -9,10 +9,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./credential-audit": {
-      "types": "./dist/credential-audit.d.ts",
-      "default": "./dist/credential-audit.js"
     }
   },
   "openclaw": {
