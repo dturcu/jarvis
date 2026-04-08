@@ -79,7 +79,7 @@ app.use(express.json({
   // Capture the raw body for webhook HMAC verification.
   // GitHub signs the exact bytes, not re-serialized JSON.
   verify: (req: import('http').IncomingMessage, _res, buf) => {
-    (req as any).rawBody = buf.toString('utf8');
+    (req as any).rawBody = buf;
   },
 }))
 app.use((req, _res, next) => {

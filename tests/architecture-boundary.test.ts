@@ -217,7 +217,7 @@ describe("Architecture Boundary: Platform/Kernel Split", () => {
         }
       }
 
-      // Current expected count: all 4 legacy files still present.
+      // Current expected count: all 3 legacy files still present.
       // Decrease this as each convergence epic removes its target.
       expect(remaining.length).toBe(LEGACY_TARGETS.length);
     });

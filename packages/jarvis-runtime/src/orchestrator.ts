@@ -56,6 +56,25 @@ export type OrchestratorDeps = {
 };
 
 /**
+ * Send a notification through the dispatcher or fall back to the legacy DB queue.
+ * Centralizes the if/else pattern and logs failures at debug level.
+ */
+function sendNotification(
+  deps: OrchestratorDeps,
+  agentId: string,
+  message: string,
+  log?: { debug: (msg: string) => void },
+): void {
+  if (deps.notifier) {
+    deps.notifier.notify(agentId, message, deps.runtimeDb).catch((err) => {
+      log?.debug(`Notification dispatch failed: ${err instanceof Error ? err.message : String(err)}`);
+    });
+  } else {
+    writeTelegramQueue(agentId, message, deps.runtimeDb);
+  }
+}
+
+/**
  * Stamp terminal status on the local run object.
  * AgentRuntime no longer caches run state — the orchestrator owns the object
  * and RunStore provides durable persistence.
@@ -274,11 +293,7 @@ export async function runAgent(
             details: { reason: "disagreement_timeout" },
           });
           runStore?.completeCommand(run.run_id, "failed");
-          if (deps.notifier) {
-            deps.notifier.notify(agentId, `\u23F0 Approval expired for plan_disagreement. Run ${run.run_id} failed due to timeout.`, deps.runtimeDb).catch(() => {});
-          } else {
-            writeTelegramQueue(agentId, `\u23F0 Approval expired for plan_disagreement. Run ${run.run_id} failed due to timeout.`, runtimeDb);
-          }
+          sendNotification(deps, agentId, `\u23F0 Approval expired for plan_disagreement. Run ${run.run_id} failed due to timeout.`, log);
           statusWriter?.completeRun("disagreement_timeout");
           finalizeRun(run, "Disagreement approval timeout");
           return run;
@@ -290,11 +305,7 @@ export async function runAgent(
       } else if (shouldFlagForReview(disagreementSeverity)) {
         // Moderate disagreement: proceed but flag for post-hoc review
         log.info(`Planner disagreement (${disagreementSeverity}): flagged for review, proceeding`);
-        if (deps.notifier) {
-          deps.notifier.notify(agentId, `[REVIEW] Planner disagreement (${disagreementSeverity}): ${result.disagreement.reason}. Run proceeding — review output.`, deps.runtimeDb).catch(() => {});
-        } else {
-          writeTelegramQueue(agentId, `[REVIEW] Planner disagreement (${disagreementSeverity}): ${result.disagreement.reason}. Run proceeding — review output.`, runtimeDb);
-        }
+        sendNotification(deps, agentId, `[REVIEW] Planner disagreement (${disagreementSeverity}): ${result.disagreement.reason}. Run proceeding — review output.`, log);
       }
     } else {
       // Default: single planner
@@ -449,11 +460,7 @@ export async function runAgent(
             agent_id: agentId, run_id: run.run_id, step: step.step,
             action: step.action, reasoning: step.reasoning, outcome: "approval_timeout",
           });
-          if (deps.notifier) {
-            deps.notifier.notify(agentId, `\u23F0 Approval expired for ${step.action} (step ${step.step}). Run ${run.run_id} failed due to timeout.`, deps.runtimeDb).catch(() => {});
-          } else {
-            writeTelegramQueue(agentId, `\u23F0 Approval expired for ${step.action} (step ${step.step}). Run ${run.run_id} failed due to timeout.`, runtimeDb);
-          }
+          sendNotification(deps, agentId, `\u23F0 Approval expired for ${step.action} (step ${step.step}). Run ${run.run_id} failed due to timeout.`, log);
           statusWriter?.completeRun("approval_timeout");
           finalizeRun(run, "Approval timeout");
           return run;
@@ -595,11 +602,7 @@ export async function runAgent(
 
     // 7. Notify via Telegram queue (or unified dispatcher)
     const summary = `${def.label}: completed ${run.current_step}/${plan.steps.length} steps. Goal: ${run.goal}`;
-    if (deps.notifier) {
-      deps.notifier.notify(agentId, summary, deps.runtimeDb).catch(() => {});
-    } else {
-      writeTelegramQueue(agentId, summary, runtimeDb);
-    }
+    sendNotification(deps, agentId, summary, log);
 
     // 7b. Record artifact delivery linking run to originating channel thread
     if (deps.channelStore && commandId) {
@@ -620,11 +623,7 @@ export async function runAgent(
 
     // 8. Post-hoc review notification for trusted_with_review agents
     if (def.maturity === "trusted_with_review") {
-      if (deps.notifier) {
-        deps.notifier.notify(agentId, `[REVIEW] ${def.label} completed autonomously. Run: ${run.run_id}. Review output and decisions.`, deps.runtimeDb).catch(() => {});
-      } else {
-        writeTelegramQueue(agentId, `[REVIEW] ${def.label} completed autonomously. Run: ${run.run_id}. Review output and decisions.`, runtimeDb);
-      }
+      sendNotification(deps, agentId, `[REVIEW] ${def.label} completed autonomously. Run: ${run.run_id}. Review output and decisions.`, log);
     }
 
     return run;
