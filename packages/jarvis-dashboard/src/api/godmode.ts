@@ -1,4 +1,9 @@
 /**
+ * @deprecated This module's LLM orchestration loop (intent classification,
+ * streaming, tool-call-then-synthesize) is superseded by session-chat-adapter.ts,
+ * which routes through the OpenClaw gateway. The legacy endpoint is now served at
+ * `/api/godmode/legacy`. Retained only for fallback -- do not add new features here.
+ *
  * godmode.ts -- READ-ONLY interactive research surface for the Jarvis dashboard.
  *
  * ┌──────────────────────────────────────────────────────────────────────┐
@@ -310,7 +315,13 @@ function sendSSE(res: import('express').Response, type: string, data: unknown) {
 
 export const godmodeRouter = Router()
 
+/** @deprecated Use /api/godmode (session-chat-adapter) instead of /api/godmode/legacy. */
+let _godmodeLegacyWarned = false
 godmodeRouter.post('/', async (req, res) => {
+  if (!_godmodeLegacyWarned) {
+    console.warn('[DEPRECATED] POST /api/godmode/legacy: this LLM-loop endpoint is deprecated. Use the session-backed adapter at /api/godmode via session-chat-adapter.ts.')
+    _godmodeLegacyWarned = true
+  }
   const { message, model, history = [] } = req.body as {
     message: string
     model?: string

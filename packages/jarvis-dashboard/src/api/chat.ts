@@ -1,3 +1,10 @@
+/**
+ * @deprecated This module's `/api/chat/telegram` endpoint runs its own LLM loop
+ * with direct LM Studio calls. It is superseded by the session-backed Telegram
+ * adapter that routes free-text through the OpenClaw gateway. Retained only for
+ * legacy fallback -- do not add new features here.
+ */
+
 import { Router } from 'express'
 import { DatabaseSync } from 'node:sqlite'
 import http from 'http'
@@ -586,7 +593,9 @@ function agentChat(messages: FnCallMessage[], model: string, baseUrl: string, to
 }
 
 // POST /api/chat/telegram — agentic endpoint with native function calling
+/** @deprecated Use the session-backed Telegram adapter instead. */
 chatRouter.post('/telegram', async (req, res) => {
+  console.warn('[DEPRECATED] POST /api/chat/telegram: this LLM-loop endpoint is deprecated. Use the session-backed Telegram adapter via the OpenClaw gateway.')
   const { message, history = [] } = req.body as {
     message: string
     history?: Array<{ role: 'user' | 'assistant'; content: string }>
