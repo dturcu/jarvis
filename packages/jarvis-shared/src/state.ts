@@ -737,6 +737,11 @@ class JarvisState {
 
     // Validate the callback matches the active claim
     if (job.claim) {
+      if (callback.claim_id && callback.claim_id !== job.claim.claim_id) {
+        throw new Error(
+          `Callback claim_id ${callback.claim_id} does not match active claim ${job.claim.claim_id} for job ${callback.job_id}`,
+        );
+      }
       if (callback.worker_id && job.claim.claimed_by !== callback.worker_id) {
         throw new Error(
           `Worker ${callback.worker_id} cannot finalize job ${callback.job_id} claimed by ${job.claim.claimed_by}`,

@@ -1,5 +1,7 @@
 import puppeteer from "puppeteer-core";
 import type { Browser, Page } from "puppeteer-core";
+import os from "node:os";
+import path from "node:path";
 import { BrowserWorkerError, type BrowserAdapter, type ExecutionOutcome } from "./adapter.js";
 import type {
   BrowserNavigateInput,
@@ -56,14 +58,39 @@ const DEFAULT_EVAL_TIMEOUT_MS = 30_000;
 
 export type ChromeAdapterConfig = {
   debugging_url?: string;
+  /** Allowed base directories for downloads. Defaults to [os.tmpdir()]. */
+  allowed_download_dirs?: string[];
 };
 
 export class ChromeAdapter implements BrowserAdapter {
   private browser: Browser | null = null;
   private readonly debuggingUrl: string;
+  private readonly allowedDownloadDirs: string[];
 
   constructor(config: ChromeAdapterConfig = {}) {
     this.debuggingUrl = config.debugging_url ?? "http://127.0.0.1:9222";
+    this.allowedDownloadDirs = (config.allowed_download_dirs ?? [os.tmpdir()])
+      .map(d => path.resolve(d));
+  }
+
+  /**
+   * Validate that a download destination path resolves within one of the
+   * allowed download directories. Prevents path traversal attacks.
+   */
+  private validateDownloadPath(destPath: string): string {
+    const resolved = path.resolve(destPath);
+    const allowed = this.allowedDownloadDirs.some(
+      dir => resolved.startsWith(dir + path.sep) || resolved === dir,
+    );
+    if (!allowed) {
+      throw new BrowserWorkerError(
+        "DOWNLOAD_FAILED",
+        `Download path "${destPath}" is outside allowed directories: ${this.allowedDownloadDirs.join(", ")}`,
+        false,
+        { dest_path: destPath, allowed_dirs: this.allowedDownloadDirs },
+      );
+    }
+    return resolved;
   }
 
   // ── Connection management ──────────────────────────────────────────────────
@@ -449,11 +476,14 @@ export class ChromeAdapter implements BrowserAdapter {
     const destPath = input.dest_path ?? "download";
     const timeout = input.timeout_ms ?? 60_000;
 
+    // Validate download path stays within allowed directories
+    const safePath = this.validateDownloadPath(destPath);
+
     try {
       const client = await page.createCDPSession();
       await client.send("Browser.setDownloadBehavior", {
         behavior: "allow",
-        downloadPath: destPath
+        downloadPath: safePath
       });
 
       const response = await page.goto(input.url, { waitUntil: "networkidle2", timeout });
@@ -461,10 +491,10 @@ export class ChromeAdapter implements BrowserAdapter {
       const contentLength = parseInt(response?.headers()["content-length"] ?? "0", 10);
 
       return {
-        summary: `Downloaded from ${input.url} to ${destPath}.`,
+        summary: `Downloaded from ${input.url} to ${safePath}.`,
         structured_output: {
           url: input.url,
-          dest_path: destPath,
+          dest_path: safePath,
           size_bytes: contentLength,
           content_type: contentType
         }
