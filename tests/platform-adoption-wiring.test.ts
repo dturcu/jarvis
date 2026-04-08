@@ -115,18 +115,15 @@ describe("Runtime Wiring: Package index exports", () => {
   });
 });
 
-describe("Runtime Wiring: Webhook ingress defaults to OFF", () => {
-  it("server.ts defaults webhook routes to OFF (requires JARVIS_WEBHOOK_LEGACY=true)", () => {
+describe("Runtime Wiring: Webhook routes REMOVED (Wave 1 retirement)", () => {
+  it("server.ts does NOT mount webhook routes at all", () => {
     const source = readSource("packages/jarvis-dashboard/src/api/server.ts");
-    expect(source).toContain("JARVIS_WEBHOOK_LEGACY");
-    // Must check for === 'true' (opt-in), NOT !== 'false' (opt-out)
-    expect(source).toContain("=== 'true'");
-  });
-
-  it("convergence checks warn about webhook legacy mode", () => {
-    const source = readSource("packages/jarvis-runtime/src/convergence-checks.ts");
-    expect(source).toContain("JARVIS_WEBHOOK_LEGACY");
-    expect(source).toContain("Convergence: Webhook Ingress");
+    // webhookV2Router import must be commented out
+    expect(source).toContain("// import { webhookV2Router }");
+    // Must not have active app.use('/api/webhooks'
+    expect(source).not.toMatch(/^\s*app\.use\(['"]\/api\/webhooks/m);
+    // Must contain retirement comment
+    expect(source).toContain("Wave 1 retirement");
   });
 });
 
@@ -238,23 +235,87 @@ describe("Runtime Wiring: OpenClaw infer in real inference execution path", () =
     expect(source).toContain("OpenClawInferAdapter");
   });
 
-  it("DefaultInferenceAdapter.chat() routes to OpenClaw when runtime is openclaw", () => {
+  it("chat() routes to OpenClaw when runtime is openclaw", () => {
     const source = readSource("packages/jarvis-inference-worker/src/default-adapter.ts");
-    // Must check for openclaw runtime in the chat() method and route accordingly
     expect(source).toContain('selectedRuntime === "openclaw"');
     expect(source).toContain("chatViaOpenClaw");
   });
 
-  it("chatViaOpenClaw calls adapter.complete() through the gateway", () => {
+  it("visionChat() routes to OpenClaw when runtime is openclaw", () => {
     const source = readSource("packages/jarvis-inference-worker/src/default-adapter.ts");
-    expect(source).toContain("adapter.complete(");
+    expect(source).toContain('fromRegistry.model.runtime === "openclaw"');
+    expect(source).toContain("visionChatViaOpenClaw");
+  });
+
+  it("embed() routes to OpenClaw when model runtime is openclaw", () => {
+    const source = readSource("packages/jarvis-inference-worker/src/default-adapter.ts");
+    expect(source).toContain('match.runtime === "openclaw"');
+    expect(source).toContain("embedViaOpenClaw");
+  });
+
+  it("listModels() includes OpenClaw models in discovery", () => {
+    const source = readSource("packages/jarvis-inference-worker/src/default-adapter.ts");
+    expect(source).toContain("openClawAdapter.listModels()");
     expect(source).toContain('runtime: "openclaw"');
   });
 
-  it("chatViaOpenClaw throws retryable OPENCLAW_UNAVAILABLE on gateway failure", () => {
+  it("chatViaOpenClaw, visionChatViaOpenClaw, embedViaOpenClaw all exist as methods", () => {
     const source = readSource("packages/jarvis-inference-worker/src/default-adapter.ts");
-    expect(source).toContain("OPENCLAW_UNAVAILABLE");
-    expect(source).toContain("true, // retryable");
+    expect(source).toContain("private async chatViaOpenClaw(");
+    expect(source).toContain("private async visionChatViaOpenClaw(");
+    expect(source).toContain("private async embedViaOpenClaw(");
+  });
+});
+
+describe("Runtime Wiring: Memory boundary enforce mode", () => {
+  it("daemon reads JARVIS_MEMORY_BOUNDARY_MODE env var", () => {
+    const source = readSource("packages/jarvis-runtime/src/daemon.ts");
+    expect(source).toContain("JARVIS_MEMORY_BOUNDARY_MODE");
+  });
+
+  it("memory-boundary.ts throws MemoryBoundaryError in enforce mode", () => {
+    const source = readSource("packages/jarvis-agent-framework/src/memory-boundary.ts");
+    expect(source).toContain("throw new MemoryBoundaryError(");
+    expect(source).toContain("class MemoryBoundaryError extends Error");
+  });
+});
+
+describe("Runtime Wiring: Wiki search session tool", () => {
+  it("wiki_search is in READONLY_TOOL_NAMES", () => {
+    const source = readSource("packages/jarvis-dashboard/src/api/tool-infra.ts");
+    expect(source).toContain('"wiki_search"');
+  });
+
+  it("session-chat-adapter defines wiki_search tool with parameters", () => {
+    const source = readSource("packages/jarvis-dashboard/src/api/session-chat-adapter.ts");
+    expect(source).toContain("wiki_search:");
+    expect(source).toContain("curated knowledge wiki");
+  });
+});
+
+describe("Runtime Wiring: Adoption dashboard with Prometheus data", () => {
+  it("/api/tasks/adoption includes prometheus metric values", () => {
+    const source = readSource("packages/jarvis-dashboard/src/api/tasks.ts");
+    expect(source).toContain("metrics.prometheus");
+    expect(source).toContain("webhookIngressTotal");
+    expect(source).toContain("inferenceRuntimeTotal");
+    expect(source).toContain("dreamingRunsTotal");
+  });
+
+  it("/api/tasks/adoption evaluates release gates", () => {
+    const source = readSource("packages/jarvis-dashboard/src/api/tasks.ts");
+    expect(source).toContain("release_gates");
+    expect(source).toContain("all_gates_passed");
+    expect(source).toContain("webhook_default_off");
+    expect(source).toContain("session_mode_active");
+  });
+});
+
+describe("Runtime Wiring: TaskFlow cancel propagation", () => {
+  it("/api/tasks/:id/cancel propagates to TaskFlow via gateway", () => {
+    const source = readSource("packages/jarvis-dashboard/src/api/tasks.ts");
+    expect(source).toContain("taskflow.cancel");
+    expect(source).toContain("flow_cancelled");
   });
 });
 

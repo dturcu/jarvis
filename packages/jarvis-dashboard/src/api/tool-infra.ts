@@ -25,6 +25,7 @@ export const READONLY_TOOL_NAMES = [
   "web_search", "web_fetch", "crm_search", "knowledge_search",
   "system_info", "list_files", "file_read", "file_list",
   "gmail_search", "gmail_read", "agent_status", "browse_page",
+  "wiki_search",
 ] as const;
 
 export type ReadOnlyToolName = (typeof READONLY_TOOL_NAMES)[number];
@@ -371,6 +372,21 @@ export async function executeTool(
         return `Directory: ${dirPath} (${entries.length} items)\n\n${entries.join('\n')}`
       } catch (e) {
         return `File list failed: ${e instanceof Error ? e.message : String(e)}`
+      }
+    }
+
+    case 'wiki_search': {
+      const query = (params.query as string) ?? ''
+      const limit = (params.limit as number) ?? 5
+      if (!query) return 'Error: query is required'
+      try {
+        const { GatewayWikiBridge } = await import('@jarvis/agent-framework')
+        const bridge = new GatewayWikiBridge()
+        const results = await bridge.query(query, limit)
+        if (results.length === 0) return `No wiki results found for "${query}"`
+        return `Wiki results for "${query}":\n${results.map((r: { source_collection?: string; title: string; snippet: string }) => `- [${r.source_collection ?? 'wiki'}] ${r.title}\n  ${r.snippet.slice(0, 200)}`).join('\n')}`
+      } catch (e) {
+        return `Wiki search failed: ${e instanceof Error ? e.message : String(e)}`
       }
     }
 

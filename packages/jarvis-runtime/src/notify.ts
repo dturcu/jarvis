@@ -60,34 +60,18 @@ export function createNotificationDispatcher(opts: {
     async notify(agentId: string, message: string, db?: DatabaseSync): Promise<void> {
       const formatted = `[${agentId.toUpperCase()}]\n\n${message}`;
 
-      if (channel === "telegram") {
+      if (channel === "telegram" || channel === "both") {
         writeTelegramQueue(agentId, message, db);
-        return;
       }
 
-      if (channel === "session") {
-        // Try session first; fall back to DB on failure
-        if (opts.sessionSend) {
-          try {
-            await opts.sessionSend(formatted);
-            return;
-          } catch {
-            // Session failed — fall back to durable DB queue
-          }
-        }
-        writeTelegramQueue(agentId, message, db);
-        return;
-      }
-
-      // "both" mode: DB write first (durable), then session (best-effort).
-      // Intentional dual delivery during transition period. The relay loop
-      // on the Telegram side should deduplicate if both paths succeed.
-      writeTelegramQueue(agentId, message, db);
-      if (opts.sessionSend) {
+      if ((channel === "session" || channel === "both") && opts.sessionSend) {
         try {
           await opts.sessionSend(formatted);
         } catch {
-          // Session failed — DB write already persisted, notification is safe
+          // Session delivery failed — fall back to DB queue if not already written
+          if (channel === "session") {
+            writeTelegramQueue(agentId, message, db);
+          }
         }
       }
     },

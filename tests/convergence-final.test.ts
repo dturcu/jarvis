@@ -56,17 +56,18 @@ describe("Convergence Program: Global Exit Conditions", () => {
     expect(violations, `Direct Telegram API in: ${violations.join(", ")}`).toHaveLength(0);
   });
 
-  it("Exit 2: Webhook v1 deleted and v2 uses injectable onEvent (PARTIAL — HTTP surface still dashboard-owned)", () => {
+  it("Exit 2: Dashboard webhook routes RETIRED — ingress is OpenClaw-owned", () => {
     // webhooks.ts (v1) deleted in Wave 3.
     expect(existsSync(resolve(ROOT, "packages/jarvis-dashboard/src/api/webhooks.ts"))).toBe(false);
 
-    // v2 provides createWebhookRouter with injectable onEvent callback.
-    // NOTE: Full exit requires moving the HTTP mount out of the dashboard entirely.
-    // Currently the dashboard still mounts /api/webhooks and the default onEvent
-    // still calls createCommand() directly. This is "domain logic separated, HTTP not."
+    // Wave 1 retirement: server.ts must NOT mount webhook routes at all.
+    const serverSource = readSource("packages/jarvis-dashboard/src/api/server.ts");
+    expect(serverSource).not.toMatch(/^\s*app\.use\(['"]\/api\/webhooks/m);
+    expect(serverSource).toContain("Wave 1 retirement");
+
+    // v2 normalizer code retained for OpenClaw webhook plugin reference
     const v2Source = readSource("packages/jarvis-dashboard/src/api/webhooks-v2.ts");
     expect(v2Source).toContain("createWebhookRouter");
-    expect(v2Source).toContain("onEvent");
   });
 
   it("Exit 3: No primary-path direct dashboard-to-model orchestration outside deprecated files", () => {

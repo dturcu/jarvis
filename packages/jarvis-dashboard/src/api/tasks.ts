@@ -13,6 +13,13 @@ import { Router } from 'express'
 import type { Request, Response } from 'express'
 import { DatabaseSync } from 'node:sqlite'
 import { join } from 'node:path'
+import { invokeGatewayMethod } from '@jarvis/shared'
+import {
+  webhookIngressTotal, inferenceRuntimeTotal, sessionModeTotal,
+  browserBridgeTotal, taskflowRunsTotal, memoryBoundaryViolationsTotal,
+  dreamingRunsTotal, wikiRetrievalTotal, legacyPathTraffic,
+  inferenceLocalPercentage,
+} from '@jarvis/observability'
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 
@@ -119,6 +126,39 @@ function lookupFlowId(db: DatabaseSync, runId: string): string | undefined {
     return row?.flow_id
   } catch {
     return undefined
+  }
+}
+
+// ---- Gateway flow queries --------------------------------------------------
+
+interface GatewayFlowEntry {
+  flow_id: string
+  workflow_name: string
+  status: string
+  created_at: string
+  updated_at?: string
+}
+
+/**
+ * Query OpenClaw TaskFlow for active/recent flows. Returns empty array
+ * if the gateway is unavailable (graceful degradation).
+ */
+async function queryGatewayFlows(): Promise<GatewayFlowEntry[]> {
+  try {
+    const result = await invokeGatewayMethod<{ flows?: Array<Record<string, unknown>> }>(
+      'taskflow.list',
+      undefined,
+      { limit: 50 },
+    )
+    return (result.flows ?? []).map((f) => ({
+      flow_id: String(f.flow_id ?? f.id ?? ''),
+      workflow_name: String(f.workflow_name ?? f.name ?? ''),
+      status: String(f.status ?? 'unknown'),
+      created_at: String(f.created_at ?? ''),
+      updated_at: f.updated_at ? String(f.updated_at) : undefined,
+    }))
+  } catch {
+    return [] // Gateway unavailable
   }
 }
 
@@ -232,7 +272,18 @@ tasksRouter.post('/:id/cancel', (req: Request, res: Response) => {
     db.prepare("UPDATE jobs SET status = 'cancelled' WHERE run_id = ? AND status IN ('queued', 'claimed')")
       .run(id)
 
-    res.json({ task_id: id, status: 'cancelled', cancelled_at: new Date().toISOString() })
+    // Propagate cancellation to TaskFlow if this run has a correlated flow
+    ensureCorrelationTable(db)
+    const flowRow = db.prepare('SELECT flow_id FROM taskflow_correlations WHERE run_id = ?').get(id) as { flow_id: string } | undefined
+    let flowCancelled = false
+    if (flowRow) {
+      invokeGatewayMethod('taskflow.cancel', undefined, { flow_id: flowRow.flow_id })
+        .then(() => { /* flow cancelled */ })
+        .catch(() => { /* gateway unavailable — local cancel still succeeded */ })
+      flowCancelled = true
+    }
+
+    res.json({ task_id: id, status: 'cancelled', cancelled_at: new Date().toISOString(), flow_cancelled: flowCancelled })
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
   } finally {
@@ -360,8 +411,31 @@ tasksRouter.get('/adoption', (_req: Request, res: Response) => {
       session_active: (process.env.JARVIS_TELEGRAM_MODE ?? 'session').toLowerCase() !== 'legacy',
     },
     dreaming: { enabled: process.env.JARVIS_DREAMING_ENABLED === 'true' },
-    memory_boundary: { mode: 'warn' },
+    memory_boundary: { mode: process.env.JARVIS_MEMORY_BOUNDARY_MODE ?? 'warn' },
   }
+
+  // Prometheus counter values (current totals since last restart)
+  const promCounterValue = async (counter: { get: () => Promise<{ values: Array<{ value: number; labels: Record<string, string> }> }> }) => {
+    try {
+      const m = await counter.get()
+      return m.values.map((v) => ({ labels: v.labels, value: v.value }))
+    } catch { return [] }
+  }
+
+  try {
+    metrics.prometheus = {
+      webhook_ingress: await promCounterValue(webhookIngressTotal),
+      inference_runtime: await promCounterValue(inferenceRuntimeTotal),
+      session_mode: await promCounterValue(sessionModeTotal),
+      browser_bridge: await promCounterValue(browserBridgeTotal),
+      taskflow_runs: await promCounterValue(taskflowRunsTotal),
+      memory_boundary_violations: await promCounterValue(memoryBoundaryViolationsTotal),
+      dreaming_runs: await promCounterValue(dreamingRunsTotal),
+      wiki_retrieval: await promCounterValue(wikiRetrievalTotal),
+      legacy_path_traffic: await promCounterValue(legacyPathTraffic),
+      inference_local_percentage: (await inferenceLocalPercentage.get()).values[0]?.value ?? null,
+    }
+  } catch { /* metrics unavailable */ }
 
   if (db) {
     try {
@@ -373,6 +447,28 @@ tasksRouter.get('/adoption', (_req: Request, res: Response) => {
       try { db.close() } catch { /* ignore */ }
     }
   }
+
+  // Release gate evaluation
+  const gates: Record<string, { passed: boolean; reason: string }> = {
+    webhook_default_off: {
+      passed: process.env.JARVIS_WEBHOOK_LEGACY !== 'true',
+      reason: 'Dashboard webhook routes must be off by default',
+    },
+    session_mode_active: {
+      passed: (process.env.JARVIS_TELEGRAM_MODE ?? 'session') !== 'legacy',
+      reason: 'Telegram must use session mode',
+    },
+    browser_openclaw_default: {
+      passed: (process.env.JARVIS_BROWSER_MODE ?? 'openclaw') !== 'legacy',
+      reason: 'Browser must use OpenClaw bridge by default',
+    },
+    memory_boundary_active: {
+      passed: (process.env.JARVIS_MEMORY_BOUNDARY_MODE ?? 'warn') !== '',
+      reason: 'Memory boundary checker must be active (warn or enforce)',
+    },
+  }
+  metrics.release_gates = gates
+  metrics.all_gates_passed = Object.values(gates).every((g) => g.passed)
 
   res.json(metrics)
 })

@@ -278,8 +278,58 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
     }
   }
 
+  /**
+   * Route vision chat through OpenClaw gateway.
+   */
+  private async visionChatViaOpenClaw(
+    input: InferenceVisionChatInput,
+    modelId: string,
+  ): Promise<ExecutionOutcome<InferenceVisionChatOutput>> {
+    const adapter = new OpenClawInferAdapter();
+
+    // Flatten multimodal messages for the prompt
+    const prompt = input.messages.map((m) => {
+      if (typeof m.content === "string") return `${m.role}: ${m.content}`;
+      const textParts = m.content.filter((p): p is { type: "text"; text: string } => p.type === "text").map((p) => p.text);
+      return `${m.role}: ${textParts.join(" ")}`;
+    }).join("\n");
+
+    try {
+      const response = await adapter.complete({ prompt, model: modelId, temperature: input.temperature, maxTokens: input.max_tokens });
+      const output: InferenceVisionChatOutput = {
+        content: response.text,
+        model: response.model,
+        runtime: "openclaw",
+        usage: { prompt_tokens: response.tokens_used ?? 0, completion_tokens: response.tokens_used ?? 0, total_tokens: response.tokens_used ?? 0 },
+      };
+      return { summary: `Vision chat completed via openclaw (${modelId}).`, structured_output: output };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new InferenceWorkerError("OPENCLAW_UNAVAILABLE", `OpenClaw vision inference failed: ${msg}`, true);
+    }
+  }
+
+  /**
+   * Route embeddings through OpenClaw gateway.
+   */
+  private async embedViaOpenClaw(
+    input: InferenceEmbedInput,
+    modelId: string,
+  ): Promise<ExecutionOutcome<InferenceEmbedOutput>> {
+    const adapter = new OpenClawInferAdapter();
+
+    try {
+      const embeddings = await adapter.embed(input.texts);
+      const dimensions = embeddings[0]?.length ?? 0;
+      const output: InferenceEmbedOutput = { embeddings, model: modelId, runtime: "openclaw", dimensions };
+      return { summary: `Embedded ${input.texts.length} text(s) via openclaw (${modelId}), ${dimensions} dimensions.`, structured_output: output };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new InferenceWorkerError("OPENCLAW_UNAVAILABLE", `OpenClaw embedding failed: ${msg}`, true);
+    }
+  }
+
   async visionChat(input: InferenceVisionChatInput): Promise<ExecutionOutcome<InferenceVisionChatOutput>> {
-    // Select a vision-capable model via the "vision_local" policy
     const profile: TaskProfile = { objective: "answer", constraints: { require_vision: true } };
     let modelId: string;
     let runtimeUrl: string;
@@ -287,6 +337,12 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
     const fromRegistry = this.selectFromRegistry(profile, input.model);
     if (fromRegistry) {
       modelId = fromRegistry.model.id;
+
+      // OpenClaw path for vision models
+      if (fromRegistry.model.runtime === "openclaw") {
+        return this.visionChatViaOpenClaw(input, modelId);
+      }
+
       runtimeUrl = await this.resolveRuntimeUrl(fromRegistry.model.runtime);
     } else {
       const discovered = await this.discoverAndSelect(profile, input.model);
@@ -352,6 +408,10 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
       const registered = loadRegisteredModels(this.runtimeDb);
       const match = registered.find(m => m.id === input.model);
       if (match) {
+        // OpenClaw path for embeddings
+        if (match.runtime === "openclaw") {
+          return this.embedViaOpenClaw(input, match.id);
+        }
         modelId = match.id;
         runtimeUrl = await this.resolveRuntimeUrl(match.runtime);
         runtimeName = match.runtime;
@@ -402,13 +462,12 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
   }
 
   async listModels(input: InferenceListModelsInput): Promise<ExecutionOutcome<InferenceListModelsOutput>> {
-    // listModels is an explicit discovery action — always probe live runtimes
     const all = await detectRuntimes();
     const filter = input.runtime ?? "all";
 
     const filtered = filter === "all" ? all : all.filter((r) => r.name === filter);
     const available = filtered.filter((r) => r.available);
-    const availableNames = available.map((r) => r.name);
+    const availableNames: Array<"ollama" | "lmstudio" | "openclaw"> = available.map((r) => r.name);
 
     const allModelEntries = await Promise.all(
       available.map(async (runtime) => {
@@ -421,7 +480,31 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
         }));
       }),
     );
-    const models = allModelEntries.flat();
+    let models = allModelEntries.flat();
+
+    // Include OpenClaw models when filter allows it
+    if (filter === "all" || filter === "openclaw") {
+      try {
+        const openClawAdapter = new OpenClawInferAdapter();
+        const openClawModels = await openClawAdapter.listModels();
+        if (openClawModels.length > 0) {
+          if (!availableNames.includes("openclaw")) {
+            availableNames.push("openclaw");
+          }
+          models = [
+            ...models,
+            ...openClawModels.map<InferenceModelEntry>((m) => ({
+              id: m.id,
+              runtime: "openclaw",
+              size_class: "medium",
+              capabilities: m.capabilities,
+            })),
+          ];
+        }
+      } catch {
+        // Gateway unavailable — skip OpenClaw models
+      }
+    }
 
     const output: InferenceListModelsOutput = {
       models,

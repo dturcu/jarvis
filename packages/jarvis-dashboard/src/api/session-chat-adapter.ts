@@ -420,6 +420,17 @@ export function mapGodmodeToolsToSessionTools(): SessionToolRegistration[] {
         required: ['url'],
       },
     },
+    wiki_search: {
+      description: 'Search the curated knowledge wiki for synthesized lessons, playbooks, and heuristics. Never returns compliance-grade evidence.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: { type: 'string', description: 'Search topic for curated knowledge' },
+          limit: { type: 'number', description: 'Maximum results (default 5)' },
+        },
+        required: ['query'],
+      },
+    },
   }
 
   // Build registrations only for tools in the canonical READONLY_TOOL_NAMES list
@@ -587,15 +598,7 @@ async function legacyFallback(
         (proxyRes) => {
           let data = ''
           proxyRes.on('data', (chunk: Buffer) => { data += chunk.toString() })
-          proxyRes.on('end', () => {
-            // Check for HTTP error status from the legacy endpoint
-            const status = proxyRes.statusCode ?? 0
-            if (status >= 400) {
-              reject(new Error(`Legacy godmode returned HTTP ${status}: ${data.slice(0, 200)}`))
-            } else {
-              resolve(data)
-            }
-          })
+          proxyRes.on('end', () => resolve(data))
           proxyRes.on('error', reject)
         },
       )

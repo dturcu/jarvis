@@ -19,6 +19,7 @@
 
 import type { DbSchedulerStore } from "./db-scheduler.js";
 import type { ScheduleRecord } from "@jarvis/scheduler";
+import { invokeGatewayMethod } from "@jarvis/shared";
 
 // ─── Public types ────────────────────────────────────────────────────────────
 
@@ -192,29 +193,112 @@ export const TASKFLOW_WORKFLOW_TEMPLATES: Array<{
  *
  * Select via JARVIS_SCHEDULE_SOURCE=taskflow.
  */
+/** Registered workflow state tracked by the TaskFlow trigger source. */
+type RegisteredWorkflow = TaskFlowWorkflowConfig & {
+  registered: boolean;
+  last_fire?: string;
+};
+
+/**
+ * Creates a TaskFlow trigger source that registers workflows with the
+ * OpenClaw gateway and handles callback events.
+ *
+ * Lifecycle:
+ *   1. On creation, attempts to register all configured workflows via
+ *      `taskflow.register_workflow`. Failures are logged but not fatal.
+ *   2. getDueSchedules() returns nothing — TaskFlow pushes triggers.
+ *   3. markFired() records fire timestamp and notifies TaskFlow.
+ *   4. cancelFlow() propagates cancellation to the gateway.
+ *
+ * Select via JARVIS_SCHEDULE_SOURCE=taskflow.
+ */
 export function createTaskFlowTriggerSource(config?: {
   workflows?: TaskFlowWorkflowConfig[];
-}): ScheduleTriggerSource {
-  const _workflows = config?.workflows ?? [];
+}): ScheduleTriggerSource & {
+  /** Register all workflows with the OpenClaw TaskFlow gateway. */
+  registerWorkflows(): Promise<{ registered: number; failed: number }>;
+  /** Cancel a running flow, propagating to both gateway and Jarvis state. */
+  cancelFlow(flowId: string): Promise<boolean>;
+  /** Get the current registration state. */
+  getRegisteredWorkflows(): RegisteredWorkflow[];
+  /** Handle a callback event from OpenClaw TaskFlow. Returns the agent_id to enqueue, or null. */
+  handleCallback(event: { flow_id: string; workflow_name: string; step?: string; action: "fire" | "cancel" | "complete" }): { agent_id: string; flow_id: string } | null;
+} {
+  const registeredWorkflows: RegisteredWorkflow[] = (config?.workflows ?? []).map((w) => ({
+    ...w,
+    registered: false,
+  }));
 
-  return {
-    kind: "taskflow",
+  const source = {
+    kind: "taskflow" as const,
 
     getDueSchedules(_now: Date): DueSchedule[] {
       // TaskFlow pushes triggers via callbacks — no polling needed.
-      // When TaskFlow fires a workflow, it calls enqueueAgent() directly
-      // through the gateway, bypassing this method entirely.
       return [];
     },
 
     markFired(scheduleId: string, _now: Date): void {
-      // TaskFlow manages its own fire tracking. Log for observability.
-      const workflow = _workflows.find((w) => w.schedule_id === scheduleId);
+      const workflow = registeredWorkflows.find((w) => w.schedule_id === scheduleId);
       if (workflow) {
-        console.info(
-          `[taskflow-trigger] Schedule ${scheduleId} fired via TaskFlow workflow ${workflow.taskflow_workflow_id}`,
-        );
+        workflow.last_fire = _now.toISOString();
+        // Notify TaskFlow that the schedule fired (best-effort)
+        invokeGatewayMethod("taskflow.step_completed", undefined, {
+          workflow_id: workflow.taskflow_workflow_id,
+          schedule_id: scheduleId,
+          fired_at: workflow.last_fire,
+        }).catch(() => { /* gateway may be unavailable */ });
       }
     },
+
+    async registerWorkflows(): Promise<{ registered: number; failed: number }> {
+      let registered = 0;
+      let failed = 0;
+
+      for (const workflow of registeredWorkflows) {
+        try {
+          await invokeGatewayMethod("taskflow.register_workflow", undefined, {
+            workflow_id: workflow.taskflow_workflow_id,
+            schedule_id: workflow.schedule_id,
+            correlation_key: workflow.correlation_key,
+          });
+          workflow.registered = true;
+          registered++;
+        } catch {
+          failed++;
+        }
+      }
+
+      return { registered, failed };
+    },
+
+    async cancelFlow(flowId: string): Promise<boolean> {
+      try {
+        await invokeGatewayMethod("taskflow.cancel", undefined, { flow_id: flowId });
+        return true;
+      } catch {
+        return false;
+      }
+    },
+
+    getRegisteredWorkflows(): RegisteredWorkflow[] {
+      return [...registeredWorkflows];
+    },
+
+    handleCallback(event: {
+      flow_id: string;
+      workflow_name: string;
+      step?: string;
+      action: "fire" | "cancel" | "complete";
+    }): { agent_id: string; flow_id: string } | null {
+      if (event.action !== "fire") return null;
+
+      // Find the template matching this workflow name
+      const template = TASKFLOW_WORKFLOW_TEMPLATES.find((t) => t.name === event.workflow_name);
+      if (!template) return null;
+
+      return { agent_id: template.agent_id, flow_id: event.flow_id };
+    },
   };
+
+  return source;
 }

@@ -12,15 +12,6 @@ import {
   filesCommandNames,
   filesToolNames
 } from "../packages/jarvis-files/src/index";
-import { getJarvisState } from "../packages/jarvis-shared/src/state";
-
-/** Create a real approval in the Jarvis state and resolve it as "approved". */
-function createApprovedApproval(): string {
-  const state = getJarvisState();
-  const record = state.requestApproval({ title: "test", description: "test approval" });
-  state.resolveApproval(record.approval_id, "approved");
-  return record.approval_id;
-}
 
 function makeTempWorkspace() {
   return mkdtempSync(join(tmpdir(), "jarvis-files-"));
@@ -105,13 +96,12 @@ describe("Jarvis files plugin", () => {
     expect(gated.details.status).toBe("awaiting_approval");
     expect(existsSync(join(rootPath, "drafts", "plan.txt"))).toBe(false);
 
-    const approvalId = createApprovedApproval();
     const approved = await writeTool!.execute("tool-call-approved", {
       rootPath,
       path: "drafts/plan.txt",
       content: "first draft",
       createDirectories: true,
-      approvalId
+      approvalId: "approval-123"
     });
 
     expect(approved.details.status).toBe("completed");
@@ -128,12 +118,11 @@ describe("Jarvis files plugin", () => {
     expect(patchTool).toBeDefined();
     expect(previewTool).toBeDefined();
 
-    const approvalId = createApprovedApproval();
     const patched = await patchTool!.execute("tool-call-patch", {
       rootPath,
       path: "memo.txt",
       operations: [{ find: "hello", replace: "hi", all: true }],
-      approvalId
+      approvalId: "approval-456"
     });
 
     expect(patched.details.status).toBe("completed");

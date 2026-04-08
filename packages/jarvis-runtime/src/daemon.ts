@@ -213,7 +213,16 @@ async function main() {
     scheduleTrigger = createExternalTriggerSource();
     logger.info("Schedule source: external (OpenClaw TaskFlow manages schedule evaluation)");
   } else if (scheduleSourceEnv === "taskflow") {
-    scheduleTrigger = createTaskFlowTriggerSource();
+    const taskflowSource = createTaskFlowTriggerSource();
+    scheduleTrigger = taskflowSource;
+
+    // Register workflows with the OpenClaw gateway (non-blocking)
+    taskflowSource.registerWorkflows().then((result) => {
+      logger.info(`TaskFlow: ${result.registered} workflows registered, ${result.failed} failed`);
+    }).catch((err) => {
+      logger.warn(`TaskFlow registration failed: ${err instanceof Error ? err.message : String(err)}`);
+    });
+
     logger.info("Schedule source: taskflow (OpenClaw TaskFlow manages workflows and scheduling)");
   } else {
     scheduleTrigger = createDbScheduleTrigger(scheduler, computeNextFireAt);
@@ -392,9 +401,10 @@ async function main() {
 
   // ─── Memory boundary checker + Wiki bridge (Epics 7, 9) ────────────────────
   const { MemoryBoundaryChecker, GatewayWikiBridge } = await import("@jarvis/agent-framework");
-  const boundaryChecker = new MemoryBoundaryChecker("warn");
+  const boundaryMode = (process.env.JARVIS_MEMORY_BOUNDARY_MODE ?? "warn").toLowerCase() === "enforce" ? "enforce" : "warn";
+  const boundaryChecker = new MemoryBoundaryChecker(boundaryMode as "warn" | "enforce");
   const wikiBridge = new GatewayWikiBridge();
-  logger.info("Memory boundary: warn mode active");
+  logger.info(`Memory boundary: ${boundaryMode} mode active`);
 
   // Orchestrator deps — includes boundary checker and wiki bridge for lesson capture integration
   const deps = { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, runtimeDb, channelStore, ragPipeline, notifier, boundaryChecker, wikiBridge };

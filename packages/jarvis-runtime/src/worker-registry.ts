@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { JobEnvelope, JobResult, JarvisJobType, JarvisApprovalState } from "@jarvis/shared";
+import type { JobEnvelope, JobResult, JarvisJobType } from "@jarvis/shared";
 import { JOB_TIMEOUT_SECONDS } from "@jarvis/shared";
 import { createInferenceWorker } from "@jarvis/inference-worker";
 import { MockInferenceAdapter, DefaultInferenceAdapter } from "@jarvis/inference-worker";
@@ -501,11 +501,7 @@ export function createWorkerRegistry(
 }
 
 /** Build a minimal valid JobEnvelope for a given job type */
-export function buildEnvelope(
-  type: string,
-  input: Record<string, unknown>,
-  approvalState: JarvisApprovalState = "not_required",
-): JobEnvelope {
+export function buildEnvelope(type: string, input: Record<string, unknown>): JobEnvelope {
   return {
     contract_version: "jarvis.v1",
     job_id: randomUUID(),
@@ -513,7 +509,7 @@ export function buildEnvelope(
     session_key: `daemon-${Date.now()}`,
     requested_by: { source: "agent", agent_id: "daemon" },
     priority: "normal",
-    approval_state: approvalState,
+    approval_state: "not_required",
     timeout_seconds: JOB_TIMEOUT_SECONDS[type as JarvisJobType] ?? 120,
     attempt: 1,
     input,
