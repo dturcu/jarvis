@@ -18,3 +18,5 @@ export * from "./email.js";
 export * from "./calendar.js";
 export * from "./crm.js";
 export * from "./web.js";
+export * from "./worker-executor.js";
+export * from "./schema-validator.js";

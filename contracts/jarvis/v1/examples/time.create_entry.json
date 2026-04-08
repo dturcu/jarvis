@@ -1,24 +1,49 @@
 {
   "job_envelope": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-time-create_entry",
+    "job_id": "71e30002-0002-4000-8000-000000000002",
     "type": "time.create_entry",
-    "session_key": "example-session",
-    "requested_by": { "source": "agent", "agent_id": "example" },
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": { "channel": "api", "user_id": "consultant" },
     "priority": "normal",
     "approval_state": "not_required",
     "timeout_seconds": 60,
     "attempt": 1,
-    "input": {},
+    "input": {
+      "description": "ASPICE assessment preparation meeting",
+      "project_id": "automotech-aspice",
+      "start": "2026-04-07T14:00:00.000Z",
+      "duration_seconds": 3600,
+      "tags": ["meeting", "aspice"]
+    },
     "artifacts_in": [],
-    "metadata": { "agent_id": "example", "thread_key": null }
+    "metadata": { "agent_id": "staffing-monitor", "thread_key": null }
   },
   "job_result": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-time-create_entry",
+    "job_id": "71e30002-0002-4000-8000-000000000002",
     "job_type": "time.create_entry",
     "status": "completed",
-    "summary": "Example result for time.create_entry",
-    "attempt": 1
+    "summary": "Created 1-hour time entry for ASPICE assessment preparation.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "entry": {
+        "id": "te-010",
+        "description": "ASPICE assessment preparation meeting",
+        "project": "automotech-aspice",
+        "start": "2026-04-07T14:00:00.000Z",
+        "stop": "2026-04-07T15:00:00.000Z",
+        "duration_seconds": 3600,
+        "tags": ["meeting", "aspice"]
+      },
+      "created": true
+    },
+    "metrics": {
+      "started_at": "2026-04-07T10:16:00.000Z",
+      "finished_at": "2026-04-07T10:16:00.300Z",
+      "attempt": 1,
+      "worker_id": "time-worker"
+    }
   }
 }

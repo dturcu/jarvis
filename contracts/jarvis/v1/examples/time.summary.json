@@ -1,24 +1,51 @@
 {
   "job_envelope": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-time-summary",
+    "job_id": "71e30003-0003-4000-8000-000000000003",
     "type": "time.summary",
-    "session_key": "example-session",
-    "requested_by": { "source": "agent", "agent_id": "example" },
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": { "channel": "api", "user_id": "consultant" },
     "priority": "normal",
     "approval_state": "not_required",
     "timeout_seconds": 60,
     "attempt": 1,
-    "input": {},
+    "input": {
+      "start_date": "2026-04-01",
+      "end_date": "2026-04-07",
+      "group_by": "project"
+    },
     "artifacts_in": [],
-    "metadata": { "agent_id": "example", "thread_key": null }
+    "metadata": { "agent_id": "staffing-monitor", "thread_key": null }
   },
   "job_result": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-time-summary",
+    "job_id": "71e30003-0003-4000-8000-000000000003",
     "job_type": "time.summary",
     "status": "completed",
-    "summary": "Example result for time.summary",
-    "attempt": 1
+    "summary": "Summarized 18.5 hours across 2 projects.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "groups": [
+        {
+          "key": "brakeco-safety",
+          "total_hours": 12.0,
+          "entry_count": 2
+        },
+        {
+          "key": "automotech-aspice",
+          "total_hours": 6.5,
+          "entry_count": 1
+        }
+      ],
+      "total_hours": 18.5,
+      "period": "2026-04-01 to 2026-04-07"
+    },
+    "metrics": {
+      "started_at": "2026-04-07T10:17:00.000Z",
+      "finished_at": "2026-04-07T10:17:00.400Z",
+      "attempt": 1,
+      "worker_id": "time-worker"
+    }
   }
 }

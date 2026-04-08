@@ -1,0 +1,190 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/drive-job-types.schema.json",
+  "title": "Jarvis Drive Job Types",
+  "type": "object",
+  "$defs": {
+    "drive_file": {
+      "type": "object",
+      "required": ["id", "name", "mime_type", "size", "modified_at", "web_link"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mime_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "modified_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "web_link": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "drive_list_files_input": {
+      "type": "object",
+      "properties": {
+        "folder_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "query": {
+          "type": "string",
+          "minLength": 1
+        },
+        "max_results": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "drive_list_files_output": {
+      "type": "object",
+      "required": ["files", "total"],
+      "properties": {
+        "files": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/drive_file" }
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "folder_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "drive_download_file_input": {
+      "type": "object",
+      "required": ["file_id", "output_path"],
+      "properties": {
+        "file_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "output_path": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "drive_download_file_output": {
+      "type": "object",
+      "required": ["file_id", "output_path", "size", "downloaded_at"],
+      "properties": {
+        "file_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "output_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "downloaded_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "drive_watch_folder_input": {
+      "type": "object",
+      "required": ["folder_id"],
+      "properties": {
+        "folder_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "since": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "drive_watch_folder_output": {
+      "type": "object",
+      "required": ["new_files", "modified_files", "checked_at"],
+      "properties": {
+        "new_files": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/drive_file" }
+        },
+        "modified_files": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/drive_file" }
+        },
+        "checked_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "drive_sync_folder_input": {
+      "type": "object",
+      "required": ["folder_id", "local_path"],
+      "properties": {
+        "folder_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "local_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "since": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "drive_sync_folder_output": {
+      "type": "object",
+      "required": ["downloaded", "skipped", "errors", "synced_at"],
+      "properties": {
+        "downloaded": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "errors": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "synced_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

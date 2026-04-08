@@ -36,7 +36,9 @@ export type PluginPermission = (typeof PLUGIN_PERMISSIONS)[number];
 /** Maps capability prefixes to required permissions. */
 const CAPABILITY_PERMISSION_MAP: Record<string, PluginPermission> = {
   knowledge: "read_knowledge",
+  knowledge_write: "write_knowledge",
   crm: "read_crm",
+  crm_write: "write_crm",
   inference: "execute_inference",
   browser: "execute_browser",
   email: "execute_email",

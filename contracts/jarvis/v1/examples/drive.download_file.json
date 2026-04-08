@@ -1,24 +1,40 @@
 {
   "job_envelope": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-drive-download_file",
+    "job_id": "d21e0002-0002-4000-8000-000000000002",
     "type": "drive.download_file",
-    "session_key": "example-session",
-    "requested_by": { "source": "agent", "agent_id": "example" },
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": { "channel": "api", "user_id": "consultant" },
     "priority": "normal",
     "approval_state": "not_required",
-    "timeout_seconds": 60,
+    "timeout_seconds": 120,
     "attempt": 1,
-    "input": {},
+    "input": {
+      "file_id": "file-001",
+      "output_path": "/tmp/Safety-Plan-v2.docx"
+    },
     "artifacts_in": [],
-    "metadata": { "agent_id": "example", "thread_key": null }
+    "metadata": { "agent_id": "drive-watcher", "thread_key": null }
   },
   "job_result": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-drive-download_file",
+    "job_id": "d21e0002-0002-4000-8000-000000000002",
     "job_type": "drive.download_file",
     "status": "completed",
-    "summary": "Example result for drive.download_file",
-    "attempt": 1
+    "summary": "Downloaded Safety-Plan-v2.docx (245760 bytes).",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "file_id": "file-001",
+      "output_path": "/tmp/Safety-Plan-v2.docx",
+      "size": 245760,
+      "downloaded_at": "2026-04-07T10:21:00.000Z"
+    },
+    "metrics": {
+      "started_at": "2026-04-07T10:21:00.000Z",
+      "finished_at": "2026-04-07T10:21:03.000Z",
+      "attempt": 1,
+      "worker_id": "drive-worker"
+    }
   }
 }

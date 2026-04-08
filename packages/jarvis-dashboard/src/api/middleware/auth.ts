@@ -159,7 +159,8 @@ export function createAuthMiddleware() {
     const tokens = loadTokens();
     const mode = process.env.JARVIS_MODE ?? "dev";
 
-    // If no tokens configured, behavior depends on mode
+    // If no tokens configured: fail closed in production, restricted in dev.
+    // The default posture must be safe — no open admin fallback.
     if (tokens.length === 0) {
       if (mode === "production") {
         res.status(503).json({
@@ -167,8 +168,16 @@ export function createAuthMiddleware() {
         });
         return;
       }
-      // Dev mode: grant synthetic admin with warning
-      req.user = { role: "admin", token_prefix: "none" };
+      // Dev mode without tokens: grant viewer only (read-only).
+      // Mutations require configuring real tokens even in dev.
+      const requiredRole = getRequiredRole(req.path, req.method);
+      if (requiredRole !== "viewer") {
+        res.status(403).json({
+          error: "No API tokens configured. Dev mode allows read-only access only. Configure api_token in ~/.jarvis/config.json to enable mutations.",
+        });
+        return;
+      }
+      req.user = { role: "viewer", token_prefix: "none" };
       next();
       return;
     }

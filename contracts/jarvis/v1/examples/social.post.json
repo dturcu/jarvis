@@ -1,24 +1,40 @@
 {
   "job_envelope": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-social-post",
+    "job_id": "50c1a104-0004-4000-8000-000000000004",
     "type": "social.post",
-    "session_key": "example-session",
-    "requested_by": { "source": "agent", "agent_id": "example" },
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": { "channel": "api", "user_id": "consultant" },
     "priority": "normal",
-    "approval_state": "not_required",
+    "approval_state": "approved",
     "timeout_seconds": 60,
     "attempt": 1,
-    "input": {},
+    "input": {
+      "platform": "linkedin",
+      "text": "New blog post on ISO 26262 Part 6 software verification best practices."
+    },
     "artifacts_in": [],
-    "metadata": { "agent_id": "example", "thread_key": null }
+    "metadata": { "agent_id": "content-engine", "thread_key": null }
   },
   "job_result": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-social-post",
+    "job_id": "50c1a104-0004-4000-8000-000000000004",
     "job_type": "social.post",
     "status": "completed",
-    "summary": "Example result for social.post",
-    "attempt": 1
+    "summary": "Published LinkedIn post.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "platform": "linkedin",
+      "posted": true,
+      "post_url": "https://www.linkedin.com/feed/update/urn:li:activity:7200000000000000001",
+      "timestamp": "2026-04-07T10:08:00.000Z"
+    },
+    "metrics": {
+      "started_at": "2026-04-07T10:08:00.000Z",
+      "finished_at": "2026-04-07T10:08:03.000Z",
+      "attempt": 1,
+      "worker_id": "social-worker"
+    }
   }
 }

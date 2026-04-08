@@ -1,24 +1,47 @@
 {
   "job_envelope": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-social-digest",
+    "job_id": "50c1a107-0007-4000-8000-000000000007",
     "type": "social.digest",
-    "session_key": "example-session",
-    "requested_by": { "source": "agent", "agent_id": "example" },
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": { "channel": "api", "user_id": "consultant" },
     "priority": "normal",
     "approval_state": "not_required",
     "timeout_seconds": 60,
     "attempt": 1,
-    "input": {},
+    "input": {
+      "period": "7d"
+    },
     "artifacts_in": [],
-    "metadata": { "agent_id": "example", "thread_key": null }
+    "metadata": { "agent_id": "social-engagement", "thread_key": null }
   },
   "job_result": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-social-digest",
+    "job_id": "50c1a107-0007-4000-8000-000000000007",
     "job_type": "social.digest",
     "status": "completed",
-    "summary": "Example result for social.digest",
-    "attempt": 1
+    "summary": "Generated weekly social digest with 5 actions.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "entries": [
+        {
+          "platform": "linkedin",
+          "action": "like",
+          "target_url": "https://www.linkedin.com/feed/update/urn:li:activity:7100000000000000000",
+          "timestamp": "2026-04-05T14:00:00.000Z"
+        }
+      ],
+      "summary": "5 social actions across LinkedIn this week.",
+      "total_actions": 5,
+      "period": "7d",
+      "generated_at": "2026-04-07T10:11:00.000Z"
+    },
+    "metrics": {
+      "started_at": "2026-04-07T10:11:00.000Z",
+      "finished_at": "2026-04-07T10:11:01.000Z",
+      "attempt": 1,
+      "worker_id": "social-worker"
+    }
   }
 }

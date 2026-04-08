@@ -236,115 +236,20 @@ describe("SqliteMemoryStore", () => {
     expect(rowB.cnt).toBe(5);
   });
 
-  // ── saveRun / getRun / getLastRun / getRunHistory / getRunCount ────────
-
-  function makeRunRecord(overrides: Partial<Record<string, unknown>> = {}) {
-    const now = new Date().toISOString();
-    return {
-      run_id: randomUUID(),
-      agent_id: "test-agent",
-      trigger_kind: "manual",
-      goal: "Test goal",
-      status: "completed",
-      current_step: 3,
-      total_steps: 5,
-      started_at: now,
-      updated_at: now,
-      ...overrides,
-    };
-  }
-
-  it("saveRun persists a run record", () => {
-    const run = makeRunRecord();
-    store.saveRun(run);
-    const retrieved = store.getRun(run.run_id);
-    expect(retrieved).toBeDefined();
-    expect(retrieved!.run_id).toBe(run.run_id);
-    expect(retrieved!.goal).toBe("Test goal");
-    expect(retrieved!.status).toBe("completed");
-  });
-
-  it("saveRun with INSERT OR REPLACE updates existing run", () => {
-    const run = makeRunRecord({ status: "executing" });
-    store.saveRun(run);
-
-    // Update status
-    store.saveRun({ ...run, status: "completed", completed_at: new Date().toISOString() });
-    const retrieved = store.getRun(run.run_id);
-    expect(retrieved!.status).toBe("completed");
-    expect(retrieved!.completed_at).toBeTruthy();
-  });
-
-  it("getRun retrieves by run_id", () => {
-    const run = makeRunRecord();
-    store.saveRun(run);
-    expect(store.getRun(run.run_id)).toBeDefined();
-    expect(store.getRun("nonexistent")).toBeUndefined();
-  });
-
-  it("getLastRun returns most recent for agent", () => {
-    const earlier = makeRunRecord({ started_at: "2026-01-01T00:00:00.000Z", updated_at: "2026-01-01T00:00:00.000Z" });
-    const later = makeRunRecord({ started_at: "2026-06-01T00:00:00.000Z", updated_at: "2026-06-01T00:00:00.000Z" });
-    store.saveRun(earlier);
-    store.saveRun(later);
-
-    const last = store.getLastRun("test-agent");
-    expect(last!.run_id).toBe(later.run_id);
-  });
-
-  it("getLastRun returns undefined when no runs exist", () => {
-    expect(store.getLastRun("nonexistent")).toBeUndefined();
-  });
-
-  it("getRunHistory returns ordered list with limit", () => {
-    for (let i = 0; i < 10; i++) {
-      store.saveRun(makeRunRecord({
-        started_at: `2026-01-${String(i + 1).padStart(2, "0")}T00:00:00.000Z`,
-        updated_at: `2026-01-${String(i + 1).padStart(2, "0")}T00:00:00.000Z`,
-      }));
-    }
-    const history = store.getRunHistory(undefined, 5);
-    expect(history).toHaveLength(5);
-    // Should be newest first
-    expect(history[0]!.started_at >= history[1]!.started_at).toBe(true);
-  });
-
-  it("getRunHistory filtered by agent_id", () => {
-    store.saveRun(makeRunRecord({ agent_id: "agent-a" }));
-    store.saveRun(makeRunRecord({ agent_id: "agent-a" }));
-    store.saveRun(makeRunRecord({ agent_id: "agent-b" }));
-
-    const historyA = store.getRunHistory("agent-a");
-    const historyB = store.getRunHistory("agent-b");
-    expect(historyA).toHaveLength(2);
-    expect(historyB).toHaveLength(1);
-  });
-
-  it("getRunCount returns correct counts", () => {
-    store.saveRun(makeRunRecord({ agent_id: "agent-a" }));
-    store.saveRun(makeRunRecord({ agent_id: "agent-a" }));
-    store.saveRun(makeRunRecord({ agent_id: "agent-b" }));
-
-    expect(store.getRunCount()).toBe(3);
-    expect(store.getRunCount("agent-a")).toBe(2);
-    expect(store.getRunCount("agent-b")).toBe(1);
-    expect(store.getRunCount("nonexistent")).toBe(0);
-  });
+  // Run history methods removed — run tracking is now exclusively in
+  // runtime.db via RunStore. SqliteMemoryStore handles only memory entries.
 
   // ── Persistence across instances ──────────────────────────────────────────
 
   it("entries persist across constructor calls (same db path)", () => {
     store.addShortTerm("agent-1", "run-1", "persisted observation");
     store.addLongTerm("agent-1", "run-1", "persisted fact");
-    const run = makeRunRecord();
-    store.saveRun(run);
     store.close();
 
     const store2 = new SqliteMemoryStore(dbPath);
     const ctx = store2.getContext("agent-1", "run-1");
     expect(ctx.short_term).toHaveLength(1);
     expect(ctx.long_term).toHaveLength(1);
-    expect(store2.getRun(run.run_id)).toBeDefined();
     store2.close();
   });
 

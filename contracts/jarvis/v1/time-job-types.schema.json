@@ -1,0 +1,206 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/time-job-types.schema.json",
+  "title": "Jarvis Time Job Types",
+  "type": "object",
+  "$defs": {
+    "time_entry": {
+      "type": "object",
+      "required": ["id", "description", "project", "start", "stop", "duration_seconds", "tags"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string"
+        },
+        "project": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "stop": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "duration_seconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "time_summary_group": {
+      "type": "object",
+      "required": ["key", "total_hours", "entry_count"],
+      "properties": {
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "total_hours": {
+          "type": "number",
+          "minimum": 0
+        },
+        "entry_count": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "time_list_entries_input": {
+      "type": "object",
+      "required": ["start_date", "end_date"],
+      "properties": {
+        "start_date": {
+          "type": "string",
+          "minLength": 1
+        },
+        "end_date": {
+          "type": "string",
+          "minLength": 1
+        },
+        "project_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "time_list_entries_output": {
+      "type": "object",
+      "required": ["entries", "total_hours", "period"],
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/time_entry" }
+        },
+        "total_hours": {
+          "type": "number",
+          "minimum": 0
+        },
+        "period": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "time_create_entry_input": {
+      "type": "object",
+      "required": ["description", "start", "duration_seconds"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "project_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "start": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "duration_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "time_create_entry_output": {
+      "type": "object",
+      "required": ["entry", "created"],
+      "properties": {
+        "entry": {
+          "$ref": "#/$defs/time_entry"
+        },
+        "created": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "time_summary_input": {
+      "type": "object",
+      "required": ["start_date", "end_date"],
+      "properties": {
+        "start_date": {
+          "type": "string",
+          "minLength": 1
+        },
+        "end_date": {
+          "type": "string",
+          "minLength": 1
+        },
+        "group_by": {
+          "type": "string",
+          "enum": ["project", "day", "tag"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "time_summary_output": {
+      "type": "object",
+      "required": ["groups", "total_hours", "period"],
+      "properties": {
+        "groups": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/time_summary_group" }
+        },
+        "total_hours": {
+          "type": "number",
+          "minimum": 0
+        },
+        "period": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "time_sync_input": {
+      "type": "object",
+      "properties": {
+        "direction": {
+          "type": "string",
+          "enum": ["pull", "push", "both"]
+        }
+      },
+      "additionalProperties": false
+    },
+    "time_sync_output": {
+      "type": "object",
+      "required": ["synced_entries", "direction", "synced_at"],
+      "properties": {
+        "synced_entries": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "direction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "synced_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

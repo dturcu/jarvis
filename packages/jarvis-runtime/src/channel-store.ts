@@ -111,11 +111,13 @@ export class ChannelStore {
     externalId?: string;
     direction: MessageDirection;
     contentPreview?: string;
+    contentFull?: string;
     sender?: string;
     commandId?: string;
     runId?: string;
   }): string {
     const messageId = randomUUID();
+    const now = new Date().toISOString();
     this.db.prepare(`
       INSERT INTO channel_messages
         (message_id, thread_id, channel, external_id, direction, content_preview, sender, command_id, run_id, created_at)
@@ -130,8 +132,20 @@ export class ChannelStore {
       opts.sender ?? null,
       opts.commandId ?? null,
       opts.runId ?? null,
-      new Date().toISOString(),
+      now,
     );
+
+    // Store full content if provided (column added in migration 0007)
+    if (opts.contentFull != null) {
+      try {
+        this.db.prepare(
+          "UPDATE channel_messages SET content_full = ? WHERE message_id = ?",
+        ).run(opts.contentFull, messageId);
+      } catch {
+        // content_full column may not exist yet if migration 0007 hasn't run
+      }
+    }
+
     return messageId;
   }
 
@@ -140,6 +154,22 @@ export class ChannelStore {
     return this.db.prepare(
       "SELECT * FROM channel_messages WHERE thread_id = ? ORDER BY created_at ASC LIMIT ?",
     ).all(threadId, limit) as ChannelMessage[];
+  }
+
+  /**
+   * Get the full content for a message. Returns null if the message doesn't
+   * exist, has no full content stored, or the column hasn't been created yet.
+   */
+  getMessageContent(messageId: string): string | null {
+    try {
+      const row = this.db.prepare(
+        "SELECT content_full FROM channel_messages WHERE message_id = ?",
+      ).get(messageId) as { content_full: string | null } | undefined;
+      return row?.content_full ?? null;
+    } catch {
+      // content_full column may not exist yet if migration 0007 hasn't run
+      return null;
+    }
   }
 
   // ─── Deliveries ─────────────────────────────────────────────────────────

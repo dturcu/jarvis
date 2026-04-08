@@ -118,8 +118,8 @@ OpenClaw Gateway (WebSocket + HTTP, plugin host)
 - `packages/jarvis-agents/src/prompts/` -- 14 system prompt files (Markdown)
 - `packages/jarvis-agents/src/data/` -- Garden beds + planting calendar (JSON)
 - `packages/jarvis-agent-framework/src/` -- Runtime, memory, knowledge, entity graph, lesson capture
-- `contracts/jarvis/v1/` -- JSON schemas (22 families), 144 examples, job catalog (143 types), plugin surface
-- `tests/` -- 48 test files, 1159 tests
+- `contracts/jarvis/v1/` -- JSON schemas (23 families), 144 examples, job catalog (143 types), plugin surface
+- `tests/` -- 92 test files (unit + smoke + stress), 2384+ test cases
 - `scripts/` -- Setup, contract validation, DB initialization, ops (health, backup, recovery)
 - `scripts/runtime/` -- OpenClaw gateway bootstrap and smoke harness
 - `docs/` -- Architecture, usage guide, production target, release gates, specs, runbooks
@@ -129,11 +129,19 @@ OpenClaw Gateway (WebSocket + HTTP, plugin host)
 
 ```bash
 npm run check                    # Full pipeline: contracts + tests + build
-npm test                         # Tests only (48 files, 1159 tests)
+npm test                         # Tests only (92 files, 2384+ tests)
 npm run build                    # TypeScript compilation
 npm run validate:contracts       # Schema + example validation (143 job types)
 npm run smoke:runtime            # OpenClaw + LM Studio integration smoke test
 ```
+
+## Security Model
+
+- Dashboard API binds to `127.0.0.1` by default (configurable via `JARVIS_BIND_HOST`)
+- Auth: requires Bearer token in production; read-only access in dev mode without tokens
+- Chat and Telegram surfaces are read-only ingress — no direct email sending, file writing, or shell execution
+- All irreversible actions (email, publishing, trades) flow through the approval-backed job pipeline
+- Agent memory is durable (SQLite-backed), not in-memory
 
 ## CRM Pipeline Stages
 

@@ -149,7 +149,27 @@
         "document.extract_clauses",
         "document.analyze_compliance",
         "document.compare",
-        "document.generate_report"
+        "document.generate_report",
+        "browser.navigate",
+        "browser.click",
+        "browser.type",
+        "browser.evaluate",
+        "browser.wait_for",
+        "social.like",
+        "social.comment",
+        "social.repost",
+        "social.post",
+        "social.follow",
+        "social.scan_feed",
+        "social.digest",
+        "time.list_entries",
+        "time.create_entry",
+        "time.summary",
+        "time.sync",
+        "drive.list_files",
+        "drive.download_file",
+        "drive.watch_folder",
+        "drive.sync_folder"
       ]
     },
     "session_key": {
@@ -1116,6 +1136,126 @@
       "properties": {
         "type": { "const": "document.generate_report" },
         "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/document-job-types.schema.json#/$defs/document_generate_report_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "browser.navigate" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_navigate_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "browser.click" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_click_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "browser.type" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_type_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "browser.evaluate" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_evaluate_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "browser.wait_for" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/browser-job-types.schema.json#/$defs/browser_wait_for_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "social.like" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_like_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "social.comment" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_comment_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "social.repost" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_repost_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "social.post" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_post_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "social.follow" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_follow_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "social.scan_feed" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_scan_feed_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "social.digest" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json#/$defs/social_digest_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "time.list_entries" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/time-job-types.schema.json#/$defs/time_list_entries_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "time.create_entry" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/time-job-types.schema.json#/$defs/time_create_entry_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "time.summary" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/time-job-types.schema.json#/$defs/time_summary_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "time.sync" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/time-job-types.schema.json#/$defs/time_sync_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "drive.list_files" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/drive-job-types.schema.json#/$defs/drive_list_files_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "drive.download_file" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/drive-job-types.schema.json#/$defs/drive_download_file_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "drive.watch_folder" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/drive-job-types.schema.json#/$defs/drive_watch_folder_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "drive.sync_folder" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/drive-job-types.schema.json#/$defs/drive_sync_folder_input" }
       }
     }
   ],

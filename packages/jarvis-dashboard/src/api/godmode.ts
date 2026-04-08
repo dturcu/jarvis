@@ -1,21 +1,20 @@
 import { Router } from 'express'
 import { DatabaseSync } from 'node:sqlite'
 import http from 'http'
-import https from 'https'
 import os from 'os'
-import fs, { realpathSync } from 'fs'
-import { join, resolve, relative } from 'path'
+import fs from 'fs'
+import { join } from 'path'
 import { ChannelStore } from '@jarvis/runtime'
+import {
+  executeTool,
+  extractToolCalls,
+  buildContext,
+} from './tool-infra.js'
 
 const LMS_URL = process.env.LMS_URL ?? 'http://localhost:1234'
 const DEFAULT_MODEL = process.env.LMS_MODEL ?? 'qwen/qwen3.5-35b-a3b'
 
-/** Project root for file_read/file_list tools. Configurable via env or config. */
-function getProjectRoot(): string {
-  return resolve(process.env.JARVIS_PROJECT_ROOT ?? join(os.homedir(), 'Documents', 'Playground'))
-}
-
-// ─── Intent Classification ───────────────────────────��──────────────────────
+// ─── Intent Classification ───────────────────────────────────────────────────
 
 const INTENT_SYSTEM_PROMPT = `You are an intent classifier. Given a user message, return ONLY valid JSON (no markdown, no explanation) with this shape:
 {"intent":"<type>","surfaces":["chat",...],"tools":[...]}
@@ -125,7 +124,7 @@ Then execute the step using available tools. After each step completes, output t
 Be systematic. Complete all steps before summarizing results.`
 }
 
-// ─── Tool Infrastructure (replicated from chat.ts since it doesn't export) ──
+// ─── Tool Descriptions (godmode-specific: includes file_read/file_list) ──────
 
 const TOOL_DESCRIPTIONS = `
 You have these tools available. To use one, output EXACTLY this format on its own line:
@@ -163,195 +162,6 @@ Rules:
 - After receiving tool results, synthesize them into a clear answer
 `.trim()
 
-async function executeTool(name: string, params: Record<string, unknown>): Promise<string> {
-  switch (name) {
-    case 'web_search': {
-      const query = (params.query as string) ?? ''
-      if (!query) return 'Error: query is required'
-      try {
-        const url = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`
-        const html = await fetchUrl(url)
-        const results: string[] = []
-        const regex = /<a rel="nofollow" class="result__a" href="([^"]*)"[^>]*>([^<]*)<\/a>[\s\S]*?<a class="result__snippet"[^>]*>([\s\S]*?)<\/a>/gi
-        let match: RegExpExecArray | null
-        let count = 0
-        while ((match = regex.exec(html)) !== null && count < 8) {
-          const title = match[2]?.replace(/<[^>]+>/g, '').trim() ?? ''
-          const snippet = match[3]?.replace(/<[^>]+>/g, '').trim() ?? ''
-          const href = match[1] ?? ''
-          if (title) {
-            results.push(`${count + 1}. ${title}\n   ${snippet}\n   URL: ${href}`)
-            count++
-          }
-        }
-        if (results.length === 0) {
-          const textContent = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
-          return `Search results for "${query}":\n${textContent.slice(0, 2000)}`
-        }
-        return `Search results for "${query}":\n\n${results.join('\n\n')}`
-      } catch (e) {
-        return `Search failed: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
-    case 'web_fetch': {
-      const url = params.url as string
-      if (!url) return 'Error: url is required'
-      try {
-        const html = await fetchUrl(url)
-        const text = html
-          .replace(/<script[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[\s\S]*?<\/style>/gi, '')
-          .replace(/<nav[\s\S]*?<\/nav>/gi, '')
-          .replace(/<footer[\s\S]*?<\/footer>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-          .replace(/\s+/g, ' ').trim()
-        return `Content from ${url}:\n\n${text.slice(0, 4000)}`
-      } catch (e) {
-        return `Fetch failed: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
-    case 'crm_search': {
-      const query = (params.query as string) ?? ''
-      try {
-        const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'crm.db'))
-        const rows = db.prepare(
-          "SELECT name, company, role, stage, score, email, tags FROM contacts WHERE name LIKE ? OR company LIKE ? ORDER BY score DESC LIMIT 10"
-        ).all(`%${query}%`, `%${query}%`) as Array<Record<string, unknown>>
-        db.close()
-        if (rows.length === 0) return `No CRM contacts found for "${query}"`
-        return `CRM results for "${query}":\n${rows.map(r => `- ${r.name} (${r.company}, ${r.role ?? 'N/A'}) — stage: ${r.stage}, score: ${r.score}, email: ${r.email ?? 'N/A'}`).join('\n')}`
-      } catch (e) {
-        return `CRM search failed: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
-    case 'knowledge_search': {
-      const query = (params.query as string) ?? ''
-      const collection = params.collection as string | undefined
-      try {
-        const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'knowledge.db'))
-        let rows: Array<Record<string, unknown>>
-        if (collection) {
-          rows = db.prepare(
-            "SELECT title, content, collection, tags FROM documents WHERE collection = ? AND (title LIKE ? OR content LIKE ?) ORDER BY created_at DESC LIMIT 10"
-          ).all(collection, `%${query}%`, `%${query}%`) as Array<Record<string, unknown>>
-        } else {
-          rows = db.prepare(
-            "SELECT title, content, collection, tags FROM documents WHERE title LIKE ? OR content LIKE ? ORDER BY created_at DESC LIMIT 10"
-          ).all(`%${query}%`, `%${query}%`) as Array<Record<string, unknown>>
-        }
-        db.close()
-        if (rows.length === 0) return `No knowledge documents found for "${query}"`
-        return `Knowledge results for "${query}":\n${rows.map(r => `- [${r.collection}] ${r.title}\n  ${(r.content as string).slice(0, 200)}`).join('\n')}`
-      } catch (e) {
-        return `Knowledge search failed: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
-    case 'system_info': {
-      const cpus = os.cpus()
-      const totalMem = os.totalmem()
-      const freeMem = os.freemem()
-      const usedPct = Math.round(((totalMem - freeMem) / totalMem) * 100)
-      return `System Info:\n- Platform: ${os.platform()} ${os.arch()}\n- CPU: ${cpus[0]?.model ?? 'unknown'} (${cpus.length} cores)\n- Memory: ${usedPct}% used (${Math.round(freeMem / 1073741824)}GB free / ${Math.round(totalMem / 1073741824)}GB total)\n- Uptime: ${Math.round(os.uptime() / 3600)}h\n- Hostname: ${os.hostname()}`
-    }
-    case 'file_read': {
-      const filePath = params.path as string
-      if (!filePath) return 'Error: path is required'
-      try {
-        const PROJECT_ROOT = realpathSync(getProjectRoot())
-        const absPath = resolve(PROJECT_ROOT, filePath)
-        // Security: prevent path traversal outside project
-        if (!absPath.startsWith(PROJECT_ROOT)) return 'Error: path must be within the project directory'
-        if (!fs.existsSync(absPath)) return `Error: file not found: ${filePath}`
-        // Resolve symlinks before final check to prevent symlink-based traversal
-        const realPath = realpathSync(absPath)
-        if (!realPath.startsWith(PROJECT_ROOT)) return 'Error: path must be within the project directory'
-        const stat = fs.statSync(absPath)
-        if (stat.isDirectory()) return `Error: ${filePath} is a directory, use file_list instead`
-        if (stat.size > 100_000) return `Error: file too large (${Math.round(stat.size / 1024)}KB). Max 100KB.`
-        const content = fs.readFileSync(absPath, 'utf-8')
-        const lines = content.split('\n')
-        const numbered = lines.map((line, i) => `${i + 1} | ${line}`).join('\n')
-        return `File: ${filePath} (${lines.length} lines)\n\n${numbered}`
-      } catch (e) {
-        return `File read failed: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
-    case 'file_list': {
-      const dirPath = (params.path as string) ?? '.'
-      const recursive = (params.recursive as boolean) ?? false
-      try {
-        const PROJECT_ROOT = realpathSync(getProjectRoot())
-        const absPath = resolve(PROJECT_ROOT, dirPath)
-        if (!absPath.startsWith(PROJECT_ROOT)) return 'Error: path must be within the project directory'
-        if (!fs.existsSync(absPath)) return `Error: directory not found: ${dirPath}`
-        // Resolve symlinks before final check to prevent symlink-based traversal
-        const realAbsPath = realpathSync(absPath)
-        if (!realAbsPath.startsWith(PROJECT_ROOT)) return 'Error: path must be within the project directory'
-        if (!fs.statSync(realAbsPath).isDirectory()) return `Error: ${dirPath} is a file, use file_read instead`
-
-        const entries: string[] = []
-        function walk(dir: string, depth: number) {
-          if (depth > 4) return // max depth safety
-          const items = fs.readdirSync(dir, { withFileTypes: true })
-          for (const item of items) {
-            // Skip common non-useful dirs
-            if (['node_modules', '.git', 'dist', '.next', '.cache'].includes(item.name)) continue
-            const rel = relative(PROJECT_ROOT, join(dir, item.name))
-            if (item.isDirectory()) {
-              entries.push(`${rel}/`)
-              if (recursive) walk(join(dir, item.name), depth + 1)
-            } else {
-              const stat = fs.statSync(join(dir, item.name))
-              entries.push(`${rel} (${stat.size > 1024 ? Math.round(stat.size / 1024) + 'KB' : stat.size + 'B'})`)
-            }
-          }
-        }
-        walk(absPath, 0)
-        if (entries.length === 0) return `Directory ${dirPath} is empty`
-        return `Directory: ${dirPath} (${entries.length} items)\n\n${entries.join('\n')}`
-      } catch (e) {
-        return `File list failed: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
-    default:
-      return `Unknown tool: ${name}`
-  }
-}
-
-function fetchUrl(url: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const mod = url.startsWith('https') ? https : http
-    const req = mod.get(url, { headers: { 'User-Agent': 'Jarvis/1.0' } }, (res) => {
-      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        fetchUrl(res.headers.location).then(resolve).catch(reject)
-        return
-      }
-      let data = ''
-      res.on('data', (c: Buffer) => data += c.toString())
-      res.on('end', () => resolve(data))
-      res.on('error', reject)
-    })
-    req.on('error', reject)
-    req.setTimeout(15000, () => { req.destroy(); reject(new Error('Timeout')) })
-  })
-}
-
-const TOOL_REGEX = /\[TOOL:(\w+)\]\((\{[\s\S]*?\})\)/g
-
-function extractToolCalls(text: string): Array<{ name: string; params: Record<string, unknown>; fullMatch: string }> {
-  const calls: Array<{ name: string; params: Record<string, unknown>; fullMatch: string }> = []
-  const regex = new RegExp(TOOL_REGEX.source, 'g')
-  let match: RegExpExecArray | null
-  while ((match = regex.exec(text)) !== null) {
-    try {
-      const params = JSON.parse(match[2]!) as Record<string, unknown>
-      calls.push({ name: match[1]!, params, fullMatch: match[0] })
-    } catch { /* skip malformed */ }
-  }
-  return calls
-}
-
 // ─── Artifact Extraction ────────────────────────────────────────────────────
 
 const ARTIFACT_REGEX = /```artifact:(\w+)\nTITLE:\s*(.+)\n([\s\S]*?)```/g
@@ -366,42 +176,7 @@ function extractArtifacts(text: string): Array<{ kind: string; title: string; co
   return artifacts
 }
 
-// ─── Context Builder ───────────────────────────────────────────────────────��
-
-function buildContext(): string {
-  const lines: string[] = []
-  const jarvisDir = join(os.homedir(), '.jarvis')
-  try {
-    const db = new DatabaseSync(join(jarvisDir, 'crm.db'))
-    const contacts = db.prepare("SELECT name, company, role, stage, score, tags FROM contacts ORDER BY score DESC").all() as Array<Record<string, unknown>>
-    db.close()
-    if (contacts.length > 0) {
-      lines.push('## CRM Pipeline')
-      for (const c of contacts) {
-        let tags: string[] = []
-        try { tags = JSON.parse(c.tags as string) } catch {}
-        lines.push(`- ${c.name} (${c.company}, ${c.role ?? 'unknown'}) — stage: ${c.stage}, score: ${c.score}${tags.length ? ', tags: ' + tags.join(', ') : ''}`)
-      }
-    }
-  } catch {}
-  try {
-    const kb = new DatabaseSync(join(jarvisDir, 'knowledge.db'))
-    const playbooks = kb.prepare("SELECT title, body FROM playbooks ORDER BY use_count DESC LIMIT 5").all() as Array<{ title: string; body: string }>
-    const lessons = kb.prepare("SELECT title, content FROM documents WHERE collection = 'lessons' ORDER BY created_at DESC LIMIT 5").all() as Array<{ title: string; content: string }>
-    kb.close()
-    if (playbooks.length > 0) {
-      lines.push('\n## Playbooks')
-      for (const p of playbooks) lines.push(`### ${p.title}\n${p.body.slice(0, 400)}`)
-    }
-    if (lessons.length > 0) {
-      lines.push('\n## Recent Lessons')
-      for (const l of lessons) lines.push(`- ${l.title}: ${l.content.slice(0, 200)}`)
-    }
-  } catch {}
-  return lines.join('\n')
-}
-
-// ─── LLM Communication ─────────────────────────────��───────────────────────
+// ─── LLM Communication ──────────────────────────────────────────────────────
 
 function llmChat(messages: Array<{ role: string; content: string }>, model: string, temperature = 0.3, maxTokens = 2048): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -480,7 +255,7 @@ function streamLlm(
   })
 }
 
-// ─── SSE Helper ───────────────────��─────────────────────────────────���───────
+// ─── SSE Helper ──────────────────────────────────────────────────────────────
 
 function sendSSE(res: import('express').Response, type: string, data: unknown) {
   res.write(`data: ${JSON.stringify({ type, ...data as Record<string, unknown> })}\n\n`)
@@ -509,6 +284,8 @@ godmodeRouter.post('/', async (req, res) => {
   res.flushHeaders()
   const socket = res.socket as (NodeJS.Socket & { setNoDelay?: (v: boolean) => void }) | null
   socket?.setNoDelay?.(true)
+
+  let fullTextForArtifacts = ''
 
   try {
     // Step 1: Intent classification
@@ -544,6 +321,8 @@ Today is ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long
         sendSSE(res, 'token', { content: data })
       }
     })
+
+    fullTextForArtifacts = fullResponse
 
     // Step 4: Check for tool calls — execute ONCE, cache results
     const toolCalls = extractToolCalls(fullResponse)
@@ -621,7 +400,6 @@ Today is ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long
     // We need to re-check the complete response for artifact blocks
     // The artifacts are already in the streamed text, but we send explicit artifact events
     // for the frontend to render in the artifact panel
-    const fullTextForArtifacts = fullResponse
     const artifacts = extractArtifacts(fullTextForArtifacts)
     for (const artifact of artifacts) {
       sendSSE(res, 'artifact', {

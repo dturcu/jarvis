@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { createCommand, ChannelStore } from '@jarvis/runtime'
 import { CRM_DB, openRuntimeDb } from './config.js'
 import { loadApprovals, resolveApproval } from './approvals.js'
-import { handleFreeText, type ParsedAction } from './chat-handler.js'
+import { handleFreeText } from './chat-handler.js'
 
 const AGENTS = [
   'bd-pipeline', 'proposal-engine', 'evidence-auditor', 'contract-reviewer',
@@ -40,35 +40,10 @@ export async function handleCommand(text: string, ctx?: CommandContext): Promise
     }
   }
 
-  // Free-text — route through LLM
-  return handleFreeTextMessage(text, ctx)
-}
-
-async function handleFreeTextMessage(text: string, ctx?: CommandContext): Promise<string> {
-  const { text: reply, actions } = await handleFreeText(text)
-  const parts: string[] = []
-
-  // Execute any actions the LLM requested
-  for (const action of actions) {
-    parts.push(await executeAction(action, text, ctx))
-  }
-
-  // Combine LLM reply with action results
-  if (parts.length > 0) {
-    return `${reply}\n\n${parts.join('\n\n')}`
-  }
+  // Free-text — relay through Jarvis API (pure pass-through, no action parsing).
+  // All agent triggers must come via explicit /slash commands, not from LLM output.
+  const { text: reply } = await handleFreeText(text)
   return reply
-}
-
-async function executeAction(action: ParsedAction, text: string, ctx?: CommandContext): Promise<string> {
-  switch (action.type) {
-    case 'trigger':
-      return triggerAgent(action.agentId, text, ctx)
-    case 'status':
-      return getStatus()
-    case 'crm':
-      return getCrmTop5()
-  }
 }
 
 function getStatus(): string {

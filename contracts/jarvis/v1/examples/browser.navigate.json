@@ -1,24 +1,39 @@
 {
   "job_envelope": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-browser-navigate",
+    "job_id": "b10a0001-0001-4000-8000-000000000001",
     "type": "browser.navigate",
-    "session_key": "example-session",
-    "requested_by": { "source": "agent", "agent_id": "example" },
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": { "channel": "api", "user_id": "consultant" },
     "priority": "normal",
     "approval_state": "not_required",
     "timeout_seconds": 60,
     "attempt": 1,
-    "input": {},
+    "input": {
+      "url": "https://example.com/dashboard",
+      "wait_until": "load"
+    },
     "artifacts_in": [],
-    "metadata": { "agent_id": "example", "thread_key": null }
+    "metadata": { "agent_id": "main", "thread_key": null }
   },
   "job_result": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-browser-navigate",
+    "job_id": "b10a0001-0001-4000-8000-000000000001",
     "job_type": "browser.navigate",
     "status": "completed",
-    "summary": "Example result for browser.navigate",
-    "attempt": 1
+    "summary": "Navigated to https://example.com/dashboard successfully.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "url": "https://example.com/dashboard",
+      "title": "Dashboard",
+      "status": 200
+    },
+    "metrics": {
+      "started_at": "2026-04-07T10:00:00.000Z",
+      "finished_at": "2026-04-07T10:00:01.200Z",
+      "attempt": 1,
+      "worker_id": "browser-worker"
+    }
   }
 }

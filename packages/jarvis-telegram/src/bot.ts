@@ -22,24 +22,67 @@ export class JarvisBot {
   private channelStore: ChannelStore | null = null
   private threadId: string | null = null
 
+  // Rate limiter: track timestamps of recent sends (20/min max)
+  private sendTimestamps: number[] = []
+  private static readonly RATE_LIMIT = 20
+  private static readonly RATE_WINDOW_MS = 60_000
+
   constructor(private config: JarvisConfig['telegram']) {
     this.baseUrl = `https://api.telegram.org/bot${config.bot_token}`
     this.chatId = config.chat_id
   }
 
+  private async waitForRateLimit(): Promise<void> {
+    const now = Date.now()
+    // Prune timestamps older than the window
+    this.sendTimestamps = this.sendTimestamps.filter(
+      ts => now - ts < JarvisBot.RATE_WINDOW_MS
+    )
+    if (this.sendTimestamps.length >= JarvisBot.RATE_LIMIT) {
+      const oldest = this.sendTimestamps[0]
+      const waitMs = JarvisBot.RATE_WINDOW_MS - (now - oldest)
+      if (waitMs > 0) {
+        await new Promise(r => setTimeout(r, waitMs))
+      }
+      // Prune again after waiting
+      const after = Date.now()
+      this.sendTimestamps = this.sendTimestamps.filter(
+        ts => after - ts < JarvisBot.RATE_WINDOW_MS
+      )
+    }
+  }
+
   async send(text: string): Promise<void> {
-    const res = await fetch(`${this.baseUrl}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chat_id: this.chatId,
-        text: text.slice(0, 4096), // Telegram max message length
-        parse_mode: undefined
-      })
-    })
-    if (!res.ok) {
-      const err = await res.text()
-      throw new Error(`Telegram send failed: ${err}`)
+    const maxRetries = 3
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        await this.waitForRateLimit()
+
+        const res = await fetch(`${this.baseUrl}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: this.chatId,
+            text: text.slice(0, 4096), // Telegram max message length
+            parse_mode: undefined
+          })
+        })
+        if (!res.ok) {
+          const err = await res.text()
+          throw new Error(`Telegram send failed: ${err}`)
+        }
+
+        this.sendTimestamps.push(Date.now())
+        return
+      } catch (e) {
+        if (attempt === maxRetries) {
+          console.error(`Telegram send failed after ${maxRetries} attempts:`, e)
+          return // Don't throw — message stays in notification queue for next poll cycle
+        }
+        const backoffMs = 1000 * Math.pow(2, attempt - 1) // 1s, 2s, 4s
+        console.warn(`Telegram send attempt ${attempt}/${maxRetries} failed, retrying in ${backoffMs}ms`)
+        await new Promise(r => setTimeout(r, backoffMs))
+      }
     }
   }
 

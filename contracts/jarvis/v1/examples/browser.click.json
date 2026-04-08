@@ -1,24 +1,38 @@
 {
   "job_envelope": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-browser-click",
+    "job_id": "b10a0002-0002-4000-8000-000000000002",
     "type": "browser.click",
-    "session_key": "example-session",
-    "requested_by": { "source": "agent", "agent_id": "example" },
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": { "channel": "api", "user_id": "consultant" },
     "priority": "normal",
     "approval_state": "not_required",
     "timeout_seconds": 60,
     "attempt": 1,
-    "input": {},
+    "input": {
+      "selector": "#login-button",
+      "wait_before_ms": 500
+    },
     "artifacts_in": [],
-    "metadata": { "agent_id": "example", "thread_key": null }
+    "metadata": { "agent_id": "main", "thread_key": null }
   },
   "job_result": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-browser-click",
+    "job_id": "b10a0002-0002-4000-8000-000000000002",
     "job_type": "browser.click",
     "status": "completed",
-    "summary": "Example result for browser.click",
-    "attempt": 1
+    "summary": "Clicked element #login-button.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "selector": "#login-button",
+      "clicked": true
+    },
+    "metrics": {
+      "started_at": "2026-04-07T10:00:02.000Z",
+      "finished_at": "2026-04-07T10:00:02.600Z",
+      "attempt": 1,
+      "worker_id": "browser-worker"
+    }
   }
 }

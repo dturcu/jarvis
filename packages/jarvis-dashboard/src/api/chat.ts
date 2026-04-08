@@ -5,9 +5,58 @@ import https from 'https'
 import os from 'os'
 import fs from 'fs'
 import { join } from 'path'
+import {
+  fetchUrl,
+  executeTool,
+  extractToolCalls,
+  buildContext,
+  type FetchUrlOptions,
+} from './tool-infra.js'
 
 const LMS_URL = process.env.LMS_URL ?? 'http://localhost:1234'
 const DEFAULT_MODEL = process.env.LMS_MODEL ?? 'qwen/qwen3.5-35b-a3b'
+
+/** Fetch options for chat.ts -- browser-like User-Agent */
+const CHAT_FETCH_OPTS: FetchUrlOptions = {
+  userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+}
+
+/** Google News RSS search handler used by chat surface */
+async function googleNewsSearch(query: string, fetchFn: typeof fetchUrl): Promise<string> {
+  try {
+    const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`
+    const xml = await fetchFn(rssUrl, CHAT_FETCH_OPTS)
+
+    const results: string[] = []
+    const itemRegex = /<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<link>([\s\S]*?)<\/link>[\s\S]*?(?:<pubDate>([\s\S]*?)<\/pubDate>)?[\s\S]*?(?:<source[^>]*>([\s\S]*?)<\/source>)?[\s\S]*?<\/item>/gi
+    let match: RegExpExecArray | null
+    let count = 0
+    while ((match = itemRegex.exec(xml)) !== null && count < 10) {
+      const title = (match[1] ?? '').replace(/<!\[CDATA\[|\]\]>/g, '').trim()
+      const link = (match[2] ?? '').trim()
+      const date = match[3] ? new Date(match[3].trim()).toLocaleDateString() : ''
+      const source = (match[4] ?? '').replace(/<!\[CDATA\[|\]\]>/g, '').trim()
+      if (title) {
+        results.push(`${count + 1}. ${title}${source ? ` — ${source}` : ''}${date ? ` (${date})` : ''}\n   ${link}`)
+        count++
+      }
+    }
+    if (results.length > 0) {
+      return `News results for "${query}":\n\n${results.join('\n\n')}`
+    }
+    return `No news results found for "${query}". Try broader search terms.`
+  } catch (e) {
+    return `Search failed: ${e instanceof Error ? e.message : String(e)}`
+  }
+}
+
+/** Execute a read-only tool with chat.ts overrides (Google News, browser UA, decisions) */
+function chatExecuteTool(name: string, params: Record<string, unknown>): Promise<string> {
+  return executeTool(name, params, {
+    fetch: CHAT_FETCH_OPTS,
+    webSearch: { handler: googleNewsSearch },
+  })
+}
 
 // ─── Gmail Helper ────────────────────────────────────────────────────────────
 
@@ -96,227 +145,6 @@ Rules:
 - If a tool fails, tell the user and suggest alternatives
 `.trim()
 
-// ─── Tool Execution ───────────────────────────────────────────────────────────
-
-async function executeTool(name: string, params: Record<string, unknown>): Promise<string> {
-  switch (name) {
-    case 'web_search': {
-      const query = (params.query as string) ?? ''
-      if (!query) return 'Error: query is required'
-      try {
-        // Use Google News RSS — reliable, no CAPTCHA, no API key needed
-        const rssUrl = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`
-        const xml = await fetchUrl(rssUrl)
-
-        const results: string[] = []
-        // Parse RSS items: <item><title>...</title><link>...</link><pubDate>...</pubDate><source>...</source></item>
-        const itemRegex = /<item>[\s\S]*?<title>([\s\S]*?)<\/title>[\s\S]*?<link>([\s\S]*?)<\/link>[\s\S]*?(?:<pubDate>([\s\S]*?)<\/pubDate>)?[\s\S]*?(?:<source[^>]*>([\s\S]*?)<\/source>)?[\s\S]*?<\/item>/gi
-        let match: RegExpExecArray | null
-        let count = 0
-        while ((match = itemRegex.exec(xml)) !== null && count < 10) {
-          const title = (match[1] ?? '').replace(/<!\[CDATA\[|\]\]>/g, '').trim()
-          const link = (match[2] ?? '').trim()
-          const date = match[3] ? new Date(match[3].trim()).toLocaleDateString() : ''
-          const source = (match[4] ?? '').replace(/<!\[CDATA\[|\]\]>/g, '').trim()
-          if (title) {
-            results.push(`${count + 1}. ${title}${source ? ` — ${source}` : ''}${date ? ` (${date})` : ''}\n   ${link}`)
-            count++
-          }
-        }
-        if (results.length > 0) {
-          return `News results for "${query}":\n\n${results.join('\n\n')}`
-        }
-        return `No news results found for "${query}". Try broader search terms.`
-      } catch (e) {
-        return `Search failed: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
-
-    case 'web_fetch': {
-      const url = params.url as string
-      if (!url) return 'Error: url is required'
-      try {
-        const html = await fetchUrl(url)
-        // Strip HTML to get readable text
-        const text = html
-          .replace(/<script[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[\s\S]*?<\/style>/gi, '')
-          .replace(/<nav[\s\S]*?<\/nav>/gi, '')
-          .replace(/<footer[\s\S]*?<\/footer>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/\s+/g, ' ')
-          .trim()
-        return `Content from ${url}:\n\n${text.slice(0, 4000)}`
-      } catch (e) {
-        return `Fetch failed: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
-
-    case 'crm_search': {
-      const query = (params.query as string) ?? ''
-      try {
-        const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'crm.db'))
-        const rows = db.prepare(
-          "SELECT name, company, role, stage, score, email, tags FROM contacts WHERE name LIKE ? OR company LIKE ? ORDER BY score DESC LIMIT 10"
-        ).all(`%${query}%`, `%${query}%`) as Array<Record<string, unknown>>
-        db.close()
-        if (rows.length === 0) return `No CRM contacts found for "${query}"`
-        const results = rows.map(r => `- ${r.name} (${r.company}, ${r.role ?? 'N/A'}) — stage: ${r.stage}, score: ${r.score}, email: ${r.email ?? 'N/A'}`).join('\n')
-        return `CRM results for "${query}":\n${results}`
-      } catch (e) {
-        return `CRM search failed: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
-
-    case 'knowledge_search': {
-      const query = (params.query as string) ?? ''
-      const collection = params.collection as string | undefined
-      try {
-        const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'knowledge.db'))
-        let rows: Array<Record<string, unknown>>
-        if (collection) {
-          rows = db.prepare(
-            "SELECT title, content, collection, tags FROM documents WHERE collection = ? AND (title LIKE ? OR content LIKE ?) ORDER BY created_at DESC LIMIT 10"
-          ).all(collection, `%${query}%`, `%${query}%`) as Array<Record<string, unknown>>
-        } else {
-          rows = db.prepare(
-            "SELECT title, content, collection, tags FROM documents WHERE title LIKE ? OR content LIKE ? ORDER BY created_at DESC LIMIT 10"
-          ).all(`%${query}%`, `%${query}%`) as Array<Record<string, unknown>>
-        }
-        db.close()
-        if (rows.length === 0) return `No knowledge documents found for "${query}"`
-        const results = rows.map(r => `- [${r.collection}] ${r.title}\n  ${(r.content as string).slice(0, 200)}`).join('\n')
-        return `Knowledge results for "${query}":\n${results}`
-      } catch (e) {
-        return `Knowledge search failed: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
-
-    case 'system_info': {
-      const cpus = os.cpus()
-      const totalMem = os.totalmem()
-      const freeMem = os.freemem()
-      const usedPct = Math.round(((totalMem - freeMem) / totalMem) * 100)
-      return `System Info:
-- Platform: ${os.platform()} ${os.arch()}
-- CPU: ${cpus[0]?.model ?? 'unknown'} (${cpus.length} cores)
-- Memory: ${usedPct}% used (${Math.round(freeMem / 1024 / 1024 / 1024)}GB free / ${Math.round(totalMem / 1024 / 1024 / 1024)}GB total)
-- Uptime: ${Math.round(os.uptime() / 3600)}h
-- Hostname: ${os.hostname()}`
-    }
-
-    case 'list_files': {
-      const targetPath = (params.path as string) ?? join(os.homedir(), 'Desktop')
-      try {
-        const fs = await import('node:fs')
-        const entries = fs.readdirSync(targetPath, { withFileTypes: true })
-        const items = entries.slice(0, 50).map(e => {
-          const type = e.isDirectory() ? '📁' : '📄'
-          try {
-            const stats = fs.statSync(join(targetPath, e.name))
-            const size = e.isDirectory() ? '' : ` (${Math.round(stats.size / 1024)}KB)`
-            return `${type} ${e.name}${size}`
-          } catch {
-            return `${type} ${e.name}`
-          }
-        })
-        return `Files in ${targetPath}:\n${items.join('\n')}${entries.length > 50 ? `\n... and ${entries.length - 50} more` : ''}`
-      } catch (e) {
-        return `Cannot list files at ${targetPath}: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
-
-    default:
-      return `Unknown tool: ${name}`
-  }
-}
-
-function fetchUrl(url: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const mod = url.startsWith('https') ? https : http
-    const req = mod.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36', 'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': 'en-US,en;q=0.9' } }, (res) => {
-      // Follow redirects
-      if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        fetchUrl(res.headers.location).then(resolve).catch(reject)
-        return
-      }
-      let data = ''
-      res.on('data', (c: Buffer) => data += c.toString())
-      res.on('end', () => resolve(data))
-      res.on('error', reject)
-    })
-    req.on('error', reject)
-    req.setTimeout(15000, () => { req.destroy(); reject(new Error('Timeout')) })
-  })
-}
-
-// ─── Extract tool calls from LLM output ───────────────────────────────────────
-
-const TOOL_REGEX = /\[TOOL:(\w+)\]\((\{[\s\S]*?\})\)/g
-
-function extractToolCalls(text: string): Array<{ name: string; params: Record<string, unknown>; fullMatch: string }> {
-  const calls: Array<{ name: string; params: Record<string, unknown>; fullMatch: string }> = []
-  let match: RegExpExecArray | null
-  const regex = new RegExp(TOOL_REGEX.source, 'g')
-  while ((match = regex.exec(text)) !== null) {
-    try {
-      const params = JSON.parse(match[2]!) as Record<string, unknown>
-      calls.push({ name: match[1]!, params, fullMatch: match[0] })
-    } catch { /* skip malformed */ }
-  }
-  return calls
-}
-
-// ─── Context Builder ──────────────────────────────────────────────────────────
-
-function buildContext(): string {
-  const lines: string[] = []
-  const jarvisDir = join(os.homedir(), '.jarvis')
-
-  try {
-    const db = new DatabaseSync(join(jarvisDir, 'crm.db'))
-    const contacts = db.prepare(
-      "SELECT name, company, role, stage, score, tags FROM contacts ORDER BY score DESC"
-    ).all() as Array<{ name: string; company: string; role: string; stage: string; score: number; tags: string }>
-    db.close()
-    if (contacts.length > 0) {
-      lines.push('## CRM Pipeline')
-      for (const c of contacts) {
-        let tags: string[] = []
-        try { tags = JSON.parse(c.tags) } catch {}
-        lines.push(`- ${c.name} (${c.company}, ${c.role ?? 'unknown role'}) — stage: ${c.stage}, score: ${c.score}${tags.length ? ', tags: ' + tags.join(', ') : ''}`)
-      }
-    }
-  } catch {}
-
-  try {
-    const kb = new DatabaseSync(join(jarvisDir, 'knowledge.db'))
-    const playbooks = kb.prepare("SELECT title, body FROM playbooks ORDER BY use_count DESC LIMIT 5").all() as Array<{ title: string; body: string }>
-    const lessons = kb.prepare("SELECT title, content FROM documents WHERE collection = 'lessons' ORDER BY created_at DESC LIMIT 5").all() as Array<{ title: string; content: string }>
-    const decisions = kb.prepare("SELECT agent_id, action, reasoning, outcome, created_at FROM decisions ORDER BY created_at DESC LIMIT 10").all() as Array<{ agent_id: string; action: string; reasoning: string; outcome: string; created_at: string }>
-    kb.close()
-
-    if (playbooks.length > 0) {
-      lines.push('\n## Playbooks')
-      for (const p of playbooks) lines.push(`### ${p.title}\n${p.body.slice(0, 400)}`)
-    }
-    if (lessons.length > 0) {
-      lines.push('\n## Recent Lessons')
-      for (const l of lessons) lines.push(`- ${l.title}: ${l.content.slice(0, 200)}`)
-    }
-    if (decisions.length > 0) {
-      lines.push('\n## Recent Agent Decisions')
-      for (const d of decisions) lines.push(`- [${d.agent_id}] ${d.action}: ${(d.reasoning ?? '').slice(0, 150)} → ${d.outcome ?? 'pending'}`)
-    }
-  } catch {}
-
-  return lines.join('\n')
-}
-
 // ─── Non-streaming LLM call (for tool-use follow-up) ──────────────────────────
 
 function llmChat(messages: Array<{ role: string; content: string }>, model: string): Promise<string> {
@@ -385,7 +213,7 @@ chatRouter.post('/', async (req, res) => {
 
   if (!message?.trim()) { res.status(400).json({ error: 'message is required' }); return }
 
-  const context = buildContext()
+  const context = buildContext({ includeDecisions: true })
   const systemPrompt = `You are Jarvis, an autonomous AI agent assistant for Thinking in Code — Daniel Turcu's automotive safety consulting firm (ISO 26262, ASPICE, AUTOSAR, cybersecurity).
 
 You are a powerful agent with access to live tools. You CAN browse the web, search online, read URLs, query the CRM, and search the knowledge base.
@@ -433,7 +261,7 @@ Be direct and specific. Use your tools actively when the user asks you to look s
     // Execute tools and feed results back
     for (const call of toolCalls) {
       res.write(`data: ${JSON.stringify({ token: `\n\n🔧 Running ${call.name}...\n\n` })}\n\n`)
-      const result = await executeTool(call.name, call.params)
+      const result = await chatExecuteTool(call.name, call.params)
 
       // Add tool result to conversation and get follow-up
       msgs.push({ role: 'assistant', content: fullResponse })
@@ -561,18 +389,9 @@ const AGENT_TOOLS = [
       parameters: { type: 'object', properties: {} }
     }
   },
-  {
-    type: 'function' as const, function: {
-      name: 'write_file', description: 'Write content to a file. Use for creating text files, scripts, markdown, etc.',
-      parameters: { type: 'object', properties: { path: { type: 'string', description: 'Full file path to write' }, content: { type: 'string', description: 'File content' } }, required: ['path', 'content'] }
-    }
-  },
-  {
-    type: 'function' as const, function: {
-      name: 'run_command', description: 'Run a shell command on the system. Use for tasks like listing processes, checking network, etc.',
-      parameters: { type: 'object', properties: { command: { type: 'string', description: 'Shell command to execute' } }, required: ['command'] }
-    }
-  },
+  // write_file and run_command REMOVED — direct privileged execution from chat
+  // violates the runtime kernel trust model. All mutations must flow through
+  // the command → run → approval → job → worker path.
   {
     type: 'function' as const, function: {
       name: 'gmail_search', description: 'Search Gmail emails. Use Gmail search syntax: "is:unread", "from:user@example.com", "after:2026/04/07", "subject:meeting", "newer_than:1d"',
@@ -591,27 +410,9 @@ const AGENT_TOOLS = [
       parameters: { type: 'object', properties: { url: { type: 'string', description: 'URL to navigate to' } }, required: ['url'] }
     }
   },
-  {
-    type: 'function' as const, function: {
-      name: 'gmail_send', description: 'Send an email via Gmail. CRITICAL: Always confirm with Daniel before sending. Show him the to, subject, and body first and ask "Should I send this?"',
-      parameters: { type: 'object', properties: {
-        to: { type: 'string', description: 'Recipient email address' },
-        subject: { type: 'string', description: 'Email subject' },
-        body: { type: 'string', description: 'Email body (plain text)' },
-        confirmed: { type: 'boolean', description: 'Set to true ONLY after Daniel explicitly confirms. Default false — show draft first.' }
-      }, required: ['to', 'subject', 'body'] }
-    }
-  },
-  {
-    type: 'function' as const, function: {
-      name: 'gmail_reply', description: 'Reply to an email thread. CRITICAL: Always confirm with Daniel before sending.',
-      parameters: { type: 'object', properties: {
-        message_id: { type: 'string', description: 'Original message ID to reply to (from gmail_search)' },
-        body: { type: 'string', description: 'Reply body (plain text)' },
-        confirmed: { type: 'boolean', description: 'Set to true ONLY after Daniel confirms.' }
-      }, required: ['message_id', 'body'] }
-    }
-  },
+  // gmail_send and gmail_reply REMOVED — email sending must go through
+  // the approval-backed email.send / email.reply job types in the runtime kernel,
+  // not through a chat-surface boolean confirmation.
 ]
 
 /** Execute a tool by name, including new tools */
@@ -727,95 +528,12 @@ async function executeAgentTool(name: string, params: Record<string, unknown>): 
       }
     }
 
-    case 'gmail_send': {
-      const to = params.to as string
-      const subject = params.subject as string
-      const body = params.body as string
-      const confirmed = params.confirmed as boolean
-      if (!to || !subject || !body) return 'Error: to, subject, and body are required'
-      if (!confirmed) {
-        return `📝 DRAFT EMAIL (not sent yet):\n\nTo: ${to}\nSubject: ${subject}\n\n${body}\n\n⚠️ Reply "yes, send it" to confirm sending.`
-      }
-      try {
-        const token = await getGmailAccessToken()
-        if (!token) return 'Gmail not configured.'
-        const raw = Buffer.from(
-          `To: ${to}\r\nSubject: ${subject}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body}`
-        ).toString('base64url')
-        const resp = await new Promise<string>((resolve, reject) => {
-          const reqBody = JSON.stringify({ raw })
-          const req = https.request({
-            hostname: 'gmail.googleapis.com', port: 443,
-            path: '/gmail/v1/users/me/messages/send', method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(reqBody) }
-          }, (res) => {
-            let data = ''
-            res.on('data', (c: Buffer) => data += c.toString())
-            res.on('end', () => resolve(data))
-            res.on('error', reject)
-          })
-          req.on('error', reject)
-          req.setTimeout(15000, () => { req.destroy(); reject(new Error('timeout')) })
-          req.write(reqBody)
-          req.end()
-        })
-        const result = JSON.parse(resp)
-        if (result.id) return `✅ Email sent to ${to} (ID: ${result.id})`
-        return `Failed to send: ${resp.slice(0, 300)}`
-      } catch (e) {
-        return `Send failed: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
-
-    case 'gmail_reply': {
-      const messageId = params.message_id as string
-      const body = params.body as string
-      const confirmed = params.confirmed as boolean
-      if (!messageId || !body) return 'Error: message_id and body required'
-      if (!confirmed) {
-        return `📝 DRAFT REPLY (not sent yet):\n\nReply to message ${messageId.slice(0, 8)}...:\n\n${body}\n\n⚠️ Reply "yes, send it" to confirm.`
-      }
-      try {
-        const token = await getGmailAccessToken()
-        if (!token) return 'Gmail not configured.'
-        // Get original message for thread ID and headers
-        const original = JSON.parse(await httpsGet(
-          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Message-ID`,
-          { Authorization: `Bearer ${token}` }
-        ))
-        const headers = original.payload?.headers ?? []
-        const from = headers.find((h: { name: string }) => h.name === 'From')?.value ?? ''
-        const subject = headers.find((h: { name: string }) => h.name === 'Subject')?.value ?? ''
-        const msgIdHeader = headers.find((h: { name: string }) => h.name === 'Message-ID')?.value ?? ''
-        const threadId = original.threadId
-
-        const raw = Buffer.from(
-          `To: ${from}\r\nSubject: Re: ${subject}\r\nIn-Reply-To: ${msgIdHeader}\r\nReferences: ${msgIdHeader}\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n${body}`
-        ).toString('base64url')
-        const resp = await new Promise<string>((resolve, reject) => {
-          const reqBody = JSON.stringify({ raw, threadId })
-          const req = https.request({
-            hostname: 'gmail.googleapis.com', port: 443,
-            path: '/gmail/v1/users/me/messages/send', method: 'POST',
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(reqBody) }
-          }, (res) => {
-            let data = ''
-            res.on('data', (c: Buffer) => data += c.toString())
-            res.on('end', () => resolve(data))
-            res.on('error', reject)
-          })
-          req.on('error', reject)
-          req.setTimeout(15000, () => { req.destroy(); reject(new Error('timeout')) })
-          req.write(reqBody)
-          req.end()
-        })
-        const result = JSON.parse(resp)
-        if (result.id) return `✅ Reply sent to ${from} (ID: ${result.id})`
-        return `Failed to reply: ${resp.slice(0, 300)}`
-      } catch (e) {
-        return `Reply failed: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
+    // gmail_send and gmail_reply handlers removed — email sending must go
+    // through the approval-backed email.send / email.reply job types.
+    case 'gmail_send':
+      return 'Email sending is disabled in the chat surface. Use the /email-campaign agent or submit an email.send job through the runtime.'
+    case 'gmail_reply':
+      return 'Email reply is disabled in the chat surface. Use the /email-campaign agent or submit an email.reply job through the runtime.'
 
     case 'browse_page': {
       const url = params.url as string
@@ -849,7 +567,7 @@ async function executeAgentTool(name: string, params: Record<string, unknown>): 
           req.on('error', () => {})
           req.end()
           // Fallback: fetch via regular HTTP
-          fetchUrl(url).then(html => {
+          fetchUrl(url, CHAT_FETCH_OPTS).then(html => {
             const text = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
             resolve(text.slice(0, 5000))
           }).catch(reject)
@@ -866,7 +584,7 @@ async function executeAgentTool(name: string, params: Record<string, unknown>): 
       } catch (e) {
         // Fallback to regular fetch
         try {
-          const html = await fetchUrl(url)
+          const html = await fetchUrl(url, CHAT_FETCH_OPTS)
           const text = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<style[\s\S]*?<\/style>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
           return `Page content from ${url} (via HTTP fetch):\n\n${text.slice(0, 5000)}`
         } catch (e2) {
@@ -875,38 +593,10 @@ async function executeAgentTool(name: string, params: Record<string, unknown>): 
       }
     }
 
-    case 'write_file': {
-      const filePath = params.path as string
-      const content = params.content as string
-      if (!filePath || content === undefined) return 'Error: path and content required'
-      try {
-        const fs = await import('node:fs')
-        const { dirname } = await import('node:path')
-        fs.mkdirSync(dirname(filePath), { recursive: true })
-        fs.writeFileSync(filePath, content, 'utf8')
-        return `File written: ${filePath} (${content.length} chars)`
-      } catch (e) {
-        return `Write failed: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
-    case 'run_command': {
-      const cmd = params.command as string
-      if (!cmd) return 'Error: command required'
-      // Safety: block dangerous commands
-      const blocked = ['rm -rf', 'format', 'del /s', 'shutdown', 'taskkill', 'rmdir /s']
-      if (blocked.some(b => cmd.toLowerCase().includes(b))) {
-        return `Blocked: "${cmd}" is a destructive command. Ask Daniel for confirmation first.`
-      }
-      try {
-        const { execSync } = await import('node:child_process')
-        const output = execSync(cmd, { timeout: 15000, encoding: 'utf8', maxBuffer: 1024 * 1024 })
-        return `Command: ${cmd}\n\n${output.slice(0, 3000)}`
-      } catch (e) {
-        return `Command failed: ${e instanceof Error ? e.message : String(e)}`
-      }
-    }
+    // write_file and run_command handlers removed — privileged execution
+    // must go through the runtime kernel, not chat surfaces.
     default:
-      return executeTool(name, params)
+      return chatExecuteTool(name, params)
   }
 }
 
@@ -967,23 +657,21 @@ chatRouter.post('/telegram', async (req, res) => {
 
   if (!message?.trim()) { res.status(400).json({ error: 'message is required' }); return }
 
-  const context = buildContext()
+  const context = buildContext({ includeDecisions: true })
   const systemPrompt = `You are Jarvis, Daniel's personal AI agent. You run on his Windows PC (${os.hostname()}).
-You have FULL access to his system via tools. ALWAYS use tools to get real data — never guess.
+You have read-only access to data via tools. ALWAYS use tools to get real data — never guess.
 
 RULES:
-1. Use tools proactively for any data request (files, system, web, CRM, etc.)
+1. Use tools proactively for any data request (files, system, web, CRM, email search, etc.)
 2. Chain multiple tools when needed. Think step by step.
 3. Be concise — this goes to Telegram.
 4. Ask clarifying questions when needed.
 5. You ARE Jarvis. Never identify as Qwen/GPT/etc.
 6. Today: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-7. Daniel's paths: home=C:/Users/DanielV2, Desktop=C:/Users/DanielV2/Desktop
 
-EMAIL — You HAVE gmail_send and gmail_reply. You CAN send emails. NEVER say "I cannot send".
-- First call: gmail_send with confirmed=false → shows draft to Daniel
-- When Daniel says "send"/"yes"/"do it" → call gmail_send with confirmed=true IMMEDIATELY
-- For replies: use gmail_reply with message_id from gmail_search
+You can SEARCH and READ emails (gmail_search, gmail_read) but CANNOT send emails from this surface.
+To send emails, trigger the email-campaign agent: use trigger_agent with agent_id "email-campaign".
+For other agent tasks, use trigger_agent with the appropriate agent ID.
 
 CRM/Knowledge:
 ${context.slice(0, 1500)}`

@@ -1,24 +1,38 @@
 {
   "job_envelope": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-time-sync",
+    "job_id": "71e30004-0004-4000-8000-000000000004",
     "type": "time.sync",
-    "session_key": "example-session",
-    "requested_by": { "source": "agent", "agent_id": "example" },
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": { "channel": "api", "user_id": "consultant" },
     "priority": "normal",
     "approval_state": "not_required",
-    "timeout_seconds": 60,
+    "timeout_seconds": 120,
     "attempt": 1,
-    "input": {},
+    "input": {
+      "direction": "pull"
+    },
     "artifacts_in": [],
-    "metadata": { "agent_id": "example", "thread_key": null }
+    "metadata": { "agent_id": "staffing-monitor", "thread_key": null }
   },
   "job_result": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-time-sync",
+    "job_id": "71e30004-0004-4000-8000-000000000004",
     "job_type": "time.sync",
     "status": "completed",
-    "summary": "Example result for time.sync",
-    "attempt": 1
+    "summary": "Synced 5 time entries from remote.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "synced_entries": 5,
+      "direction": "pull",
+      "synced_at": "2026-04-07T10:18:00.000Z"
+    },
+    "metrics": {
+      "started_at": "2026-04-07T10:18:00.000Z",
+      "finished_at": "2026-04-07T10:18:02.000Z",
+      "attempt": 1,
+      "worker_id": "time-worker"
+    }
   }
 }
