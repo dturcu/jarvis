@@ -315,7 +315,7 @@ export class JarvisSupervisor {
       error: result.error,
       logs: result.logs,
       metrics: result.metrics,
-      claim_id: claim?.claim_id ?? randomUUID(),
+      claim_id: claim?.claim_id ?? "",
       route: routeJobType(result.job_type)
     };
 

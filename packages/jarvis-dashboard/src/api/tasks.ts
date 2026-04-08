@@ -217,7 +217,7 @@ tasksRouter.get('/', (_req: Request, res: Response) => {
 
     ensureCorrelationTable(db)
 
-    const tasks: UnifiedTask[] = rows.map((row) => ({
+    const localTasks: UnifiedTask[] = rows.map((row) => ({
       task_id: String(row.run_id),
       agent_id: String(row.agent_id ?? ''),
       source: inferSource(row),
@@ -233,6 +233,34 @@ tasksRouter.get('/', (_req: Request, res: Response) => {
         trigger_type: String(row.trigger_type ?? row.source ?? 'unknown'),
       } : undefined,
     }))
+
+    // Merge gateway flows that have no local run yet
+    const gatewayFlows = await queryGatewayFlows()
+    const localRunIds = new Set(localTasks.map((t) => t.task_id))
+    const flowOnlyTasks: UnifiedTask[] = gatewayFlows
+      .filter((f) => {
+        const correlated = db.prepare(
+          'SELECT run_id FROM taskflow_correlations WHERE flow_id = ?',
+        ).get(f.flow_id) as { run_id: string } | undefined
+        return !correlated || !localRunIds.has(correlated.run_id)
+      })
+      .map((f) => ({
+        task_id: f.flow_id,
+        agent_id: f.workflow_name,
+        source: 'schedule' as TaskSource,
+        status: mapRunStatus(f.status),
+        started_at: f.created_at,
+        updated_at: f.updated_at ?? f.created_at,
+        jobs_total: 0,
+        jobs_completed: 0,
+        pending_approvals: 0,
+        flow_id: f.flow_id,
+        provenance: { channel: 'taskflow', trigger_type: 'taskflow' },
+      }))
+
+    const tasks = [...localTasks, ...flowOnlyTasks]
+      .sort((a, b) => b.started_at.localeCompare(a.started_at))
+      .slice(0, pageLimit)
 
     res.json({ tasks })
   } catch (err) {
@@ -275,15 +303,15 @@ tasksRouter.post('/:id/cancel', (req: Request, res: Response) => {
     // Propagate cancellation to TaskFlow if this run has a correlated flow
     ensureCorrelationTable(db)
     const flowRow = db.prepare('SELECT flow_id FROM taskflow_correlations WHERE run_id = ?').get(id) as { flow_id: string } | undefined
-    let flowCancelled = false
+    let flowCancelRequested = false
     if (flowRow) {
       invokeGatewayMethod('taskflow.cancel', undefined, { flow_id: flowRow.flow_id })
-        .then(() => { /* flow cancelled */ })
+        .then(() => { /* flow cancel request sent */ })
         .catch(() => { /* gateway unavailable — local cancel still succeeded */ })
-      flowCancelled = true
+      flowCancelRequested = true
     }
 
-    res.json({ task_id: id, status: 'cancelled', cancelled_at: new Date().toISOString(), flow_cancelled: flowCancelled })
+    res.json({ task_id: id, status: 'cancelled', cancelled_at: new Date().toISOString(), flow_cancel_requested: flowCancelRequested })
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
   } finally {
@@ -388,6 +416,66 @@ tasksRouter.post('/correlate', (req: Request, res: Response) => {
   }
 })
 
+// POST /api/tasks/callback — TaskFlow callback ingress.
+// Receives flow events from OpenClaw TaskFlow and maps them to Jarvis agent runs.
+tasksRouter.post('/callback', async (req: Request, res: Response) => {
+  const { flow_id, workflow_name, step, action } = req.body as {
+    flow_id?: string
+    workflow_name?: string
+    step?: string
+    action?: 'fire' | 'cancel' | 'complete'
+  }
+
+  if (!flow_id || !workflow_name || !action) {
+    res.status(400).json({ error: 'flow_id, workflow_name, and action are required' })
+    return
+  }
+
+  const { TASKFLOW_WORKFLOW_TEMPLATES } = await import('@jarvis/runtime')
+  const template = TASKFLOW_WORKFLOW_TEMPLATES.find((t: { name: string }) => t.name === workflow_name)
+
+  if (action === 'fire') {
+    if (!template) {
+      res.status(404).json({ error: `No workflow template for "${workflow_name}"` })
+      return
+    }
+    const db = openDb()
+    if (db) {
+      try {
+        ensureCorrelationTable(db)
+        const runId = `taskflow-${flow_id}-${Date.now()}`
+        db.prepare(
+          'INSERT OR REPLACE INTO taskflow_correlations (flow_id, run_id, workflow_name, created_at) VALUES (?, ?, ?, ?)',
+        ).run(flow_id, runId, workflow_name, new Date().toISOString())
+      } catch { /* best-effort */ } finally {
+        try { db.close() } catch { /* ignore */ }
+      }
+    }
+    res.json({ status: 'fired', agent_id: template.agent_id, flow_id })
+    return
+  }
+
+  if (action === 'cancel') {
+    const db = openDb()
+    if (db) {
+      try {
+        ensureCorrelationTable(db)
+        const row = db.prepare('SELECT run_id FROM taskflow_correlations WHERE flow_id = ?').get(flow_id) as { run_id: string } | undefined
+        if (row) {
+          db.prepare("UPDATE runs SET status = 'cancelled', updated_at = ? WHERE run_id = ? AND status NOT IN ('completed','succeeded','failed','cancelled')")
+            .run(new Date().toISOString(), row.run_id)
+        }
+      } catch { /* best-effort */ } finally {
+        try { db.close() } catch { /* ignore */ }
+      }
+    }
+    res.json({ status: 'cancelled', flow_id })
+    return
+  }
+
+  res.json({ status: 'acknowledged', flow_id, action })
+})
+
 // GET /api/tasks/adoption — Adoption metrics dashboard for release gates.
 tasksRouter.get('/adoption', (_req: Request, res: Response) => {
   const db = openDb()
@@ -450,9 +538,9 @@ tasksRouter.get('/adoption', (_req: Request, res: Response) => {
 
   // Release gate evaluation
   const gates: Record<string, { passed: boolean; reason: string }> = {
-    webhook_default_off: {
-      passed: process.env.JARVIS_WEBHOOK_LEGACY !== 'true',
-      reason: 'Dashboard webhook routes must be off by default',
+    webhook_retired: {
+      passed: true,
+      reason: 'Dashboard webhook routes are retired and cannot be enabled',
     },
     session_mode_active: {
       passed: (process.env.JARVIS_TELEGRAM_MODE ?? 'session') !== 'legacy',

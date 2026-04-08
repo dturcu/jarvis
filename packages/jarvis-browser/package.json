@@ -13,6 +13,10 @@
     "./bridge": {
       "types": "./dist/openclaw-bridge.d.ts",
       "default": "./dist/openclaw-bridge.js"
+    },
+    "./openclaw-bridge": {
+      "types": "./dist/openclaw-bridge.d.ts",
+      "default": "./dist/openclaw-bridge.js"
     }
   },
   "openclaw": {

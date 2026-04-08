@@ -598,7 +598,14 @@ async function legacyFallback(
         (proxyRes) => {
           let data = ''
           proxyRes.on('data', (chunk: Buffer) => { data += chunk.toString() })
-          proxyRes.on('end', () => resolve(data))
+          proxyRes.on('end', () => {
+            const statusCode = proxyRes.statusCode ?? 500
+            if (statusCode >= 400) {
+              reject(new Error(`Legacy godmode returned HTTP ${statusCode}: ${data.slice(0, 200)}`))
+            } else {
+              resolve(data)
+            }
+          })
           proxyRes.on('error', reject)
         },
       )
