@@ -38,7 +38,7 @@ export type EntityGraphStats = {
 /**
  * Cross-agent entity graph.
  * Links contacts, companies, documents, and projects across all agents.
- * When bd-pipeline enriches a contact and proposal-engine references the same
+ * When orchestrator enriches a contact and proposal-engine references the same
  * company, the graph lets the system recognise they share context.
  */
 export class EntityGraph {

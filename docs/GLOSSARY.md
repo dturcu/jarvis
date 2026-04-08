@@ -4,7 +4,7 @@ Canonical vocabulary for the Jarvis system. Every document and code comment shou
 
 ## Core Concepts
 
-**Agent** -- A named autonomous workflow (e.g., `bd-pipeline`) with a system prompt, capabilities, approval gates, and schedule. Agents define *what* to do; plugins and workers handle *how*. Each agent belongs to a product tier and has a maturity level that governs its approval policy.
+**Agent** -- A named autonomous workflow (e.g., `proposal-engine`) with a system prompt, capabilities, approval gates, and schedule. Agents define *what* to do; plugins and workers handle *how*. Each agent belongs to a product tier and has a maturity level that governs its approval policy.
 
 **Plugin** -- An OpenClaw extension that registers tools and commands for agents (e.g., `@jarvis/email-plugin`). Plugins expose the agent-facing interface; they translate tool calls into job submissions. There are 19 Jarvis plugins registered with the gateway.
 

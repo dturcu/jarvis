@@ -1,3 +1,5 @@
+> **Note:** This document reflects the pre-v1.0.0 15-agent roster. The active roster was reset to 8 agents in v1.0.0 (2026-04-08). See docs/AGENT-ROSTER-RESET.md for the migration map.
+
 # Y1-Q3 Core Workflow Focus — Release Notes
 
 **Version:** TBD

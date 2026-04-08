@@ -1,6 +1,6 @@
 # Jarvis — Usage Guide
 
-Jarvis is an autonomous agent system for Thinking in Code. It runs 14 domain agents that handle BD pipeline intelligence, proposal generation, compliance auditing, contract review, staffing monitoring, LinkedIn content, crypto portfolio, garden management, email campaigns, social engagement, security monitoring, drive watching, invoice generation, and meeting transcription.
+Jarvis is an autonomous agent system for Thinking in Code. It runs 8 production agents: orchestrator, self-reflection, regulatory-watch, knowledge-curator, proposal-engine, evidence-auditor, contract-reviewer, and staffing-monitor.
 
 Claude Code is the interactive runtime. Jarvis provides domain knowledge, state persistence (SQLite), and agent definitions (skill files). For autonomous execution, Jarvis also runs as an OpenClaw plugin pack with a full job queue and worker pool.
 
@@ -11,8 +11,8 @@ Claude Code is the interactive runtime. Jarvis provides domain knowledge, state 
 - **Node.js 22+** — Required for `node:sqlite` built-in. Check: `node --version`
 - **npm 10+** — Check: `npm --version`
 - **Claude Code CLI** — Installed and authenticated: `claude --version`
-- **Gmail MCP** (optional) — For email-enabled agents (bd-pipeline, staffing-monitor)
-- **Chrome MCP** (optional) — For browser-enabled agents (bd-pipeline, content-engine)
+- **Gmail MCP** (optional) — For email-enabled agents (orchestrator, staffing-monitor)
+- **Chrome MCP** (optional) — For browser-enabled agents (orchestrator, regulatory-watch)
 
 ---
 
@@ -42,21 +42,61 @@ The init script creates:
 
 Open Claude Code in this directory, then use these slash commands:
 
-### `/bd-pipeline` — BD Pipeline Intelligence
-Scans for business development signals and manages the sales pipeline.
+### `/orchestrator` — Workflow Orchestrator
+Coordinates multi-step workflows across agents, including BD pipeline activities.
 
 **What it does:**
-1. Searches Gmail for replies and new threads from prospects
-2. Searches the web for trigger events at target companies (new hires, RFQs, restructuring)
-3. Queries the CRM for current pipeline state
-4. Scores leads using a rubric (+30 safety hiring, +25 new leadership, etc.)
-5. Drafts personalized outreach emails for top 3 leads
-6. Updates the CRM with new contacts and notes
-7. Generates a pipeline digest
+1. Receives high-level workflow requests (BD outreach, content planning, etc.)
+2. Decomposes into sub-tasks and delegates to appropriate agents
+3. Manages cross-agent state and handoffs
+4. Aggregates results into unified digests
+5. Handles approval routing for delegated actions
 
-**Approval gate:** Will ask for approval before sending any email.
+**Approval gate:** Inherits approval gates from delegated sub-tasks.
 
-**Run time:** ~3-5 minutes
+**Run time:** Varies by workflow complexity
+
+---
+
+### `/self-reflection` — Self-Reflection & Improvement
+Reviews past agent runs and extracts improvement opportunities.
+
+**What it does:**
+1. Analyzes recent run logs for patterns (failures, slow steps, low-quality outputs)
+2. Identifies recurring issues and root causes
+3. Suggests prompt or workflow improvements
+4. Updates agent memory with lessons learned
+5. Generates a weekly improvement report
+
+**No approval gate** — this agent is analysis only.
+
+---
+
+### `/regulatory-watch` — Regulatory & Standards Watch
+Monitors automotive safety standards and regulatory developments.
+
+**What it does:**
+1. Scans regulatory bodies for new publications (ISO, SAE, UNECE)
+2. Tracks updates to ISO 26262, ISO 21434, ASPICE, AUTOSAR standards
+3. Monitors industry news for regulatory changes affecting clients
+4. Classifies findings by impact level and relevance to active engagements
+5. Generates a regulatory intelligence digest
+
+**No approval gate** — this agent is analysis only.
+
+---
+
+### `/knowledge-curator` — Knowledge Base Curator
+Maintains and enriches the knowledge base with curated content.
+
+**What it does:**
+1. Reviews recent agent outputs for knowledge-worthy content
+2. Deduplicates and merges related knowledge entries
+3. Updates entity graph with new relationships
+4. Validates knowledge base consistency and freshness
+5. Archives stale entries and flags gaps
+
+**No approval gate** — this agent is analysis only.
 
 ---
 
@@ -142,50 +182,6 @@ Calculates team utilization and forecasts staffing gaps.
 
 ---
 
-### `/content-engine` — LinkedIn Content Engine
-Drafts a LinkedIn post for today's content pillar.
-
-**What it does:**
-1. Checks today's day (Mon: personal/leadership, Wed: company/TIC, Thu: safety/technical)
-2. Searches recent posts to avoid topic repetition
-3. Drafts a post in Daniel's style (no em-dashes, no corporate buzzwords, specific technical details)
-4. Finds 2-3 relevant posts from automotive safety professionals worth commenting on
-5. Drafts thoughtful comments for engagement
-
-**CRITICAL approval gate:** Will NEVER publish or draft for publishing without explicit approval.
-
-**Style rules:** First person, direct, opinionated. Short sentences. Anonymous client references. Challenge conventional wisdom. 150-300 words.
-
----
-
-### `/portfolio-monitor` — Crypto Portfolio Monitor
-Checks crypto prices and calculates allocation drift.
-
-**What it does:**
-1. Fetches current XRP, BTC, ETH prices in EUR
-2. Calculates current allocation vs targets (XRP 50% / BTC 35% / ETH 15%)
-3. Checks profit-taking milestones (XRP €2/€3/€5, BTC €80k/€100k/€150k, ETH €5k/€8k)
-4. Scans for relevant regulatory and market news
-5. Generates portfolio digest with recommendations
-
-**NEVER executes trades.** Presents analysis and recommendations only.
-
----
-
-### `/garden-calendar` — Garden Weekly Brief
-Generates a weekly garden brief for Iași, Romania (zone 6b).
-
-**What it does:**
-1. Fetches the current week's weather forecast for Iași
-2. Flags frost risk (<2°C), heat waves (>35°C), heavy rain (>30mm/day)
-3. Determines what to sow, transplant, and harvest based on the date and planting calendar
-4. Checks companion planting conflicts
-5. Assigns specific beds to each task
-
-**Output format:** Sow Indoors / Direct Sow / Transplant / Harvest / Maintenance / Succession Planting
-
----
-
 ### `/health` — System Health Check
 Quick overview of all systems.
 
@@ -250,10 +246,10 @@ npm run telegram-bot
 ### Available commands (from Telegram)
 - `/status` — All agent last-run times + pending approvals
 - `/crm` — Top 5 pipeline contacts by score
-- `/portfolio` — Trigger portfolio monitor
-- `/garden` — Trigger garden calendar
-- `/bd` — Trigger BD pipeline
-- `/content` — Trigger content engine
+- `/orchestrator` — Trigger orchestrator
+- `/regulatory` — Trigger regulatory watch
+- `/proposal` — Trigger proposal engine
+- `/knowledge` — Trigger knowledge curator
 - `/approve <id>` — Approve a gated action
 - `/reject <id>` — Reject a gated action
 - `/help` — Command list
@@ -265,8 +261,8 @@ After each agent run, a digest is queued in the `notifications` table in `~/.jar
 For scheduled agents (those running automatically at 8am etc.), when they hit an approval gate, the bot sends:
 ```
 ⚠️ APPROVAL NEEDED
-Agent: content-engine
-Action: publish_post
+Agent: orchestrator
+Action: email.send
 
 [post preview...]
 
@@ -276,7 +272,7 @@ Reply:
 ```
 Send `/approve abc123` to proceed, `/reject abc123` to skip.
 
-For manually-run agents (you typing `/content-engine` in Claude Code), the approval is handled interactively in the Claude Code session.
+For manually-run agents (you typing `/orchestrator` in Claude Code), the approval is handled interactively in the Claude Code session.
 
 ---
 
@@ -286,12 +282,11 @@ These agents run automatically without you doing anything:
 
 | Agent | Schedule | What it does |
 |---|---|---|
-| bd-pipeline | Weekdays 8:00 AM | Scan for BD signals, update CRM |
 | evidence-auditor | Mondays 9:00 AM | Scan project for ISO 26262 gaps |
 | staffing-monitor | Mondays 9:00 AM | Calculate team utilization |
-| content-engine | Mon/Wed/Thu 7:00 AM | Draft LinkedIn post |
-| portfolio-monitor | Daily 8:00 AM + 8:00 PM | Check crypto prices |
-| garden-calendar | Mondays 7:00 AM | Generate garden brief |
+| regulatory-watch | Mon/Thu 7:00 AM | Scan for standards and regulatory updates |
+| knowledge-curator | Weekdays 6:00 AM | Curate and maintain knowledge base |
+| self-reflection | Sundays 6:00 AM | Review past runs and extract improvements |
 
 The scheduled-tasks MCP fires Claude Code sessions at these times. Results are pushed to Telegram if the bot is running.
 
@@ -306,7 +301,7 @@ The scheduled-tasks MCP fires Claude Code sessions at these times. Results are p
 The CRM pipeline has 7 stages: prospect → qualified → contacted → meeting → proposal → negotiation → won/lost/parked
 
 ### Automatic updates
-The `bd-pipeline` agent automatically:
+The `orchestrator` agent automatically:
 - Adds new contacts when it finds trigger signals
 - Updates scores when new signals appear
 - Moves contacts to the next stage when appropriate (with approval)
@@ -332,7 +327,7 @@ The knowledge base stores lessons, playbooks, and reference documents across col
 - **lessons**: Key learnings after each BD pipeline and proposal run
 - **case-studies**: Project fragments from evidence auditor runs
 - **contracts**: Reviewed contract summaries from contract-reviewer
-- **garden**: Seasonal observations from garden-calendar
+- **regulatory**: Standards and regulatory intelligence from regulatory-watch
 
 ### Manual search (Claude Code)
 - "Search knowledge base for ASIL-D staffing rules"
@@ -371,7 +366,7 @@ npx tsx scripts/init-jarvis.ts
 
 **Gmail MCP not connected:**
 - Open Claude Code Settings → MCP → verify Gmail integration is listed and enabled
-- For bd-pipeline and staffing-monitor, the agent will skip Gmail steps if not connected
+- For orchestrator and staffing-monitor, the agent will skip Gmail steps if not connected
 
 **Scheduled task not firing:**
 - Run `/health` to check scheduled task status

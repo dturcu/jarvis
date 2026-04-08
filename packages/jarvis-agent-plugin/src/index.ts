@@ -310,14 +310,14 @@ export function createAgentsCommand() {
       const toolCtx = toToolContext(ctx);
       if (!args.agentId) {
         const agentIds = [
-          "bd-pipeline",
+          "orchestrator",
+          "self-reflection",
+          "regulatory-watch",
+          "knowledge-curator",
           "proposal-engine",
           "evidence-auditor",
           "contract-reviewer",
           "staffing-monitor",
-          "content-engine",
-          "portfolio-monitor",
-          "garden-calendar"
         ];
         return toCommandReply(
           `Registered agents:\n${agentIds.map((id) => `  - ${id}`).join("\n")}\n\nUse /agents {"agentId":"..."} to query a specific agent.`

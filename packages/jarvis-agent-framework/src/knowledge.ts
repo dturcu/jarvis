@@ -9,6 +9,8 @@ export type KnowledgeCollection =
   | "contracts"
   | "proposals"
   | "iso26262"
+  | "regulatory"
+  | "meetings"
   | "garden";
 
 export type KnowledgeDocument = {
@@ -175,7 +177,7 @@ export class KnowledgeStore {
         content:
           "Hiring signals on LinkedIn (AUTOSAR, ISO 26262, Cyber Security roles) at Tier-1 suppliers reliably precede formal RFQs by 4-6 weeks. Monitor job boards weekly. When a supplier posts 2+ safety-critical openings simultaneously, treat as strong intent signal and move to immediate outreach.",
         tags: ["bd", "signal", "autosar", "rfq", "tier1"],
-        source_agent_id: "bd-pipeline",
+        source_agent_id: "orchestrator",
       },
       {
         collection: "lessons",
@@ -231,7 +233,7 @@ export class KnowledgeStore {
         content:
           "Use when target is posting AUTOSAR Classic→Adaptive migration roles. Opening line: 'Saw you're expanding into Adaptive AUTOSAR — we've led 3 ARA migrations from scratch at Tier-1 level, including timing analysis and service-oriented communication for safety domains. Happy to share what derailed the first two and how we stabilized them.' Follow with 1 specific technical challenge they'll face. Offer: 30-minute architecture call, no pitch.",
         tags: ["outreach", "autosar", "adaptive", "wedge", "bd"],
-        source_agent_id: "bd-pipeline",
+        source_agent_id: "orchestrator",
       },
       {
         collection: "garden",
@@ -239,7 +241,7 @@ export class KnowledgeStore {
         content:
           "Last spring frost: April 15 (average), safe transplant after April 20. First fall frost: October 15 (average). Growing season: ~178 days. Risk dates: late frost risk until May 1, early frost risk from October 1. Warm season crops (tomatoes, peppers, cucumbers): transplant after May 1 for safety. Cool season crops (lettuce, spinach, kale): direct sow March-April, again August-September.",
         tags: ["zone6b", "iasi", "frost", "growing-season", "planting"],
-        source_agent_id: "garden-calendar",
+        source_agent_id: "knowledge-curator",
       },
     ];
 

@@ -47,10 +47,15 @@ type PersistedRelease = {
 
 /**
  * Persist the current release version to the settings table.
- * Call once at daemon startup after migrations have run.
+ * Called after migrations in openRuntimeDb().  Guards against overwriting
+ * installed_at when the version hasn't changed (idempotent on reboot).
  */
 export function persistRelease(db: DatabaseSync): void {
   try {
+    const existing = loadInstalledVersion(db);
+    if (existing && existing.version === CURRENT_RELEASE.version) {
+      return; // Same version already persisted — preserve original installed_at
+    }
     const payload: PersistedRelease = {
       version: CURRENT_RELEASE.version,
       released_at: CURRENT_RELEASE.released_at,
@@ -61,6 +66,22 @@ export function persistRelease(db: DatabaseSync): void {
     ).run("platform_release", JSON.stringify(payload), payload.installed_at);
   } catch {
     // Best-effort — settings table may not exist in all DB contexts
+  }
+}
+
+/**
+ * Verify that all migrations expected by the current release have been applied.
+ * Returns a list of missing migration IDs, or empty if consistent.
+ */
+export function verifyMigrationConsistency(db: DatabaseSync): string[] {
+  try {
+    const applied = db.prepare(
+      "SELECT migration_id FROM schema_migrations",
+    ).all() as Array<{ migration_id: string }>;
+    const appliedSet = new Set(applied.map(r => r.migration_id));
+    return CURRENT_RELEASE.migrations.filter(m => !appliedSet.has(m));
+  } catch {
+    return []; // schema_migrations table may not exist yet
   }
 }
 

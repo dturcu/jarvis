@@ -383,13 +383,13 @@ async function executeAgentTool(name: string, params: Record<string, unknown>): 
     }
     // trigger_agent handler removed — mutation not allowed from viewer-level chat.
     case 'trigger_agent':
-      return 'Agent triggering is not available from the chat surface. Use Telegram /slash commands (e.g. /bd, /content) or the dashboard agents API.'
+      return 'Agent triggering is not available from the chat surface. Use Telegram /slash commands (e.g. /orchestrator, /proposal) or the dashboard agents API.'
     case 'agent_status': {
       try {
         const { DatabaseSync } = await import('node:sqlite')
         const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'runtime.db'))
         db.exec("PRAGMA journal_mode = WAL;")
-        const agents = ['bd-pipeline', 'proposal-engine', 'evidence-auditor', 'contract-reviewer', 'staffing-monitor', 'content-engine', 'portfolio-monitor', 'garden-calendar', 'email-campaign', 'social-engagement', 'security-monitor', 'drive-watcher', 'invoice-generator', 'meeting-transcriber']
+        const agents = ['orchestrator', 'self-reflection', 'regulatory-watch', 'knowledge-curator', 'proposal-engine', 'evidence-auditor', 'contract-reviewer', 'staffing-monitor']
         const lines = ['JARVIS AGENT STATUS\n']
         for (const id of agents) {
           const row = db.prepare('SELECT started_at, status FROM runs WHERE agent_id = ? ORDER BY started_at DESC LIMIT 1').get(id) as { started_at: string; status: string } | undefined
@@ -468,9 +468,9 @@ async function executeAgentTool(name: string, params: Record<string, unknown>): 
     // gmail_send and gmail_reply handlers removed — email sending must go
     // through the approval-backed email.send / email.reply job types.
     case 'gmail_send':
-      return 'Email sending is disabled in the chat surface. Use the /email-campaign agent or submit an email.send job through the runtime.'
+      return 'Email sending is disabled in the chat surface. Submit an email.send job through the runtime API.'
     case 'gmail_reply':
-      return 'Email reply is disabled in the chat surface. Use the /email-campaign agent or submit an email.reply job through the runtime.'
+      return 'Email reply is disabled in the chat surface. Submit an email.reply job through the runtime API.'
 
     case 'browse_page': {
       const url = params.url as string

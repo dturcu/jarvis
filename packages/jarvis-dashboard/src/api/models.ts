@@ -49,6 +49,7 @@ async function probeRuntime(probeUrl: string): Promise<boolean> {
  *   - "plan" standard → sonnet
  */
 // Workflow-to-agent mapping — aligned with new 8-agent roster (2026-04-08)
+// TODO: Generate from V1_WORKFLOWS in @jarvis/runtime to prevent drift.
 const WORKFLOW_MAPPING: Array<{
   workflow_id: string;
   agent_id: string;

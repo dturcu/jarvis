@@ -19,14 +19,14 @@ import { AgentWorkerError } from "./adapter.js";
 const MOCK_NOW = "2026-04-04T12:00:00.000Z";
 
 const MOCK_AGENT_IDS = [
-  "bd-pipeline",
+  "orchestrator",
+  "self-reflection",
+  "regulatory-watch",
+  "knowledge-curator",
   "proposal-engine",
   "evidence-auditor",
   "contract-reviewer",
   "staffing-monitor",
-  "content-engine",
-  "portfolio-monitor",
-  "garden-calendar"
 ];
 
 type MockRun = {

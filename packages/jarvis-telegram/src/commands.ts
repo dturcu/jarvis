@@ -5,10 +5,8 @@ import { loadApprovals, resolveApproval } from './approvals.js'
 import { handleFreeText, type ChatContext } from './chat-handler.js'
 
 const AGENTS = [
-  'bd-pipeline', 'proposal-engine', 'evidence-auditor', 'contract-reviewer',
-  'staffing-monitor', 'content-engine', 'portfolio-monitor', 'garden-calendar',
-  'email-campaign', 'social-engagement', 'security-monitor', 'drive-watcher',
-  'invoice-generator', 'meeting-transcriber'
+  'orchestrator', 'self-reflection', 'regulatory-watch', 'knowledge-curator',
+  'proposal-engine', 'evidence-auditor', 'contract-reviewer', 'staffing-monitor',
 ]
 
 export type CommandContext = {
@@ -29,10 +27,14 @@ export async function handleCommand(text: string, ctx?: CommandContext): Promise
     switch (cmd) {
       case '/status': return getStatus()
       case '/crm': return getCrmTop5()
-      case '/portfolio': return triggerAgent('portfolio-monitor', text, ctx)
-      case '/garden': return triggerAgent('garden-calendar', text, ctx)
-      case '/bd': return triggerAgent('bd-pipeline', text, ctx)
-      case '/content': return triggerAgent('content-engine', text, ctx)
+      case '/orchestrator': return triggerAgent('orchestrator', text, ctx)
+      case '/reflect': return triggerAgent('self-reflection', text, ctx)
+      case '/regulatory': return triggerAgent('regulatory-watch', text, ctx)
+      case '/knowledge': return triggerAgent('knowledge-curator', text, ctx)
+      case '/proposal': return triggerAgent('proposal-engine', text, ctx)
+      case '/evidence': return triggerAgent('evidence-auditor', text, ctx)
+      case '/contract': return triggerAgent('contract-reviewer', text, ctx)
+      case '/staffing': return triggerAgent('staffing-monitor', text, ctx)
       case '/approve': return handleApproval(arg, 'approved', ctx)
       case '/reject': return handleApproval(arg, 'rejected', ctx)
       case '/help': return getHelp()
@@ -170,16 +172,20 @@ function getHelp(): string {
 
 /status        — All agents last-run + pending approvals
 /crm           — Top 5 active pipeline contacts
-/portfolio     — Trigger portfolio-monitor
-/garden        — Trigger garden-calendar
-/bd            — Trigger BD pipeline
-/content       — Trigger content engine
+/orchestrator  — Trigger orchestrator
+/reflect       — Trigger self-reflection
+/regulatory    — Trigger regulatory watch
+/knowledge     — Trigger knowledge curator
+/proposal      — Trigger proposal engine
+/evidence      — Trigger evidence auditor
+/contract      — Trigger contract reviewer
+/staffing      — Trigger staffing monitor
 /approve <id>  — Approve a gated action
 /reject <id>   — Reject a gated action
 /help          — This message
 
 You can also send free-text messages and I'll understand what you need. Try:
-• "check my portfolio"
 • "what's the system status?"
-• "run the evidence auditor"`
+• "run the evidence auditor"
+• "check staffing for next quarter"`
 }
