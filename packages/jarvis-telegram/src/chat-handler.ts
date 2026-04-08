@@ -1,3 +1,9 @@
+/**
+ * @deprecated Legacy free-text relay via HTTP loopback to /api/chat/telegram.
+ * When JARVIS_TELEGRAM_MODE=session with sessionChat=true, free-text messages
+ * route through the OpenClaw gateway session instead. This module is only
+ * needed for the legacy Telegram bot path.
+ */
 import http from 'node:http'
 import fs from 'node:fs'
 import os from 'node:os'

@@ -200,7 +200,7 @@ describe("Architecture Boundary: Platform/Kernel Split", () => {
   describe("Legacy inventory (convergence tracker)", () => {
     const LEGACY_TARGETS = [
       { path: "packages/jarvis-telegram/src/index.ts", epic: "Epic 3: Channel Convergence", rule: 1 },
-      { path: "packages/jarvis-dashboard/src/api/webhooks.ts", epic: "Epic 4: Webhook Convergence", rule: 2 },
+      // webhooks.ts deleted in Wave 3 — v2 router serves both /api/webhooks and /api/webhooks-v2
       { path: "packages/jarvis-dashboard/src/api/godmode.ts", epic: "Epic 5: Godmode Unification", rule: 3 },
       { path: "packages/jarvis-dashboard/src/api/chat.ts", epic: "Epic 5: Chat Convergence", rule: 3 },
     ];

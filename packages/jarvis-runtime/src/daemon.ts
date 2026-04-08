@@ -32,6 +32,8 @@ import { WorkerHealthMonitor } from "./worker-health.js";
 import { WORKER_EXECUTION_POLICIES } from "./execution-policy.js";
 import { setWorkerHealthProvider } from "./health.js";
 import { resolveApproval } from "./approval-bridge.js";
+import { createNotificationDispatcher } from "./notify.js";
+import { sendSessionMessage } from "@jarvis/shared";
 
 // ─── DB Integrity (#65) ─────────────────────────────────────────────────────
 // Verify SQLite pragmas that the runtime depends on. Log warnings instead of
@@ -355,8 +357,17 @@ async function main() {
     logger.warn(`Channel store init failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 
+  // Notification dispatcher — routes through session or legacy Telegram DB queue
+  const telegramMode = process.env.JARVIS_TELEGRAM_MODE ?? "legacy";
+  const notifier = createNotificationDispatcher({
+    channel: telegramMode === "session" ? "session" : "telegram",
+    sessionSend: telegramMode === "session"
+      ? async (text) => { await sendSessionMessage({ sessionKey: process.env.JARVIS_TELEGRAM_SESSION_KEY ?? "telegram:main", message: text }); }
+      : undefined,
+  });
+
   // Orchestrator deps
-  const deps = { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, runtimeDb, channelStore, ragPipeline };
+  const deps = { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, runtimeDb, channelStore, ragPipeline, notifier };
 
   // Agent Queue
   const agentQueue = new AgentQueue(config.max_concurrent, deps, logger);
