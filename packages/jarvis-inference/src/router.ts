@@ -8,7 +8,7 @@ export type ModelSizeClass = "small" | "medium" | "large";
 
 export type ModelInfo = {
   id: string;
-  runtime: "ollama" | "lmstudio";
+  runtime: "ollama" | "lmstudio" | "openclaw";
   size_class: ModelSizeClass;
   capabilities: ModelCapability[];
   parameterCount?: string;

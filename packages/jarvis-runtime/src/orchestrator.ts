@@ -3,6 +3,8 @@ import type { AgentDefinition, AgentTrigger, AgentRun, AgentRunStatus } from "@j
 import { AgentRuntime, SqliteKnowledgeStore, LessonCapture } from "@jarvis/agent-framework";
 import { SqliteEntityGraph } from "@jarvis/agent-framework";
 import { SqliteDecisionLog } from "@jarvis/agent-framework";
+import { MemoryBoundaryChecker, type WikiBridge } from "@jarvis/agent-framework";
+import { memoryBoundaryViolationsTotal, wikiRetrievalTotal } from "@jarvis/observability";
 import { buildPlanWithInference } from "./planner-real.js";
 import { buildPlanWithCritic } from "./planner-critic.js";
 import { buildPlanMultiViewpoint } from "./planner-multi.js";
@@ -53,6 +55,8 @@ export type OrchestratorDeps = {
   runtimeDb?: DatabaseSync;
   channelStore?: ChannelStore;
   notifier?: NotificationDispatcher;
+  boundaryChecker?: MemoryBoundaryChecker;
+  wikiBridge?: WikiBridge;
 };
 
 /**
@@ -633,7 +637,40 @@ export async function runAgent(
 
     // 6. Capture lessons
     const decisions = decisionLog.getDecisions(agentId, run.run_id);
-    lessonCapture.captureFromRun(run, decisions);
+    const capturedLessons = lessonCapture.captureFromRun(run, decisions);
+
+    // 6b. Memory boundary validation (Epic 7 — warn mode)
+    if (deps.boundaryChecker && capturedLessons.length > 0) {
+      for (const lesson of capturedLessons) {
+        const collection = lesson.collection ?? "lessons";
+        const validation = deps.boundaryChecker.validateComplianceBoundary(collection, "knowledge_db");
+        if (!validation.valid) {
+          memoryBoundaryViolationsTotal.labels(validation.category, validation.target_store).inc();
+          log.warn(`Memory boundary violation: ${validation.violation}`);
+        }
+      }
+    }
+
+    // 6c. Wiki publication for eligible lessons (Epic 9)
+    if (deps.wikiBridge && capturedLessons.length > 0) {
+      for (const lesson of capturedLessons) {
+        try {
+          await deps.wikiBridge.publish({
+            doc_id: lesson.doc_id ?? run.run_id,
+            title: lesson.title ?? `Lesson from ${agentId}`,
+            content: lesson.content ?? lesson.summary ?? "",
+            tags: lesson.tags ?? [],
+            collection: lesson.collection ?? "lessons",
+            source_agent_id: agentId,
+            created_at: new Date().toISOString(),
+          });
+          wikiRetrievalTotal.labels("hit").inc();
+        } catch {
+          wikiRetrievalTotal.labels("error").inc();
+          // Wiki publish failure is non-blocking
+        }
+      }
+    }
 
     // 7. Notify via Telegram queue (or unified dispatcher)
     const summary = `${def.label}: completed ${run.current_step}/${plan.steps.length} steps. Goal: ${run.goal}`;

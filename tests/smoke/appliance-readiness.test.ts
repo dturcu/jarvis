@@ -142,17 +142,15 @@ describe("Readiness report", () => {
     expect(checks).toHaveProperty("channel_tables");
   });
 
-  it("on fresh in-memory DB: readiness is not ready (no daemon heartbeat)", () => {
-    // getReadinessReport() checks on-disk paths. On a clean machine where
-    // no ~/.jarvis directory exists, none of the DB checks pass and the
-    // daemon heartbeat is missing -- so ready must be false.
+  it("readiness ANDs all checks including daemon_running", () => {
+    // getReadinessReport() reads real on-disk ~/.jarvis state.
+    // On a dev machine with a running daemon, daemon_running may be true.
+    // On a clean machine or CI, it will be false.
+    // Either way, ready must equal the AND of all individual checks.
     const report = getReadinessReport();
 
-    // Without a running daemon, ready must be false regardless of other checks.
-    // daemon_running requires a heartbeat within the last 30 seconds.
-    expect(report.checks.daemon_running).toBe(false);
-    // The overall readiness gate ANDs all checks including daemon_running.
-    expect(report.ready).toBe(false);
+    const allChecksTrue = Object.values(report.checks).every((v) => v === true);
+    expect(report.ready).toBe(allChecksTrue);
   });
 
   it("with daemon heartbeat inserted: readiness reflects daemon_running=true", () => {

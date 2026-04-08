@@ -14,6 +14,18 @@ export {
   knowledgeDocumentsTotal,
   approvalFunnelTotal,
   provenanceRecordsTotal,
+  webhookIngressTotal,
+  inferenceRuntimeTotal,
+  sessionModeTotal,
+  browserBridgeTotal,
+  taskflowRunsTotal,
+  memoryBoundaryViolationsTotal,
+  inferenceCostUsdTotal,
+  inferenceLocalPercentage,
+  dreamingRunsTotal,
+  dreamingSynthesisTotal,
+  wikiRetrievalTotal,
+  legacyPathTraffic,
 } from "./metrics.js";
 export { withJobSpan, withDbSpan, currentTraceId } from "./span-helpers.js";
 export { metricsEndpoint } from "./middleware.js";

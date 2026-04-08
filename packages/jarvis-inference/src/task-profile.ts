@@ -25,6 +25,8 @@ export type TaskConstraints = {
   max_latency_ms?: number;
   min_context_window?: number;
   prefer_local_only?: boolean;
+  /** Epic 5: Allow routing through openclaw infer when available. */
+  allow_openclaw?: boolean;
 };
 
 /** Preferences that influence model choice when multiple candidates exist. */

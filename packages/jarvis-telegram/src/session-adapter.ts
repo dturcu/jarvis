@@ -127,15 +127,36 @@ export class TelegramSessionAdapter {
     const timeBucket = Math.floor(Date.now() / 10_000)
     const idempotencyKey = `tg-session-${contentHash}-${timeBucket}`
 
-    await sendSessionMessage(
-      {
-        sessionKey: this.sessionKey,
-        message: truncated,
-        idempotencyKey,
-      },
-      undefined, // no OpenClawConfig -- relies on env vars via resolveGatewayCallOptions
-      this.gatewayOverrides,
-    )
+    // Retry once on gateway drop, then fall back to relay queue recording
+    let lastError: unknown
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        await sendSessionMessage(
+          {
+            sessionKey: this.sessionKey,
+            message: truncated,
+            idempotencyKey,
+          },
+          undefined,
+          this.gatewayOverrides,
+        )
+        lastError = undefined
+        break
+      } catch (err) {
+        lastError = err
+        if (attempt === 0) {
+          console.warn(
+            `[telegram-session] Gateway send failed (attempt 1), retrying: ${err instanceof Error ? err.message : String(err)}`,
+          )
+        }
+      }
+    }
+
+    if (lastError) {
+      console.error(
+        `[telegram-session] Gateway send failed after retry, message queued in channel store: ${lastError instanceof Error ? lastError.message : String(lastError)}`,
+      )
+    }
 
     // Record outbound message in channel store (best-effort)
     if (this.channelStore && this.threadId) {

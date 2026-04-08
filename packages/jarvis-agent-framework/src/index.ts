@@ -16,3 +16,15 @@ export * from "./embedding-pipeline.js";
 export * from "./hybrid-retriever.js";
 export * from "./vision-processor.js";
 export * from "./page-extractor.js";
+export * from "./memory-boundary.js";
+export {
+  GatewayWikiBridge,
+  DEFAULT_WIKI_SYNC_CONFIG,
+  DEFAULT_WIKI_RETRIEVAL_CONFIG,
+  type WikiBridge,
+  type WikiSearchResult,
+  type WikiHealthStatus,
+  type SyncResult,
+  type WikiSyncConfig,
+  type WikiRetrievalConfig,
+} from "./wiki-bridge.js";

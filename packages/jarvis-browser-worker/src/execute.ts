@@ -40,9 +40,17 @@ export const BROWSER_JOB_TYPES = [
 
 export type BrowserJobType = (typeof BROWSER_JOB_TYPES)[number];
 
+/** Browser policy for domain allowlist/blocklist enforcement. */
+export type BrowserPolicyConfig = {
+  allowed_domains: string[];
+  blocked_domains: string[];
+};
+
 export type BrowserWorkerOptions = {
   workerId?: string;
   now?: () => Date;
+  /** Optional browser policy for domain enforcement. */
+  browserPolicy?: BrowserPolicyConfig;
 };
 
 export type BrowserWorker = {
@@ -93,6 +101,7 @@ export function createBrowserWorker(
 
 export type BrowserWorkerOptionsInternal = BrowserWorkerOptions & {
   bridge?: BrowserBridgeCompat;
+  browserPolicy?: BrowserPolicyConfig;
 };
 
 export async function executeBrowserJob(
@@ -120,6 +129,37 @@ export async function executeBrowserJob(
       startedAt,
       now().toISOString()
     );
+  }
+
+  // ── Browser policy enforcement (Epic 11) ──
+  // Check URL against domain allowlist/blocklist before executing
+  if (options.browserPolicy) {
+    const input = envelope.input as Record<string, unknown>;
+    const url = (input.url ?? input.target_url ?? "") as string;
+    if (url) {
+      try {
+        const hostname = new URL(url).hostname;
+        const { allowed_domains, blocked_domains } = options.browserPolicy;
+
+        if (blocked_domains.length > 0 && blocked_domains.some((d) => hostname.endsWith(d))) {
+          return createFailureResult(
+            envelope, "failed",
+            { code: "BROWSER_POLICY_VIOLATION", message: `Domain "${hostname}" is blocked by browser policy`, retryable: false },
+            workerId, startedAt, now().toISOString(),
+          );
+        }
+
+        if (allowed_domains.length > 0 && !allowed_domains.some((d) => hostname.endsWith(d))) {
+          return createFailureResult(
+            envelope, "failed",
+            { code: "BROWSER_POLICY_VIOLATION", message: `Domain "${hostname}" is not in the browser policy allowlist`, retryable: false },
+            workerId, startedAt, now().toISOString(),
+          );
+        }
+      } catch {
+        // URL parsing failed — allow execution (may be a non-URL job type)
+      }
+    }
   }
 
   try {

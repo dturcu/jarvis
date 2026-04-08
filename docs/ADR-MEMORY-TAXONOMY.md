@@ -1,6 +1,6 @@
 # ADR: Memory Taxonomy — Session State vs Domain Knowledge
 
-**Status**: Proposed (April 2026)
+**Status**: Decided (April 2026, advanced from Proposed per Epic 1 of Platform Adoption Roadmap)
 **Context**: The convergence from direct LLM loops to OpenClaw session-backed operator chat creates a need to clarify what belongs in OpenClaw session memory versus Jarvis durable domain knowledge.
 
 ## Problem

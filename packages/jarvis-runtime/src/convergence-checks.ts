@@ -117,6 +117,43 @@ export function runConvergenceChecks(projectRoot?: string): ConvergenceCheck[] {
     });
   }
 
+  // ── Schedule Source (TaskFlow) ─────────────────────────────────────────
+  if (scheduleSource === "taskflow") {
+    results.push({
+      name: "Convergence: Schedule Source (TaskFlow)",
+      status: "pass",
+      message:
+        "JARVIS_SCHEDULE_SOURCE=taskflow -- schedules managed by OpenClaw TaskFlow",
+    });
+  }
+
+  // ── Webhook Ingress Source ────────────────────────────────────────────
+  const webhookLegacy = (process.env.JARVIS_WEBHOOK_LEGACY ?? "").toLowerCase();
+  if (webhookLegacy === "true") {
+    results.push({
+      name: "Convergence: Webhook Ingress",
+      status: "warn",
+      message:
+        'JARVIS_WEBHOOK_LEGACY=true -- dashboard still mounts webhook routes. ' +
+        'Migrate to OpenClaw webhook plugin and unset JARVIS_WEBHOOK_LEGACY.',
+    });
+  } else {
+    results.push({
+      name: "Convergence: Webhook Ingress",
+      status: "info",
+      message: "Webhook ingress: dashboard routes active (OpenClaw webhook plugin not yet deployed)",
+    });
+  }
+
+  // ── Browser Low-Level Coverage ────────────────────────────────────────
+  results.push({
+    name: "Convergence: Browser Low-Level Ops",
+    status: "info",
+    message:
+      "browser.click, browser.type, browser.evaluate, browser.wait_for still use legacy adapter. " +
+      "Exit 4 requires OpenClaw bridge support for all browser job types.",
+  });
+
   // ── Deprecated Files ──────────────────────────────────────────────────
   for (const { relativePath, label } of DEPRECATED_FILES) {
     const fullPath = resolve(root, relativePath);

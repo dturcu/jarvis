@@ -88,6 +88,79 @@ export const provenanceRecordsTotal = new client.Counter({
   labelNames: ["job_type"] as const,
 });
 
+// ── Convergence Tracking Metrics (Platform Adoption Roadmap) ──────────────
+
+export const webhookIngressTotal = new client.Counter({
+  name: "jarvis_webhook_ingress_total",
+  help: "Webhook ingress requests by source",
+  labelNames: ["source"] as const, // "dashboard" | "openclaw"
+});
+
+export const inferenceRuntimeTotal = new client.Counter({
+  name: "jarvis_inference_runtime_total",
+  help: "Inference requests by runtime",
+  labelNames: ["runtime"] as const, // "ollama" | "lmstudio" | "openclaw"
+});
+
+export const sessionModeTotal = new client.Counter({
+  name: "jarvis_session_mode_total",
+  help: "Session requests by mode",
+  labelNames: ["mode"] as const, // "session" | "legacy"
+});
+
+export const browserBridgeTotal = new client.Counter({
+  name: "jarvis_browser_bridge_total",
+  help: "Browser job executions by bridge",
+  labelNames: ["bridge"] as const, // "openclaw" | "legacy"
+});
+
+export const taskflowRunsTotal = new client.Counter({
+  name: "jarvis_taskflow_runs_total",
+  help: "Task/schedule runs by trigger source",
+  labelNames: ["trigger"] as const, // "daemon_poll" | "taskflow" | "external"
+});
+
+export const memoryBoundaryViolationsTotal = new client.Counter({
+  name: "jarvis_memory_boundary_violations_total",
+  help: "Memory boundary violations detected",
+  labelNames: ["category", "target_store"] as const,
+});
+
+export const inferenceCostUsdTotal = new client.Counter({
+  name: "jarvis_inference_cost_usd_total",
+  help: "Cumulative inference cost in USD",
+  labelNames: ["runtime", "model"] as const,
+});
+
+export const inferenceLocalPercentage = new client.Gauge({
+  name: "jarvis_inference_local_percentage",
+  help: "Percentage of inference requests using local models (0-1)",
+});
+
+export const dreamingRunsTotal = new client.Counter({
+  name: "jarvis_dreaming_runs_total",
+  help: "Total dreaming consolidation runs",
+  labelNames: ["status"] as const, // "completed" | "failed"
+});
+
+export const dreamingSynthesisTotal = new client.Counter({
+  name: "jarvis_dreaming_synthesis_total",
+  help: "Total items synthesized during dreaming",
+  labelNames: ["mode", "agent_id"] as const,
+});
+
+export const wikiRetrievalTotal = new client.Counter({
+  name: "jarvis_wiki_retrieval_total",
+  help: "Wiki retrieval requests",
+  labelNames: ["status"] as const, // "hit" | "miss" | "error"
+});
+
+export const legacyPathTraffic = new client.Counter({
+  name: "jarvis_legacy_path_traffic_total",
+  help: "Requests hitting legacy/deprecated paths",
+  labelNames: ["path"] as const, // "/api/godmode/legacy", "/api/webhooks", etc.
+});
+
 // ── Convenience ─────────────────────────────────────────────────────────────
 
 /**
