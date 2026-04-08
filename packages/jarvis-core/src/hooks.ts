@@ -61,7 +61,8 @@ export type ErrorEvent = {
 
 export type HookRegistration = {
   hookPoint: string;
-  handler: (...args: unknown[]) => unknown;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- generic container for heterogeneous hook signatures
+  handler: (...args: any[]) => any;
   priority: number;
   description: string;
 };

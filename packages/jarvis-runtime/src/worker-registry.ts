@@ -32,6 +32,10 @@ import {
   hashContent,
   type ProvenanceRecord,
 } from "@jarvis/observability";
+import {
+  logCredentialAccess,
+  type CredentialAuditConfig,
+} from "@jarvis/security/credential-audit";
 
 type WorkerExecuteFn = (envelope: JobEnvelope) => Promise<JobResult>;
 
@@ -57,14 +61,23 @@ export function createWorkerRegistry(
 ): WorkerRegistry {
   const useReal = config.adapter_mode === "real";
 
-  // Audit helper: log credential access for security trail (best-effort)
-  const auditCredentialAccess = (workerId: string, credentialType: string) => {
-    if (!runtimeDb) return;
-    try {
-      runtimeDb.prepare(
-        "INSERT INTO audit_log (event_type, actor, target, details_json, created_at) VALUES (?, ?, ?, ?, ?)"
-      ).run("credential_access", "worker-registry", workerId, JSON.stringify({ credential_type: credentialType }), new Date().toISOString());
-    } catch { /* best-effort — audit table may not exist yet */ }
+  // Credential audit: uses the structured audit module from @jarvis/security.
+  // Logs every credential distribution with worker ID, credential keys, and context.
+  // See docs/KNOWN-TRUST-GAPS.md for the gap this closes.
+  const credentialAuditConfig: CredentialAuditConfig = {
+    db: runtimeDb!,
+    enabled: !!runtimeDb,
+  };
+
+  const auditCredentialAccess = (workerId: string, credentialKeys: string[], context?: { runId?: string; jobId?: string }) => {
+    logCredentialAccess(credentialAuditConfig, {
+      worker_id: workerId,
+      credential_keys: credentialKeys,
+      run_id: context?.runId,
+      job_id: context?.jobId,
+      granted: credentialKeys.length > 0,
+      timestamp: new Date().toISOString(),
+    });
   };
 
   // ─── Provenance signer ──────────────────────────────────────────────────
@@ -149,7 +162,7 @@ export function createWorkerRegistry(
   if (useReal && config.gmail) {
     logger.info("Email: using Gmail API adapter");
     emailAdapter = new GmailAdapter(config.gmail);
-    auditCredentialAccess("email", "gmail");
+    auditCredentialAccess("email", ["gmail"]);
   } else {
     logger.info("Email: using mock adapter");
     emailAdapter = new MockEmailAdapter();
@@ -194,7 +207,7 @@ export function createWorkerRegistry(
   if (useReal && config.calendar) {
     logger.info("Calendar: using Google Calendar API adapter");
     calendarAdapter = new GoogleCalendarAdapter(config.calendar);
-    auditCredentialAccess("calendar", "calendar");
+    auditCredentialAccess("calendar", ["calendar"]);
   } else {
     logger.info("Calendar: using mock adapter");
     calendarAdapter = new MockCalendarAdapter();
@@ -217,7 +230,7 @@ export function createWorkerRegistry(
   if (useReal && config.chrome) {
     logger.info(`Browser: using Chrome adapter (${config.chrome.debugging_url})`);
     browserAdapter = new ChromeAdapter({ debugging_url: config.chrome.debugging_url });
-    auditCredentialAccess("browser", "chrome");
+    auditCredentialAccess("browser", ["chrome"]);
   } else {
     logger.info("Browser: using mock adapter");
     browserAdapter = new MockBrowserAdapter();
@@ -282,7 +295,7 @@ export function createWorkerRegistry(
   if (useReal && config.toggl) {
     logger.info("Time: using Toggl adapter");
     timeAdapter = new TogglAdapter(config.toggl);
-    auditCredentialAccess("time", "toggl");
+    auditCredentialAccess("time", ["toggl"]);
   } else {
     logger.info("Time: using mock adapter");
     timeAdapter = new MockTimeAdapter();
@@ -295,7 +308,7 @@ export function createWorkerRegistry(
   if (useReal && config.drive) {
     logger.info("Drive: using Google Drive adapter");
     driveAdapter = new GoogleDriveAdapter(config.drive);
-    auditCredentialAccess("drive", "drive");
+    auditCredentialAccess("drive", ["drive"]);
   } else {
     logger.info("Drive: using mock adapter");
     driveAdapter = new MockDriveAdapter();

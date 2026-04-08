@@ -6,7 +6,6 @@ import type {
 } from "openclaw/plugin-sdk/plugin-entry";
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import {
-  BUILT_IN_TOOLS_REQUIRING_HOOK_APPROVAL,
   CORE_COMMAND_NAMES,
   CORE_TOOL_NAMES,
   CONTRACT_VERSION,
@@ -17,6 +16,7 @@ import {
   toToolResult,
   type JarvisJobType
 } from "@jarvis/shared";
+import { createBuiltInApprovalHook, getHookCatalog } from "./hooks.js";
 
 const JOB_TYPE_LITERALS = JOB_TYPE_NAMES.map((jobType) =>
   Type.Literal(jobType),
@@ -200,26 +200,18 @@ export function createApprovalCommand() {
   };
 }
 
+/**
+ * Backward-compatible wrapper: returns the bare handler function
+ * from the built-in approval hook in the centralized catalog.
+ */
 export function createJarvisApprovalHook() {
-  return (event: { toolName: string }) => {
-    if (!BUILT_IN_TOOLS_REQUIRING_HOOK_APPROVAL.has(event.toolName)) {
-      return;
-    }
-
-    return {
-      requireApproval: {
-        title: `Approve ${event.toolName}`,
-        description: `Jarvis requires operator approval before using ${event.toolName}.`,
-        severity: event.toolName === "exec" ? ("critical" as const) : ("warning" as const),
-        timeoutMs: 300000,
-        timeoutBehavior: "deny" as const
-      }
-    };
-  };
+  return createBuiltInApprovalHook().handler;
 }
 
 export const jarvisCoreCommandNames = [...CORE_COMMAND_NAMES];
 export const jarvisCoreToolNames = [...CORE_TOOL_NAMES];
+
+export { getHookCatalog };
 
 export default definePluginEntry({
   id: "jarvis-core",
@@ -228,8 +220,21 @@ export default definePluginEntry({
   register(api) {
     api.registerTool((ctx) => createJarvisCoreTools(ctx));
     api.registerCommand(createApprovalCommand());
-    api.on("before_tool_call", createJarvisApprovalHook(), {
-      priority: 0
-    });
+
+    // ── Register before_tool_call hooks from the catalog ───────────
+    // Only before_tool_call is supported by the current OpenClaw SDK.
+    // The catalog also defines after_tool_call, before_reply, and
+    // on_error hooks — those will be registered once OpenClaw exposes
+    // those hook points (see Epic 8 convergence roadmap).
+    for (const hook of getHookCatalog()) {
+      if (hook.hookPoint === "before_tool_call") {
+        api.on("before_tool_call", hook.handler, { priority: hook.priority });
+      }
+    }
+
+    // Future hook points (defined in ./hooks.ts, ready for Epic 8):
+    //   after_tool_call  — createProvenanceHook(): audit trail enrichment
+    //   before_reply     — createReplyGuardrailHook(): PII/credential redaction
+    //   on_error         — createErrorPolicyHook(): retry/escalation decisions
   }
 });
