@@ -1,24 +1,42 @@
 {
   "job_envelope": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-social-comment",
+    "job_id": "50c1a102-0002-4000-8000-000000000002",
     "type": "social.comment",
-    "session_key": "example-session",
-    "requested_by": { "source": "agent", "agent_id": "example" },
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": { "channel": "api", "user_id": "consultant" },
     "priority": "normal",
-    "approval_state": "not_required",
+    "approval_state": "approved",
     "timeout_seconds": 60,
     "attempt": 1,
-    "input": {},
+    "input": {
+      "platform": "linkedin",
+      "post_url": "https://www.linkedin.com/feed/update/urn:li:activity:7100000000000000001",
+      "text": "Great insights on functional safety trends."
+    },
     "artifacts_in": [],
-    "metadata": { "agent_id": "example", "thread_key": null }
+    "metadata": { "agent_id": "social-engagement", "thread_key": null }
   },
   "job_result": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-social-comment",
+    "job_id": "50c1a102-0002-4000-8000-000000000002",
     "job_type": "social.comment",
     "status": "completed",
-    "summary": "Example result for social.comment",
-    "attempt": 1
+    "summary": "Commented on LinkedIn post.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "platform": "linkedin",
+      "post_url": "https://www.linkedin.com/feed/update/urn:li:activity:7100000000000000001",
+      "commented": true,
+      "text": "Great insights on functional safety trends.",
+      "timestamp": "2026-04-07T10:06:00.000Z"
+    },
+    "metrics": {
+      "started_at": "2026-04-07T10:06:00.000Z",
+      "finished_at": "2026-04-07T10:06:02.000Z",
+      "attempt": 1,
+      "worker_id": "social-worker"
+    }
   }
 }

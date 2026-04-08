@@ -44,34 +44,57 @@ console.log(JSON.stringify({docs,playbooks,decisions,collections,agentStats}));
 "
 ```
 
-### 2. Check pending approvals
+### 2. Check pending approvals (from runtime.db)
 ```bash
 node -e "
-const fs=require('fs');
+const{DatabaseSync}=require('node:sqlite');
 const{join}=require('path');
 const home=require('os').homedir();
-const p=join(home,'.jarvis','approvals.json');
-if(!fs.existsSync(p)){console.log('0 pending approvals');process.exit(0);}
-const approvals=JSON.parse(fs.readFileSync(p,'utf8'));
-const pending=approvals.filter(a=>a.status==='pending');
-if(pending.length===0){console.log('0 pending approvals');}
-else{pending.forEach(a=>console.log(\`PENDING: [\${a.agent}] \${a.action} — ID: \${a.id.slice(0,8)}\`));}
+try{
+  const db=new DatabaseSync(join(home,'.jarvis','runtime.db'));
+  db.exec('PRAGMA journal_mode=WAL');
+  const pending=db.prepare(\"SELECT approval_id, agent_id, action, severity, requested_at FROM approvals WHERE status='pending' ORDER BY requested_at DESC\").all();
+  db.close();
+  if(pending.length===0){console.log('0 pending approvals');}
+  else{pending.forEach(a=>console.log('PENDING: ['+a.agent_id+'] '+a.action+' ('+a.severity+') — ID: '+a.approval_id.slice(0,8)));}
+}catch(e){console.log('runtime.db not available: '+e.message);}
 "
 ```
 
-### 3. Check Telegram config
+### 3. Check security posture
 ```bash
 node -e "
 const fs=require('fs');
 const{join}=require('path');
 const home=require('os').homedir();
 const p=join(home,'.jarvis','config.json');
-if(!fs.existsSync(p)){console.log('NOT CONFIGURED');}
-else{const c=JSON.parse(fs.readFileSync(p,'utf8'));console.log(c.telegram&&c.telegram.bot_token?'CONFIGURED':'MISSING bot_token');}
+const checks=[];
+if(!fs.existsSync(p)){checks.push('config: NOT FOUND');console.log(JSON.stringify(checks));process.exit(0);}
+const c=JSON.parse(fs.readFileSync(p,'utf8'));
+checks.push(c.telegram&&c.telegram.bot_token?'telegram: CONFIGURED':'telegram: MISSING');
+checks.push(c.api_token||c.api_tokens?'api_auth: CONFIGURED':'api_auth: NOT SET — dashboard is read-only in dev mode');
+checks.push(process.env.JARVIS_MODE==='production'?'mode: PRODUCTION':'mode: DEV');
+console.log(JSON.stringify(checks));
 "
 ```
 
-### 4. Format and present results
+### 4. Check daemon heartbeat
+```bash
+node -e "
+const{DatabaseSync}=require('node:sqlite');
+const{join}=require('path');
+const home=require('os').homedir();
+try{
+  const db=new DatabaseSync(join(home,'.jarvis','runtime.db'));
+  const row=db.prepare('SELECT status, last_seen_at FROM daemon_heartbeats ORDER BY last_seen_at DESC LIMIT 1').get();
+  db.close();
+  if(!row){console.log('NO HEARTBEAT FOUND');}
+  else{const age=Math.round((Date.now()-new Date(row.last_seen_at).getTime())/1000);console.log(JSON.stringify({status:row.status,last_seen:row.last_seen_at,age_seconds:age,stale:age>120}));}
+}catch(e){console.log('Cannot check heartbeat: '+e.message);}
+"
+```
+
+### 5. Format and present results
 
 After running the above, present a clean health summary in this format:
 
@@ -79,8 +102,9 @@ After running the above, present a clean health summary in this format:
 JARVIS HEALTH CHECK — [TODAY'S DATE]
 
 DATABASES:
-  crm.db        ✓ [X] contacts total, [X] in active stages
-  knowledge.db  ✓ [X] documents, [X] playbooks, [X] decisions logged
+  crm.db        [ok/missing] [X] contacts total, [X] in active stages
+  knowledge.db  [ok/missing] [X] documents, [X] playbooks, [X] decisions logged
+  runtime.db    [ok/missing] daemon heartbeat: [age]s ago
 
 CRM PIPELINE:
   [stage]: [count]  (for each stage that has contacts)
@@ -90,21 +114,22 @@ KNOWLEDGE COLLECTIONS:
 
 AGENT LAST RUNS:
   [agent-id]:  [date/time or "never"]
-  (show all 8 agents)
 
 PENDING APPROVALS: [count]
   (list each pending approval if any)
 
-TELEGRAM BOT: [CONFIGURED / NOT CONFIGURED]
-  (if not configured: "Create ~/.jarvis/config.json with bot_token and chat_id")
+SECURITY POSTURE:
+  API auth:     [CONFIGURED / NOT SET]
+  Telegram:     [CONFIGURED / NOT CONFIGURED]
+  Mode:         [DEV / PRODUCTION]
 
 DASHBOARD: http://localhost:4242
   (run: npm run dashboard)
 
-SYSTEM OK ✓
+SYSTEM OK / ISSUES FOUND
 ```
 
 If any database is missing or returns errors, show:
 ```
-  crm.db        ✗ NOT FOUND — run: npx tsx scripts/init-jarvis.ts
+  crm.db        NOT FOUND — run: npx tsx scripts/init-jarvis.ts
 ```

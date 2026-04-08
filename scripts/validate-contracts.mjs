@@ -74,6 +74,9 @@ const schemas = {
   emailTypes: loadSchema("contracts/jarvis/v1/email-job-types.schema.json"),
   crmTypes: loadSchema("contracts/jarvis/v1/crm-job-types.schema.json"),
   documentTypes: loadSchema("contracts/jarvis/v1/document-job-types.schema.json"),
+  socialTypes: loadSchema("contracts/jarvis/v1/social-job-types.schema.json"),
+  timeTypes: loadSchema("contracts/jarvis/v1/time-job-types.schema.json"),
+  driveTypes: loadSchema("contracts/jarvis/v1/drive-job-types.schema.json"),
   envelope: loadSchema("contracts/jarvis/v1/job-envelope.schema.json"),
   result: loadSchema("contracts/jarvis/v1/job-result.schema.json"),
   callback: loadSchema("contracts/jarvis/v1/worker-callback.schema.json")
@@ -317,12 +320,8 @@ for (const fileName of exampleFiles) {
     fail(`${fileName} must contain both job_envelope and job_result.`);
   }
 
-  // Skip full schema validation for types not yet in JSON Schema oneOf (browser.navigate, browser.click, etc. and social.*)
-  const skipSchemaTypes = new Set(["browser.navigate", "browser.click", "browser.type", "browser.evaluate", "browser.wait_for", "social.like", "social.comment", "social.repost", "social.post", "social.follow", "social.scan_feed", "social.digest", "time.list_entries", "time.create_entry", "time.summary", "time.sync", "drive.list_files", "drive.download_file", "drive.watch_folder", "drive.sync_folder"]);
-  if (!skipSchemaTypes.has(example.job_envelope.type)) {
-    validateOrThrow(validateEnvelope, example.job_envelope, `${fileName} job_envelope`);
-    validateOrThrow(validateResult, example.job_result, `${fileName} job_result`);
-  }
+  validateOrThrow(validateEnvelope, example.job_envelope, `${fileName} job_envelope`);
+  validateOrThrow(validateResult, example.job_result, `${fileName} job_result`);
   const matchingJobs = jobCatalog.jobs.filter((job) => job.example_file === `./examples/${fileName}`);
   if (matchingJobs.length !== 1) {
     fail(`${fileName} must be covered by exactly one job-catalog entry.`);

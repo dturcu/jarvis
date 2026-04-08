@@ -259,7 +259,7 @@ describe("Migration completeness", () => {
     const migCount = (
       db.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number }
     ).n;
-    expect(migCount).toBe(6);
+    expect(migCount).toBe(7);
 
     db.close();
   });
@@ -272,7 +272,7 @@ describe("Migration completeness", () => {
       .all() as Array<{ id: string }>;
     const ids = rows.map((r) => r.id);
 
-    expect(ids).toEqual(["0001", "0002", "0003", "0004", "0005", "0006"]);
+    expect(ids).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007"]);
     db.close();
   });
 

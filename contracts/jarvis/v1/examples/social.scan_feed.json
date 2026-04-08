@@ -1,24 +1,49 @@
 {
   "job_envelope": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-social-scan_feed",
+    "job_id": "50c1a106-0006-4000-8000-000000000006",
     "type": "social.scan_feed",
-    "session_key": "example-session",
-    "requested_by": { "source": "agent", "agent_id": "example" },
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": { "channel": "api", "user_id": "consultant" },
     "priority": "normal",
     "approval_state": "not_required",
-    "timeout_seconds": 60,
+    "timeout_seconds": 120,
     "attempt": 1,
-    "input": {},
+    "input": {
+      "platform": "linkedin",
+      "max_posts": 20,
+      "filter_keywords": ["ISO 26262", "ASPICE", "functional safety"]
+    },
     "artifacts_in": [],
-    "metadata": { "agent_id": "example", "thread_key": null }
+    "metadata": { "agent_id": "social-engagement", "thread_key": null }
   },
   "job_result": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-social-scan_feed",
+    "job_id": "50c1a106-0006-4000-8000-000000000006",
     "job_type": "social.scan_feed",
     "status": "completed",
-    "summary": "Example result for social.scan_feed",
-    "attempt": 1
+    "summary": "Scanned LinkedIn feed and found 2 relevant posts.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "platform": "linkedin",
+      "posts": [
+        {
+          "post_url": "https://www.linkedin.com/feed/update/urn:li:activity:7100000000000000010",
+          "author": "Safety Engineer",
+          "text_preview": "New ISO 26262 edition changes for software verification...",
+          "likes": 42,
+          "comments": 8,
+          "timestamp": "2026-04-07T08:00:00.000Z"
+        }
+      ],
+      "scanned_at": "2026-04-07T10:10:00.000Z"
+    },
+    "metrics": {
+      "started_at": "2026-04-07T10:10:00.000Z",
+      "finished_at": "2026-04-07T10:10:05.000Z",
+      "attempt": 1,
+      "worker_id": "social-worker"
+    }
   }
 }

@@ -579,6 +579,7 @@ function resolveApprovalGate(def: AgentDefinition, action: string): ResolvedGate
 /**
  * Load plugin permissions for an agent from the plugin_installs table.
  * Returns null for built-in agents (no permission restrictions).
+ * Returns empty array on error — fail closed (deny all actions).
  */
 function loadPluginPermissions(agentId: string, runtimeDb?: DatabaseSync): PluginPermission[] | null {
   if (!runtimeDb) return null;
@@ -591,12 +592,16 @@ function loadPluginPermissions(agentId: string, runtimeDb?: DatabaseSync): Plugi
       "SELECT manifest_json FROM plugin_installs WHERE plugin_id = ? AND status = 'active'",
     ).get(pluginId) as { manifest_json: string } | undefined;
 
+    // No plugin install record → not a plugin agent → no restrictions
     if (!row?.manifest_json) return null;
 
     const manifest = JSON.parse(row.manifest_json) as { permissions?: string[] };
-    return (manifest.permissions as PluginPermission[]) ?? null;
+    // Plugin found but no permissions declared → deny all (fail closed)
+    return (manifest.permissions as PluginPermission[]) ?? [];
   } catch {
-    return null;
+    // Parse error on a known plugin → fail closed, deny all actions.
+    // Returning null would mean "unrestricted" which is unsafe for plugins.
+    return [];
   }
 }
 

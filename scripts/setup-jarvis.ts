@@ -580,7 +580,28 @@ async function main(): Promise<void> {
     console.log("Run: npx tsx scripts/init-jarvis.ts\n");
   }
 
-  // 2. LM Studio
+  // 2. API Security — generate tokens for the dashboard API
+  const config = loadConfig();
+  if (!config.api_token && !config.api_tokens) {
+    console.log("──── API Security ─────────────────────────────");
+    console.log("The dashboard API needs an authentication token for safe operation.");
+    console.log("Without it, the dashboard is read-only in dev mode and locked in production.\n");
+    const doToken = await prompt("Generate API token now? [Y/n]: ");
+    if (doToken.toLowerCase() !== "n") {
+      const { randomBytes } = await import("node:crypto");
+      const token = randomBytes(32).toString("hex");
+      config.api_token = token;
+      saveConfig(config);
+      console.log(`\nAPI token generated and saved to ~/.jarvis/config.json`);
+      console.log(`Token: ${token.slice(0, 8)}...${token.slice(-4)}`);
+      console.log(`\nSet this as Authorization header: Bearer ${token}`);
+      console.log(`Or set env: JARVIS_API_TOKEN=${token}\n`);
+    }
+  } else {
+    console.log("API token: already configured\n");
+  }
+
+  // 3. LM Studio
   const doLms = await prompt("Configure LM Studio? [Y/n]: ");
   if (doLms.toLowerCase() !== "n") await setupLmStudio();
 

@@ -134,7 +134,7 @@ function checkDaemon() {
 
 function checkMigrations() {
   for (const [name, dbPath, expected] of [
-    ["Runtime", RUNTIME_DB_PATH, "0006"],
+    ["Runtime", RUNTIME_DB_PATH, "0007"],
     ["CRM", CRM_DB_PATH, "crm_0001"],
     ["Knowledge", KNOWLEDGE_DB_PATH, "knowledge_0001"],
   ] as const) {
@@ -291,6 +291,59 @@ async function checkModelRuntime() {
   }
 }
 
+// ─── Security Posture ─────────────────────────────────────────────────────
+
+function checkSecurityPosture() {
+  const mode = process.env.JARVIS_MODE ?? "dev";
+  const bindHost = process.env.JARVIS_BIND_HOST ?? "127.0.0.1";
+
+  // API token check
+  const envToken = process.env.JARVIS_API_TOKEN;
+  let configToken = false;
+  try {
+    const config = loadConfig();
+    configToken = !!(config as Record<string, unknown>).api_token ||
+      !!(config as Record<string, unknown>).api_tokens;
+  } catch { /* no config */ }
+
+  if (envToken || configToken) {
+    pass("API Auth", "API tokens configured");
+  } else if (mode === "production") {
+    fail("API Auth", "Production mode requires API tokens",
+      "Set JARVIS_API_TOKEN env var or add api_token to ~/.jarvis/config.json",
+      undefined);
+  } else {
+    warn("API Auth", "No API tokens — dashboard allows read-only access only in dev mode",
+      "Generate a token: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\" and add to ~/.jarvis/config.json as api_token");
+  }
+
+  // Localhost binding check
+  if (bindHost === "127.0.0.1" || bindHost === "localhost") {
+    pass("Bind Host", `Server bound to ${bindHost} (localhost-only)`);
+  } else if (bindHost === "0.0.0.0") {
+    warn("Bind Host", "Server listening on all interfaces (0.0.0.0)",
+      "Set JARVIS_BIND_HOST=127.0.0.1 for localhost-only access");
+  } else {
+    warn("Bind Host", `Server bound to ${bindHost}`,
+      "Consider JARVIS_BIND_HOST=127.0.0.1 for localhost-only access");
+  }
+
+  // Webhook secret check
+  if (process.env.JARVIS_WEBHOOK_SECRET) {
+    pass("Webhook Secret", "Webhook secret configured");
+  } else {
+    warn("Webhook Secret", "No webhook secret — webhook endpoints are unprotected",
+      "Set JARVIS_WEBHOOK_SECRET env var for signed webhooks");
+  }
+
+  // Mode check
+  if (mode === "production") {
+    pass("Mode", "Running in production mode");
+  } else {
+    warn("Mode", `Running in ${mode} mode — set JARVIS_MODE=production for appliance deployment`);
+  }
+}
+
 // ─── Chrome Debugging ──────────────────────────────────────────────────────
 
 async function checkChrome() {
@@ -371,6 +424,7 @@ async function main() {
   checkMigrations();
   checkWalMode();
   checkDaemon();
+  checkSecurityPosture();
   await checkModelRuntime();
   await checkChrome();
   checkDashboard();

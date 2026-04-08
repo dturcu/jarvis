@@ -3,7 +3,7 @@ import fs from "node:fs";
 import type { DatabaseSync } from "node:sqlite";
 import {
   AgentRuntime,
-  AgentMemoryStore,
+  SqliteMemoryStore,
   SqliteKnowledgeStore,
   LessonCapture,
 } from "@jarvis/agent-framework";
@@ -66,7 +66,10 @@ async function main() {
   const knowledgeStore = new SqliteKnowledgeStore(KNOWLEDGE_DB_PATH);
   const entityGraph = new SqliteEntityGraph(KNOWLEDGE_DB_PATH);
   const decisionLog = new SqliteDecisionLog(KNOWLEDGE_DB_PATH);
-  const memory = new AgentMemoryStore();
+  // Use durable SQLite-backed memory — survives daemon restarts.
+  // The in-memory AgentMemoryStore is no longer used; all agent memory
+  // is persisted in the knowledge DB alongside the rest of the knowledge plane.
+  const memory = new SqliteMemoryStore(KNOWLEDGE_DB_PATH);
   const runtime = new AgentRuntime(memory);
   const lessonCapture = new LessonCapture(knowledgeStore);
   // Worker health monitor — tracks per-worker execution outcomes

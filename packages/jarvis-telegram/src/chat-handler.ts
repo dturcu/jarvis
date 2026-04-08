@@ -1,10 +1,13 @@
 import http from 'node:http'
+import fs from 'node:fs'
+import os from 'node:os'
+import { join } from 'node:path'
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 type ChatMessage = { role: string; content: string }
 
-// ─── Conversation Memory (last 10 exchanges) ───────────────────────────────
+// ─── Conversation History (per-session, thin layer) ─────────────────────────
 
 const conversationHistory: ChatMessage[] = []
 const MAX_HISTORY = 20
@@ -18,21 +21,54 @@ function addToHistory(role: string, content: string) {
 
 // ─── Jarvis API Relay ───────────────────────────────────────────────────────
 
-const JARVIS_API = 'http://localhost:4242/api/chat/telegram'
+// Use a Jarvis-specific env var so hosting platforms that set PORT for the
+// *current* service (the Telegram bot) don't accidentally redirect the relay.
+const JARVIS_API_PORT = Number(process.env.JARVIS_API_PORT ?? process.env.JARVIS_DASHBOARD_PORT ?? 4242)
+const JARVIS_HOST = '127.0.0.1'
+
+/**
+ * Load API token for authenticated relay.
+ * Telegram bot must authenticate against the dashboard API like any other client.
+ */
+function loadApiToken(): string | null {
+  const envToken = process.env.JARVIS_API_TOKEN
+  if (envToken) return envToken
+
+  try {
+    const configPath = join(os.homedir(), '.jarvis', 'config.json')
+    const raw = JSON.parse(fs.readFileSync(configPath, 'utf8')) as Record<string, unknown>
+    if (typeof raw.api_token === 'string') return raw.api_token
+    if (raw.api_tokens && typeof raw.api_tokens === 'object') {
+      const map = raw.api_tokens as Record<string, string>
+      return map.operator ?? map.admin ?? null
+    }
+  } catch { /* no config */ }
+  return null
+}
 
 function callJarvisApi(message: string, history: ChatMessage[]): Promise<string> {
-  return new Promise((resolve, reject) => {
+  const token = loadApiToken()
+  if (!token) {
+    return Promise.resolve(
+      'Telegram relay has no API token configured. ' +
+      'Set JARVIS_API_TOKEN or add api_token to ~/.jarvis/config.json.'
+    )
+  }
+
+  return new Promise((resolve) => {
     const body = JSON.stringify({ message, history })
-    const url = new URL(JARVIS_API)
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Content-Length': String(Buffer.byteLength(body)),
+      'Authorization': `Bearer ${token}`,
+    }
+
     const req = http.request({
-      hostname: url.hostname,
-      port: Number(url.port) || 4242,
-      path: url.pathname,
+      hostname: JARVIS_HOST,
+      port: JARVIS_API_PORT,
+      path: '/api/chat/telegram',
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': Buffer.byteLength(body),
-      }
+      headers,
     }, (res) => {
       let data = ''
       res.on('data', (chunk: Buffer) => (data += chunk.toString()))
@@ -48,7 +84,7 @@ function callJarvisApi(message: string, history: ChatMessage[]): Promise<string>
           resolve('Failed to parse Jarvis response.')
         }
       })
-      res.on('error', reject)
+      res.on('error', () => resolve('Jarvis API connection error.'))
     })
     req.on('error', (err) => {
       resolve(`Jarvis API unreachable (${err.message}). Is the daemon running? Try: npm start`)
@@ -62,52 +98,22 @@ function callJarvisApi(message: string, history: ChatMessage[]): Promise<string>
   })
 }
 
-// ─── Action Parsing (for agent triggers embedded in LLM response) ───────────
-
-export type ParsedAction =
-  | { type: 'trigger'; agentId: string }
-  | { type: 'status' }
-  | { type: 'crm' }
-
-const VALID_AGENTS = new Set([
-  'bd-pipeline', 'proposal-engine', 'evidence-auditor', 'contract-reviewer',
-  'staffing-monitor', 'content-engine', 'portfolio-monitor', 'garden-calendar',
-  'email-campaign', 'social-engagement', 'security-monitor', 'drive-watcher',
-  'invoice-generator', 'meeting-transcriber'
-])
-
-export function parseActions(text: string): ParsedAction[] {
-  const actions: ParsedAction[] = []
-  const regex = /\[ACTION:(trigger:([a-z-]+)|status|crm)\]/g
-  let match
-  while ((match = regex.exec(text)) !== null) {
-    if (match[2] && VALID_AGENTS.has(match[2])) {
-      actions.push({ type: 'trigger', agentId: match[2] })
-    } else if (match[1] === 'status') {
-      actions.push({ type: 'status' })
-    } else if (match[1] === 'crm') {
-      actions.push({ type: 'crm' })
-    }
-  }
-  return actions.slice(0, 1)
-}
-
-export function stripActionTags(text: string): string {
-  return text.replace(/\s*\[ACTION:[^\]]+\]\s*/g, ' ').trim()
-}
-
 // ─── Main Chat Handler ──────────────────────────────────────────────────────
 
-export async function handleFreeText(userMessage: string): Promise<{ text: string; actions: ParsedAction[] }> {
+/**
+ * Handle free-text messages from Telegram.
+ *
+ * This is a relay layer — it sends the message plus recent conversation
+ * history to the dashboard API and returns the response. No action-tag
+ * parsing, no agent triggering from model output. All agent triggers
+ * must come via explicit /slash commands.
+ */
+export async function handleFreeText(userMessage: string): Promise<{ text: string }> {
   addToHistory('user', userMessage)
 
-  // Relay to Jarvis API — Jarvis handles LLM, tools, and context
+  // Pass prior turns so the LLM has multi-turn context
   const response = await callJarvisApi(userMessage, conversationHistory.slice(0, -1))
 
-  const actions = parseActions(response)
-  const cleanText = stripActionTags(response)
-
-  addToHistory('assistant', cleanText)
-
-  return { text: cleanText, actions }
+  addToHistory('assistant', response)
+  return { text: response }
 }

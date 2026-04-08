@@ -1,0 +1,337 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jarvis.contracts.local/jarvis/v1/social-job-types.schema.json",
+  "title": "Jarvis Social Job Types",
+  "type": "object",
+  "$defs": {
+    "social_platform": {
+      "type": "string",
+      "enum": ["linkedin", "twitter", "github", "reddit", "facebook"]
+    },
+    "feed_post": {
+      "type": "object",
+      "required": ["post_url", "author", "text_preview", "likes", "comments"],
+      "properties": {
+        "post_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "author": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text_preview": {
+          "type": "string"
+        },
+        "likes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "comments": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "digest_entry": {
+      "type": "object",
+      "required": ["platform", "action", "target_url", "timestamp"],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "minLength": 1
+        },
+        "action": {
+          "type": "string",
+          "minLength": 1
+        },
+        "target_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "detail": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "social_like_input": {
+      "type": "object",
+      "required": ["platform", "post_url"],
+      "properties": {
+        "platform": {
+          "$ref": "#/$defs/social_platform"
+        },
+        "post_url": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "social_like_output": {
+      "type": "object",
+      "required": ["platform", "post_url", "liked", "timestamp"],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "minLength": 1
+        },
+        "post_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "liked": {
+          "type": "boolean"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "social_comment_input": {
+      "type": "object",
+      "required": ["platform", "post_url", "text"],
+      "properties": {
+        "platform": {
+          "$ref": "#/$defs/social_platform"
+        },
+        "post_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "social_comment_output": {
+      "type": "object",
+      "required": ["platform", "post_url", "commented", "text", "timestamp"],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "minLength": 1
+        },
+        "post_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "commented": {
+          "type": "boolean"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "social_repost_input": {
+      "type": "object",
+      "required": ["platform", "post_url"],
+      "properties": {
+        "platform": {
+          "$ref": "#/$defs/social_platform"
+        },
+        "post_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quote_text": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "social_repost_output": {
+      "type": "object",
+      "required": ["platform", "post_url", "reposted", "timestamp"],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "minLength": 1
+        },
+        "post_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reposted": {
+          "type": "boolean"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "social_post_input": {
+      "type": "object",
+      "required": ["platform", "text"],
+      "properties": {
+        "platform": {
+          "$ref": "#/$defs/social_platform"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "media_path": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "social_post_output": {
+      "type": "object",
+      "required": ["platform", "posted", "timestamp"],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "minLength": 1
+        },
+        "posted": {
+          "type": "boolean"
+        },
+        "post_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "social_follow_input": {
+      "type": "object",
+      "required": ["platform", "profile_url"],
+      "properties": {
+        "platform": {
+          "$ref": "#/$defs/social_platform"
+        },
+        "profile_url": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "social_follow_output": {
+      "type": "object",
+      "required": ["platform", "profile_url", "followed", "timestamp"],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile_url": {
+          "type": "string",
+          "minLength": 1
+        },
+        "followed": {
+          "type": "boolean"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "social_scan_feed_input": {
+      "type": "object",
+      "required": ["platform"],
+      "properties": {
+        "platform": {
+          "$ref": "#/$defs/social_platform"
+        },
+        "max_posts": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "filter_keywords": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "social_scan_feed_output": {
+      "type": "object",
+      "required": ["platform", "posts", "scanned_at"],
+      "properties": {
+        "platform": {
+          "type": "string",
+          "minLength": 1
+        },
+        "posts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/feed_post" }
+        },
+        "scanned_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    },
+    "social_digest_input": {
+      "type": "object",
+      "properties": {
+        "period": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "social_digest_output": {
+      "type": "object",
+      "required": ["entries", "summary", "total_actions", "period", "generated_at"],
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/digest_entry" }
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "total_actions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "period": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

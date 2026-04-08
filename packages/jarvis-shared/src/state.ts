@@ -15,6 +15,7 @@ import {
   type JarvisToolStatus
 } from "./contracts.js";
 import { createToolResponse } from "./results.js";
+import { validateJobInput } from "./schema-validator.js";
 import type {
   ApprovalRecord,
   ArtifactRef,
@@ -294,6 +295,11 @@ class JarvisState {
     return record;
   }
 
+  /**
+   * Resolve a pending approval. Enforces the state machine:
+   * only "pending" approvals can be resolved. Already-resolved
+   * approvals are rejected (idempotent — returns null).
+   */
   resolveApproval(
     approvalId: string,
     state: Extract<
@@ -303,6 +309,12 @@ class JarvisState {
   ): ApprovalRecord | null {
     const record = this.getApproval(approvalId);
     if (!record) {
+      return null;
+    }
+
+    // State machine enforcement: only "pending" approvals can transition.
+    // Already-resolved approvals cannot be re-resolved (idempotent safety).
+    if (record.state !== "pending") {
       return null;
     }
 
@@ -337,6 +349,19 @@ class JarvisState {
         status: "awaiting_approval",
         summary: `Approval required before running ${params.type}.`,
         approval_id: approval.approval_id
+      });
+    }
+
+    const validation = validateJobInput(params.type, params.input);
+    if (!validation.valid) {
+      return createToolResponse({
+        status: "failed",
+        summary: `Invalid input for ${params.type}: ${validation.errors.join("; ")}.`,
+        error: {
+          code: "INVALID_JOB_INPUT",
+          message: validation.errors.join("; "),
+          retryable: false
+        }
       });
     }
 
@@ -547,76 +572,86 @@ class JarvisState {
   }
 
   claimJob(request: JobClaimRequest): JobClaimResult | null {
-    const rows = this.db
-      .prepare(
-        `
-          SELECT record_json
-          FROM jobs
-          WHERE status = 'queued'
-          ORDER BY
-            CASE priority
-              WHEN 'urgent' THEN 0
-              WHEN 'high' THEN 1
-              WHEN 'normal' THEN 2
-              ELSE 3
-            END,
-            updated_at ASC
-        `,
-      )
-      .all() as Array<{ record_json: string }>;
+    // Use BEGIN IMMEDIATE for serializable isolation — prevents two workers
+    // from reading the same queued job and both claiming it.
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const rows = this.db
+        .prepare(
+          `
+            SELECT record_json
+            FROM jobs
+            WHERE status = 'queued'
+            ORDER BY
+              CASE priority
+                WHEN 'urgent' THEN 0
+                WHEN 'high' THEN 1
+                WHEN 'normal' THEN 2
+                ELSE 3
+              END,
+              updated_at ASC
+          `,
+        )
+        .all() as Array<{ record_json: string }>;
 
-    const routes = resolveCandidateRoutes(request);
+      const routes = resolveCandidateRoutes(request);
 
-    for (const row of rows) {
-      const record = deserializeJson<JobRecord>(row.record_json);
-      if (!isJobClaimable(record, routes, request.run_group)) {
-        continue;
+      for (const row of rows) {
+        const record = deserializeJson<JobRecord>(row.record_json);
+        if (!isJobClaimable(record, routes, request.run_group)) {
+          continue;
+        }
+
+        const claimedAt = request.requested_at ?? nowIso();
+        const leaseSeconds = Math.max(5, Math.floor(request.lease_seconds ?? 60));
+        const claim: JobClaim = {
+          claim_id: randomUUID(),
+          claimed_by: request.worker_id,
+          lease_expires_at: addSeconds(claimedAt, leaseSeconds),
+          last_heartbeat_at: claimedAt,
+          run_group: request.run_group
+        };
+
+        record.claim = claim;
+        record.result = {
+          ...record.result,
+          status: "running",
+          summary: `Running ${record.envelope.type}.`,
+          metrics: {
+            ...record.result.metrics,
+            started_at: claimedAt,
+            finished_at: undefined,
+            worker_id: request.worker_id,
+            attempt: record.envelope.attempt
+          }
+        };
+
+        this.writeJobRecord(record, claimedAt);
+        this.db.exec("COMMIT");
+        return {
+          claimed: true,
+          job_id: record.envelope.job_id,
+          claim_id: claim.claim_id,
+          status: "claimed",
+          summary: `Claimed ${record.envelope.type}.`,
+          lease_expires_at: claim.lease_expires_at,
+          attempt: record.envelope.attempt,
+          job_type: record.envelope.type,
+          job: record.envelope,
+          structured_output: {
+            claim
+          },
+          artifacts: record.result.artifacts,
+          metrics: record.result.metrics
+        };
       }
 
-      const claimedAt = request.requested_at ?? nowIso();
-      const leaseSeconds = Math.max(5, Math.floor(request.lease_seconds ?? 60));
-      const claim: JobClaim = {
-        claim_id: randomUUID(),
-        claimed_by: request.worker_id,
-        lease_expires_at: addSeconds(claimedAt, leaseSeconds),
-        last_heartbeat_at: claimedAt,
-        run_group: request.run_group
-      };
-
-      record.claim = claim;
-      record.result = {
-        ...record.result,
-        status: "running",
-        summary: `Running ${record.envelope.type}.`,
-        metrics: {
-          ...record.result.metrics,
-          started_at: claimedAt,
-          finished_at: undefined,
-          worker_id: request.worker_id,
-          attempt: record.envelope.attempt
-        }
-      };
-
-      this.writeJobRecord(record, claimedAt);
-      return {
-        claimed: true,
-        job_id: record.envelope.job_id,
-        claim_id: claim.claim_id,
-        status: "claimed",
-        summary: `Claimed ${record.envelope.type}.`,
-        lease_expires_at: claim.lease_expires_at,
-        attempt: record.envelope.attempt,
-        job_type: record.envelope.type,
-        job: record.envelope,
-        structured_output: {
-          claim
-        },
-        artifacts: record.result.artifacts,
-        metrics: record.result.metrics
-      };
+      this.db.exec("COMMIT");
+      return null;
+    } catch (e) {
+      try { this.db.exec("ROLLBACK"); } catch { /* already rolled back */ }
+      throw e;
     }
-
-    return null;
   }
 
   heartbeatJob(request: JobHeartbeatRequest): JobHeartbeatResult | null {

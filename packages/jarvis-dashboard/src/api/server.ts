@@ -158,11 +158,19 @@ if (hasUI) {
   })
 }
 
-app.listen(PORT, () => {
+// Bind explicitly to localhost unless JARVIS_BIND_HOST is set.
+// Production appliance must not accidentally listen on 0.0.0.0.
+const BIND_HOST = process.env.JARVIS_BIND_HOST ?? '127.0.0.1'
+
+app.listen(PORT, BIND_HOST, () => {
   console.log('')
   console.log(`  Jarvis Dashboard`)
   console.log(`  ─────────────────────────────────────`)
+  console.log(`  Bound to:   ${BIND_HOST}:${PORT}`)
   console.log(`  API:        http://localhost:${PORT}/api/health`)
   console.log(`  Dashboard:  http://localhost:${PORT}  ${hasUI ? '✓' : '(not built — run: npm run dashboard:build)'}`)
+  if (BIND_HOST === '0.0.0.0') {
+    console.log(`  ⚠ WARNING: listening on all interfaces — ensure firewall is configured`)
+  }
   console.log('')
 })

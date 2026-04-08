@@ -1,24 +1,40 @@
 {
   "job_envelope": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-drive-sync_folder",
+    "job_id": "d21e0004-0004-4000-8000-000000000004",
     "type": "drive.sync_folder",
-    "session_key": "example-session",
-    "requested_by": { "source": "agent", "agent_id": "example" },
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": { "channel": "api", "user_id": "consultant" },
     "priority": "normal",
     "approval_state": "not_required",
-    "timeout_seconds": 60,
+    "timeout_seconds": 300,
     "attempt": 1,
-    "input": {},
+    "input": {
+      "folder_id": "folder-safety-docs",
+      "local_path": "/data/safety-docs"
+    },
     "artifacts_in": [],
-    "metadata": { "agent_id": "example", "thread_key": null }
+    "metadata": { "agent_id": "drive-watcher", "thread_key": null }
   },
   "job_result": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-drive-sync_folder",
+    "job_id": "d21e0004-0004-4000-8000-000000000004",
     "job_type": "drive.sync_folder",
     "status": "completed",
-    "summary": "Example result for drive.sync_folder",
-    "attempt": 1
+    "summary": "Synced folder: 3 downloaded, 1 skipped, 0 errors.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "downloaded": 3,
+      "skipped": 1,
+      "errors": 0,
+      "synced_at": "2026-04-07T10:23:00.000Z"
+    },
+    "metrics": {
+      "started_at": "2026-04-07T10:23:00.000Z",
+      "finished_at": "2026-04-07T10:23:10.000Z",
+      "attempt": 1,
+      "worker_id": "drive-worker"
+    }
   }
 }

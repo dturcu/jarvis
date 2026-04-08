@@ -1,24 +1,48 @@
 {
   "job_envelope": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-drive-list_files",
+    "job_id": "d21e0001-0001-4000-8000-000000000001",
     "type": "drive.list_files",
-    "session_key": "example-session",
-    "requested_by": { "source": "agent", "agent_id": "example" },
+    "session_key": "agent:main:api:local:desktop",
+    "requested_by": { "channel": "api", "user_id": "consultant" },
     "priority": "normal",
     "approval_state": "not_required",
     "timeout_seconds": 60,
     "attempt": 1,
-    "input": {},
+    "input": {
+      "folder_id": "folder-safety-docs",
+      "max_results": 50
+    },
     "artifacts_in": [],
-    "metadata": { "agent_id": "example", "thread_key": null }
+    "metadata": { "agent_id": "drive-watcher", "thread_key": null }
   },
   "job_result": {
     "contract_version": "jarvis.v1",
-    "job_id": "example-drive-list_files",
+    "job_id": "d21e0001-0001-4000-8000-000000000001",
     "job_type": "drive.list_files",
     "status": "completed",
-    "summary": "Example result for drive.list_files",
-    "attempt": 1
+    "summary": "Listed 2 files in folder-safety-docs.",
+    "attempt": 1,
+    "artifacts": [],
+    "structured_output": {
+      "files": [
+        {
+          "id": "file-001",
+          "name": "Safety-Plan-v2.docx",
+          "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "size": 245760,
+          "modified_at": "2026-04-06T16:00:00.000Z",
+          "web_link": "https://drive.google.com/file/d/file-001/view"
+        }
+      ],
+      "total": 2,
+      "folder_id": "folder-safety-docs"
+    },
+    "metrics": {
+      "started_at": "2026-04-07T10:20:00.000Z",
+      "finished_at": "2026-04-07T10:20:01.000Z",
+      "attempt": 1,
+      "worker_id": "drive-worker"
+    }
   }
 }
