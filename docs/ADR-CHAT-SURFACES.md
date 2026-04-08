@@ -1,7 +1,9 @@
 # ADR: Chat and Godmode Surface Architecture
 
-**Status**: Decided (April 2026)
+**Status**: Superseded by [ADR-PLATFORM-KERNEL-BOUNDARY.md](ADR-PLATFORM-KERNEL-BOUNDARY.md) (April 2026)
 **Context**: Jarvis has two interactive chat surfaces beyond the runtime kernel: `/api/chat/telegram` and `/api/godmode`. This document records what they are, what they are not, and why they exist as separate surfaces.
+
+> **Note**: This ADR documented an acceptable compromise. [ADR-PLATFORM-KERNEL-BOUNDARY.md](ADR-PLATFORM-KERNEL-BOUNDARY.md) supersedes it with a convergence commitment: these separate LLM loops will be replaced by OpenClaw session-backed operator chat (Epic 5). The compromise remains valid until Epic 5 lands.
 
 ## Decision
 

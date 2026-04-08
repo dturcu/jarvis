@@ -7,6 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@jarvis/shared": `${rootDir}packages/jarvis-shared/src/index.ts`,
+      "@jarvis/core/hooks": `${rootDir}packages/jarvis-core/src/hooks.ts`,
       "@jarvis/core": `${rootDir}packages/jarvis-core/src/index.ts`,
       "@jarvis/jobs": `${rootDir}packages/jarvis-jobs/src/index.ts`,
       "@jarvis/dispatch": `${rootDir}packages/jarvis-dispatch/src/index.ts`,
@@ -25,6 +26,7 @@ export default defineConfig({
       "@jarvis/voice-worker": `${rootDir}packages/jarvis-voice-worker/src/index.ts`,
       "@jarvis/interpreter": `${rootDir}packages/jarvis-interpreter/src/index.ts`,
       "@jarvis/interpreter-worker": `${rootDir}packages/jarvis-interpreter-worker/src/index.ts`,
+      "@jarvis/security/credential-audit": `${rootDir}packages/jarvis-security/src/credential-audit.ts`,
       "@jarvis/security": `${rootDir}packages/jarvis-security/src/index.ts`,
       "@jarvis/security-worker": `${rootDir}packages/jarvis-security-worker/src/index.ts`,
       "@jarvis/agent-framework": `${rootDir}packages/jarvis-agent-framework/src/index.ts`,

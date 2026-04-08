@@ -7,6 +7,7 @@ import { approvalsRouter } from './approvals.js'
 import { chatRouter } from './chat.js'
 import { daemonRouter } from './daemon.js'
 import { webhookRouter } from './webhooks.js'
+import { webhookV2Router } from './webhooks-v2.js'
 import { pluginsRouter } from './plugins.js'
 import { runsRouter } from './runs.js'
 import { attentionRouter } from './attention.js'
@@ -17,6 +18,7 @@ import { backupRouter } from './backup.js'
 import { safemodeRouter } from './safemode.js'
 import { portalRouter } from './portal.js'
 import { godmodeRouter } from './godmode.js'
+import { createSessionChatRoute } from './session-chat-adapter.js'
 import { modelsRouter } from './models.js'
 import { queueRouter } from './queue.js'
 import { policyRouter } from './policy.js'
@@ -104,6 +106,7 @@ app.use('/api/approvals', approvalsRouter)
 app.use('/api/chat', chatRouter)
 app.use('/api/daemon', daemonRouter)
 app.use('/api/webhooks', webhookRouter)
+app.use('/api/webhooks-v2', webhookV2Router)
 app.use('/api/plugins', pluginsRouter)
 app.use('/api/runs', runsRouter)
 app.use('/api/attention', attentionRouter)
@@ -114,6 +117,7 @@ app.use('/api/backup', backupRouter)
 app.use('/api/safemode', safemodeRouter)
 app.use('/portal/api', portalRouter)
 app.use('/api/godmode', godmodeRouter)
+app.use('/api/godmode/v2', createSessionChatRoute())
 app.use('/api/models', modelsRouter)
 app.use('/api/queue', queueRouter)
 app.use('/api/policy', policyRouter)
