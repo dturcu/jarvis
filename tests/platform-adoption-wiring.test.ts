@@ -232,6 +232,32 @@ describe("Runtime Wiring: ModelInfo.runtime includes openclaw", () => {
   });
 });
 
+describe("Runtime Wiring: OpenClaw infer in real inference execution path", () => {
+  it("DefaultInferenceAdapter imports OpenClawInferAdapter", () => {
+    const source = readSource("packages/jarvis-inference-worker/src/default-adapter.ts");
+    expect(source).toContain("OpenClawInferAdapter");
+  });
+
+  it("DefaultInferenceAdapter.chat() routes to OpenClaw when runtime is openclaw", () => {
+    const source = readSource("packages/jarvis-inference-worker/src/default-adapter.ts");
+    // Must check for openclaw runtime in the chat() method and route accordingly
+    expect(source).toContain('selectedRuntime === "openclaw"');
+    expect(source).toContain("chatViaOpenClaw");
+  });
+
+  it("chatViaOpenClaw calls adapter.complete() through the gateway", () => {
+    const source = readSource("packages/jarvis-inference-worker/src/default-adapter.ts");
+    expect(source).toContain("adapter.complete(");
+    expect(source).toContain('runtime: "openclaw"');
+  });
+
+  it("chatViaOpenClaw throws retryable OPENCLAW_UNAVAILABLE on gateway failure", () => {
+    const source = readSource("packages/jarvis-inference-worker/src/default-adapter.ts");
+    expect(source).toContain("OPENCLAW_UNAVAILABLE");
+    expect(source).toContain("true, // retryable");
+  });
+});
+
 describe("Runtime Wiring: /api/tasks populates provenance", () => {
   it("tasks router queries owner/source/trigger_type from runs table", () => {
     const source = readSource("packages/jarvis-dashboard/src/api/tasks.ts");

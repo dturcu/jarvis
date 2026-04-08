@@ -16,6 +16,7 @@ import {
   loadRegisteredModels,
   indexDocuments,
   queryRag,
+  OpenClawInferAdapter,
   type LlmRuntime,
   type ModelInfo,
   type TaskProfile,
@@ -177,17 +178,26 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
     const profile: TaskProfile = { objective: "answer" };
     let modelId: string;
     let runtimeUrl: string;
+    let selectedRuntime: "ollama" | "lmstudio" | "openclaw" = "lmstudio";
 
     // Primary path: registry + evidence-backed selection
     const fromRegistry = this.selectFromRegistry(profile, input.model);
     if (fromRegistry) {
       modelId = fromRegistry.model.id;
-      runtimeUrl = await this.resolveRuntimeUrl(fromRegistry.model.runtime);
+      selectedRuntime = fromRegistry.model.runtime;
+
+      // OpenClaw path: route through the gateway adapter instead of local chatCompletion
+      if (selectedRuntime === "openclaw") {
+        return this.chatViaOpenClaw(input, modelId);
+      }
+
+      runtimeUrl = await this.resolveRuntimeUrl(selectedRuntime);
     } else {
       // Fallback: live discovery (first boot only, before daemon populates registry)
       const discovered = await this.discoverAndSelect(profile, input.model);
       modelId = discovered.model.id;
       runtimeUrl = discovered.runtimeUrl;
+      selectedRuntime = runtimeUrl.includes("11434") ? "ollama" : "lmstudio";
     }
 
     const result = await chatCompletion({
@@ -201,7 +211,7 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
     const output: InferenceChatOutput = {
       content: result.content,
       model: result.model,
-      runtime: runtimeUrl.includes("11434") ? "ollama" : "lmstudio",
+      runtime: selectedRuntime,
       usage: {
         prompt_tokens: result.usage.prompt_tokens,
         completion_tokens: result.usage.completion_tokens,
@@ -213,6 +223,59 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
       summary: `Chat completed via ${output.runtime} (${modelId}): ${output.usage.total_tokens} tokens.`,
       structured_output: output,
     };
+  }
+
+  /**
+   * Route chat through the OpenClaw inference gateway.
+   *
+   * Used when model selection picks a model with runtime:"openclaw"
+   * (registered via daemon's OpenClaw model discovery loop).
+   * Falls back to local if the gateway is unreachable.
+   */
+  private async chatViaOpenClaw(
+    input: InferenceChatInput,
+    modelId: string,
+  ): Promise<ExecutionOutcome<InferenceChatOutput>> {
+    const adapter = new OpenClawInferAdapter();
+
+    const prompt = input.messages
+      .map(m => `${m.role}: ${m.content}`)
+      .join("\n");
+
+    try {
+      const response = await adapter.complete({
+        prompt,
+        model: modelId,
+        temperature: input.temperature,
+        maxTokens: input.max_tokens,
+      });
+
+      const output: InferenceChatOutput = {
+        content: response.text,
+        model: response.model,
+        runtime: "openclaw",
+        usage: {
+          prompt_tokens: response.tokens_used ?? 0,
+          completion_tokens: response.tokens_used ?? 0,
+          total_tokens: response.tokens_used ?? 0,
+        },
+      };
+
+      return {
+        summary: `Chat completed via openclaw (${modelId}): ${output.usage.total_tokens} tokens, ${response.latency_ms}ms.`,
+        structured_output: output,
+      };
+    } catch (err) {
+      // Gateway unreachable — fall back to local inference
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new InferenceWorkerError(
+        "OPENCLAW_UNAVAILABLE",
+        `OpenClaw inference failed for model "${modelId}": ${msg}. ` +
+        "Ensure the OpenClaw gateway is running. To fall back to local, " +
+        "re-run model discovery or select a local model explicitly.",
+        true, // retryable
+      );
+    }
   }
 
   async visionChat(input: InferenceVisionChatInput): Promise<ExecutionOutcome<InferenceVisionChatOutput>> {
