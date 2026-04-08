@@ -290,6 +290,68 @@ export class RunStore {
     return (result as { changes: number }).changes;
   }
 
+  // ─── Analytics queries for self-reflection ──────────────────────────────
+
+  /** Per-agent success/failure counts over the past N days. */
+  getAgentStats(days = 7): Array<{
+    agent_id: string;
+    total: number;
+    completed: number;
+    failed: number;
+    success_rate: number;
+    avg_steps: number;
+  }> {
+    const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+    return this.db.prepare(`
+      SELECT agent_id,
+             COUNT(*) as total,
+             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+             SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+             ROUND(CAST(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS REAL) / MAX(COUNT(*), 1), 3) as success_rate,
+             ROUND(AVG(COALESCE(current_step, 0)), 1) as avg_steps
+      FROM runs
+      WHERE started_at >= ?
+      GROUP BY agent_id
+      ORDER BY total DESC
+    `).all(cutoff) as any[];
+  }
+
+  /** Failure mode summary: most common error messages over the past N days. */
+  getFailureModes(days = 7, limit = 10): Array<{ error: string; count: number; agent_id: string }> {
+    const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+    return this.db.prepare(`
+      SELECT error, COUNT(*) as count, agent_id
+      FROM runs
+      WHERE status = 'failed' AND started_at >= ? AND error IS NOT NULL
+      GROUP BY error, agent_id
+      ORDER BY count DESC
+      LIMIT ?
+    `).all(cutoff, limit) as any[];
+  }
+
+  /** System-wide stats over the past N days. */
+  getSystemStats(days = 7): {
+    total_runs: number;
+    completed: number;
+    failed: number;
+    success_rate: number;
+    active_agents: number;
+  } {
+    const cutoff = new Date(Date.now() - days * 86400000).toISOString();
+    const row = this.db.prepare(`
+      SELECT COUNT(*) as total_runs,
+             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+             SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+             COUNT(DISTINCT agent_id) as active_agents
+      FROM runs
+      WHERE started_at >= ?
+    `).get(cutoff) as any;
+    return {
+      ...row,
+      success_rate: row.total_runs > 0 ? Math.round((row.completed / row.total_runs) * 1000) / 1000 : 0,
+    };
+  }
+
   /** Mark a run's associated command as completed, failed, or cancelled. */
   completeCommand(runId: string, status: "completed" | "failed" | "cancelled"): void {
     this.db.prepare(`

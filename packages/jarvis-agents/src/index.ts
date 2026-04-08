@@ -12,3 +12,5 @@ export { MATURITY_LADDER, mapRuntimeMaturity } from "./maturity.js";
 export type { MaturityLevel, PromotionCriteria } from "./maturity.js";
 export { scoreFixture, SCORE_THRESHOLDS } from "./eval.js";
 export type { EvalFixture, EvalInput, EvalExpected, Scorecard, ScorecardDimension, DimensionScore } from "./eval.js";
+export { calculateHealthScore, assembleReport } from "./review-report.js";
+export type { ReviewReport, ImprovementProposal, ProposalCategory, ProposalPriority, AgentMetrics } from "./review-report.js";

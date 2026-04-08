@@ -240,4 +240,28 @@ export const V1_WORKFLOWS: WorkflowDefinition[] = [
       retry_requires_approval: false,
     },
   },
+  {
+    workflow_id: "self-review",
+    name: "System Self-Review",
+    description: "Analyze agent performance, approval friction, knowledge quality, and produce a ranked improvement report. Review-first: proposals are never auto-applied.",
+    agent_ids: ["self-reflection"],
+    expected_output: "Weekly review report with health score and ranked improvement proposals",
+    inputs: [
+      { name: "period_days", label: "Analysis period (days)", type: "text", required: false, placeholder: "7" },
+    ],
+    approval_summary: "No approval needed (read-only analysis)",
+    preview_available: false,
+    pack: "core",
+    output_fields: [
+      { name: "health_score", label: "System health score (0-100)", type: "text", required: true },
+      { name: "proposals", label: "Improvement proposals", type: "list", required: true },
+      { name: "report", label: "Full review report", type: "document", required: true },
+    ],
+    safety_rules: {
+      outbound_default: "blocked",
+      preview_recommended: false,
+      retry_safe: true,
+      retry_requires_approval: false,
+    },
+  },
 ];
