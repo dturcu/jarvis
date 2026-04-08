@@ -26,6 +26,14 @@ The Telegram bot stores conversation context in process memory, shared across al
 
 **Status: Mitigated** — `packages/jarvis-security/src/credential-audit.ts` provides structured audit logging via `logCredentialAccess()`. The worker registry logs credential access at two boundaries: (1) adapter construction time (records which workers were configured with real credentials), and (2) job dispatch time (records job_id and run_id when a credential-bearing worker executes a job). Workers with credential scope: email/gmail, calendar, browser/chrome, social/chrome, time/toggl, drive. Query function `queryCredentialAccessLog()` enables retrospective investigation.
 
+## Vulnerable Transitive Dependencies
+
+**hono** (moderate, via `openclaw`): Cookie name validation bypass, IPv4-mapped IPv6 IP restriction bypass, path traversal in `toSSG()`, middleware bypass via repeated slashes. Fix requires OpenClaw to bump their hono dependency — downgrading OpenClaw to `2026.3.8` is a breaking change. Mitigated by the fact that Jarvis does not use hono directly; it is bundled inside the OpenClaw gateway.
+
+**xlsx** (high, no fix available): Prototype pollution and ReDoS in SheetJS. No patched version exists. Mitigated by only processing trusted `.xlsx` files from the operator's own filesystem via the office worker. Untrusted spreadsheet input should be rejected at the job submission layer. Consider replacing with a maintained alternative (`exceljs` or `@nicolo-ribaudo/sheetjs`) if SheetJS remains unpatched.
+
+Run `npm audit --audit-level=high` to check current status.
+
 ## No Database Integrity Verification
 
 SQLite databases have no checksums or tamper detection at the application layer. A local attacker with file access can modify `runtime.db`, `crm.db`, or `knowledge.db` directly. Backup manifests include SHA256 checksums, but there is no runtime integrity monitoring.
