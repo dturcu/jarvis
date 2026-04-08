@@ -266,7 +266,7 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
 
   return {
     async executeJob(envelope: JobEnvelope): Promise<JobResult> {
-      const prefix = envelope.type.split(".")[0];
+      const prefix = envelope.type.split(".")[0] ?? envelope.type;
       const worker = workers.get(prefix);
       const failedResult = (code: string, message: string): JobResult => ({
         contract_version: "jarvis.v1",
@@ -286,7 +286,7 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
       // ── Approval guard ──
       // Defense-in-depth: reject jobs that require approval but haven't been approved.
       // The orchestrator is the primary approval enforcer, but this catches edge cases.
-      const policy = getExecutionPolicy(prefix!);
+      const policy = getExecutionPolicy(prefix);
       if (policy?.requires_approval_guard) {
         const { JOB_APPROVAL_REQUIREMENT } = await import("@jarvis/shared");
         const requirement = JOB_APPROVAL_REQUIREMENT[envelope.type];
@@ -312,7 +312,7 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
         const durationMs = Date.now() - startTime;
 
         // Record health
-        healthMonitor?.recordExecution(prefix!, durationMs, result.status === "completed");
+        healthMonitor?.recordExecution(prefix, durationMs, result.status === "completed");
 
         logger.debug(`Result: ${result.status}`, { job_id: envelope.job_id, duration_ms: durationMs, summary: result.summary.slice(0, 100) });
         return result;
@@ -322,13 +322,13 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
         const isTimeout = errMsg.includes("EXECUTION_TIMEOUT");
 
         if (isTimeout) {
-          healthMonitor?.recordTimeout(prefix!);
+          healthMonitor?.recordTimeout(prefix);
           logger.warn(`Execution timeout: ${envelope.type} after ${timeoutMs}ms`, { job_id: envelope.job_id });
           return failedResult("EXECUTION_TIMEOUT", `${envelope.type} timed out after ${Math.round(timeoutMs / 1000)}s`);
         }
 
         // Error boundary: catch worker crashes without killing the daemon
-        healthMonitor?.recordExecution(prefix!, durationMs, false);
+        healthMonitor?.recordExecution(prefix, durationMs, false);
         logger.error(`Worker crash: ${envelope.type}: ${errMsg}`, { job_id: envelope.job_id });
         return failedResult("WORKER_CRASH", errMsg);
       }
@@ -344,23 +344,38 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
   };
 }
 
+type BuildEnvelopeOverrides = Partial<
+  Pick<
+    JobEnvelope,
+    "session_key" | "requested_by" | "priority" | "approval_state" |
+    "timeout_seconds" | "attempt" | "artifacts_in"
+  >
+> & {
+  metadata?: Partial<JobEnvelope["metadata"]>;
+};
+
 /** Build a minimal valid JobEnvelope for a given job type */
-export function buildEnvelope(type: string, input: Record<string, unknown>): JobEnvelope {
+export function buildEnvelope(
+  type: string,
+  input: Record<string, unknown>,
+  overrides: BuildEnvelopeOverrides = {},
+): JobEnvelope {
   return {
     contract_version: "jarvis.v1",
     job_id: randomUUID(),
     type: type as JarvisJobType,
-    session_key: `daemon-${Date.now()}`,
-    requested_by: { source: "agent", agent_id: "daemon" },
-    priority: "normal",
-    approval_state: "not_required",
-    timeout_seconds: JOB_TIMEOUT_SECONDS[type as JarvisJobType] ?? 120,
-    attempt: 1,
+    session_key: overrides.session_key ?? `daemon-${Date.now()}`,
+    requested_by: overrides.requested_by ?? { channel: "agent", user_id: "daemon" },
+    priority: overrides.priority ?? "normal",
+    approval_state: overrides.approval_state ?? "not_required",
+    timeout_seconds: overrides.timeout_seconds ?? (JOB_TIMEOUT_SECONDS[type as JarvisJobType] ?? 120),
+    attempt: overrides.attempt ?? 1,
     input,
-    artifacts_in: [],
+    artifacts_in: overrides.artifacts_in ?? [],
     metadata: {
       agent_id: "daemon",
       thread_key: null,
+      ...overrides.metadata,
     },
   };
 }

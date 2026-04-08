@@ -9,120 +9,241 @@ import type { AuthenticatedRequest } from './middleware/auth.js'
 const JARVIS_DIR = join(os.homedir(), '.jarvis')
 const BACKUPS_DIR = join(JARVIS_DIR, 'backups')
 
+const CONFIG_FILES = ['config.json'] as const
+const SQLITE_DATABASE_FILES = ['crm.db', 'knowledge.db', 'runtime.db'] as const
+const BACKUP_FILES = [...CONFIG_FILES, ...SQLITE_DATABASE_FILES] as const
+const LEGACY_WAL_SIDECARS = ['runtime.db-wal', 'runtime.db-shm', 'crm.db-wal', 'crm.db-shm', 'knowledge.db-wal', 'knowledge.db-shm'] as const
+const ALLOWED_RESTORE = new Set<string>([...BACKUP_FILES, ...LEGACY_WAL_SIDECARS])
+const SQLITE_SIDECARS = ['-wal', '-shm'] as const
 
-// Files to include in backup. Include WAL/SHM sidecars for SQLite consistency.
-const BACKUP_FILES = ['config.json', 'crm.db', 'knowledge.db', 'runtime.db']
-const WAL_SIDECARS = ['runtime.db-wal', 'runtime.db-shm', 'crm.db-wal', 'crm.db-shm', 'knowledge.db-wal', 'knowledge.db-shm']
+type BackupManifest = {
+  timestamp: string
+  files: Array<{ name: string; size: number }>
+  total_size: number
+}
+
+type BackupStatusResponse = {
+  last_backup: string | null
+  last_backup_at: string | null
+  path?: string | null
+  last_backup_path: string | null
+  files?: Array<{ name: string; size: number }>
+  size?: number
+  size_mb?: number | null
+}
+
+function formatTimestamp(now: Date): string {
+  return now.toISOString()
+    .replace(/[T]/g, '-')
+    .replace(/[:]/g, '')
+    .replace(/\.\d+Z$/, '')
+}
+
+function sqliteStringLiteral(value: string): string {
+  return value.replace(/\\/g, '/').replace(/'/g, "''")
+}
+
+function removeIfExists(path: string): void {
+  try {
+    if (fs.existsSync(path)) fs.unlinkSync(path)
+  } catch { /* best effort */ }
+}
+
+function clearSqliteSidecars(basePath: string): void {
+  for (const suffix of SQLITE_SIDECARS) {
+    removeIfExists(basePath + suffix)
+  }
+}
+
+export function snapshotSqliteDatabase(sourcePath: string, targetPath: string): void {
+  removeIfExists(targetPath)
+  const db = new DatabaseSync(sourcePath, { readOnly: true })
+  try {
+    db.exec('PRAGMA busy_timeout = 5000;')
+    db.exec(`VACUUM INTO '${sqliteStringLiteral(targetPath)}'`)
+  } finally {
+    try { db.close() } catch {}
+  }
+}
+
+export function createBackupSnapshot(
+  jarvisDir = JARVIS_DIR,
+  backupsDir = BACKUPS_DIR,
+  now = new Date(),
+): { backupDir: string; files: Array<{ name: string; size: number }>; totalSize: number; manifest: BackupManifest } {
+  const backupDir = join(backupsDir, `backup-${formatTimestamp(now)}`)
+  fs.mkdirSync(backupDir, { recursive: true })
+
+  const files: Array<{ name: string; size: number }> = []
+
+  for (const name of CONFIG_FILES) {
+    const src = join(jarvisDir, name)
+    if (!fs.existsSync(src)) continue
+    const dest = join(backupDir, name)
+    fs.copyFileSync(src, dest)
+    files.push({ name, size: fs.statSync(dest).size })
+  }
+
+  for (const name of SQLITE_DATABASE_FILES) {
+    const src = join(jarvisDir, name)
+    if (!fs.existsSync(src)) continue
+    const dest = join(backupDir, name)
+    snapshotSqliteDatabase(src, dest)
+    files.push({ name, size: fs.statSync(dest).size })
+  }
+
+  const totalSize = files.reduce((sum, file) => sum + file.size, 0)
+  const manifest: BackupManifest = {
+    timestamp: now.toISOString(),
+    files,
+    total_size: totalSize,
+  }
+
+  fs.writeFileSync(join(backupDir, 'manifest.json'), JSON.stringify(manifest, null, 2))
+  return { backupDir, files, totalSize, manifest }
+}
+
+export function getBackupStatus(backupsDir = BACKUPS_DIR): BackupStatusResponse {
+  if (!fs.existsSync(backupsDir)) {
+    return {
+      last_backup: null,
+      last_backup_at: null,
+      last_backup_path: null,
+      size_mb: null,
+    }
+  }
+
+  const entries = fs.readdirSync(backupsDir)
+    .filter(entry => entry.startsWith('backup-'))
+    .sort()
+
+  if (entries.length === 0) {
+    return {
+      last_backup: null,
+      last_backup_at: null,
+      last_backup_path: null,
+      size_mb: null,
+    }
+  }
+
+  const latest = entries[entries.length - 1]
+  const backupPath = join(backupsDir, latest)
+  const manifestPath = join(backupPath, 'manifest.json')
+
+  if (!fs.existsSync(manifestPath)) {
+    return {
+      last_backup: latest,
+      last_backup_at: latest,
+      path: backupPath,
+      last_backup_path: backupPath,
+      files: [],
+      size: 0,
+      size_mb: 0,
+    }
+  }
+
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as BackupManifest
+  return {
+    last_backup: manifest.timestamp,
+    last_backup_at: manifest.timestamp,
+    path: backupPath,
+    last_backup_path: backupPath,
+    files: manifest.files,
+    size: manifest.total_size,
+    size_mb: Number((manifest.total_size / (1024 * 1024)).toFixed(2)),
+  }
+}
+
+export function restoreBackupDirectory(
+  backupPath: string,
+  jarvisDir = JARVIS_DIR,
+): { restored: string[] } {
+  const manifestPath = join(backupPath, 'manifest.json')
+  if (!fs.existsSync(manifestPath)) {
+    throw new Error('manifest.json not found in backup path')
+  }
+
+  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
+    files: Array<{ name: string; size: number }>
+  }
+
+  const safeFiles = manifest.files.filter((file) => {
+    const name = file.name
+    return ALLOWED_RESTORE.has(name) && !name.includes('/') && !name.includes('\\') && !name.includes('..')
+  })
+
+  const missing: string[] = []
+  for (const file of safeFiles) {
+    if (!fs.existsSync(join(backupPath, file.name))) {
+      missing.push(file.name)
+    }
+  }
+
+  if (missing.length > 0) {
+    throw new Error(`Missing files in backup: ${missing.join(', ')}`)
+  }
+
+  for (const dbName of SQLITE_DATABASE_FILES) {
+    const hasDatabaseSnapshot = safeFiles.some(file => file.name === dbName)
+    const hasLegacySidecar = safeFiles.some(file => file.name === `${dbName}-wal` || file.name === `${dbName}-shm`)
+    if (hasDatabaseSnapshot || hasLegacySidecar) {
+      clearSqliteSidecars(join(jarvisDir, dbName))
+    }
+  }
+
+  const restored: string[] = []
+  for (const file of safeFiles) {
+    fs.copyFileSync(join(backupPath, file.name), join(jarvisDir, file.name))
+    restored.push(file.name)
+  }
+
+  return { restored }
+}
 
 export const backupRouter = Router()
 
-// POST / — trigger a new backup
 backupRouter.post('/', (req, res) => {
   try {
-    const now = new Date()
-    const ts = now.toISOString()
-      .replace(/[T]/g, '-')
-      .replace(/[:]/g, '')
-      .replace(/\.\d+Z$/, '')
-    const backupDir = join(BACKUPS_DIR, `backup-${ts}`)
-
-    fs.mkdirSync(backupDir, { recursive: true })
-
-    const files: Array<{ name: string; size: number }> = []
-    // Copy main files
-    for (const name of BACKUP_FILES) {
-      const src = join(JARVIS_DIR, name)
-      if (fs.existsSync(src)) {
-        fs.copyFileSync(src, join(backupDir, name))
-        files.push({ name, size: fs.statSync(join(backupDir, name)).size })
-      }
-    }
-    // Copy WAL/SHM sidecars (optional — only exist when DB is in WAL mode)
-    for (const name of WAL_SIDECARS) {
-      const src = join(JARVIS_DIR, name)
-      if (fs.existsSync(src)) {
-        fs.copyFileSync(src, join(backupDir, name))
-        files.push({ name, size: fs.statSync(join(backupDir, name)).size })
-      }
-    }
+    const { backupDir, files, totalSize } = createBackupSnapshot()
 
     if (files.length === 0) {
       res.status(400).json({ ok: false, error: 'No files found to back up' })
       return
     }
 
-    const totalSize = files.reduce((sum, f) => sum + f.size, 0)
-    const manifest = {
-      timestamp: now.toISOString(),
-      files,
-      total_size: totalSize
-    }
-
-    fs.writeFileSync(join(backupDir, 'manifest.json'), JSON.stringify(manifest, null, 2))
-
     const actor = getActor(req as AuthenticatedRequest)
     writeAuditLog(actor.type, actor.id, 'backup.created', 'backup', backupDir, {
-      files: files.map(f => f.name),
-      total_size: totalSize
+      files: files.map(file => file.name),
+      total_size: totalSize,
     })
 
     res.json({
       ok: true,
       path: backupDir,
       files,
-      total_size: totalSize
+      total_size: totalSize,
     })
   } catch (err) {
     res.status(500).json({
       ok: false,
-      error: `Backup failed: ${err instanceof Error ? err.message : String(err)}`
+      error: `Backup failed: ${err instanceof Error ? err.message : String(err)}`,
     })
   }
 })
 
-// GET /status — return last backup info
 backupRouter.get('/status', (_req, res) => {
   try {
-    if (!fs.existsSync(BACKUPS_DIR)) {
-      res.json({ last_backup: null })
-      return
-    }
-
-    const entries = fs.readdirSync(BACKUPS_DIR)
-      .filter(e => e.startsWith('backup-'))
-      .sort()
-
-    if (entries.length === 0) {
-      res.json({ last_backup: null })
-      return
-    }
-
-    const latest = entries[entries.length - 1]
-    const manifestPath = join(BACKUPS_DIR, latest, 'manifest.json')
-
-    if (!fs.existsSync(manifestPath)) {
-      res.json({ last_backup: latest, files: [], size: 0 })
-      return
-    }
-
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
-      timestamp: string
-      files: Array<{ name: string; size: number }>
-      total_size: number
-    }
-
-    res.json({
-      last_backup: manifest.timestamp,
-      path: join(BACKUPS_DIR, latest),
-      files: manifest.files,
-      size: manifest.total_size
-    })
+    res.json(getBackupStatus())
   } catch {
-    res.json({ last_backup: null })
+    res.json({
+      last_backup: null,
+      last_backup_at: null,
+      last_backup_path: null,
+      size_mb: null,
+    })
   }
 })
 
-// POST /restore — restore from a backup
 backupRouter.post('/restore', (req, res) => {
   const { backup_path } = req.body as { backup_path?: string }
 
@@ -131,177 +252,64 @@ backupRouter.post('/restore', (req, res) => {
     return
   }
 
-  // Normalize the path: replace ~ with homedir
   const resolvedPath = backup_path.replace(/^~/, os.homedir())
 
   try {
-    const manifestPath = join(resolvedPath, 'manifest.json')
-    if (!fs.existsSync(manifestPath)) {
-      res.status(404).json({ ok: false, error: 'manifest.json not found in backup path' })
-      return
-    }
-
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as {
-      files: Array<{ name: string; size: number }>
-    }
-
-    // Allowlist of files that can be restored (prevents path traversal)
-    const ALLOWED_RESTORE = new Set([...BACKUP_FILES, ...WAL_SIDECARS])
-
-    // Validate: only restore allowed filenames (no path separators, no ..)
-    const safeFiles = manifest.files.filter(f => {
-      const name = f.name
-      return ALLOWED_RESTORE.has(name) && !name.includes('/') && !name.includes('\\') && !name.includes('..')
-    })
-
-    // Validate all safe files exist in the backup
-    const missing: string[] = []
-    for (const file of safeFiles) {
-      if (!fs.existsSync(join(resolvedPath, file.name))) {
-        missing.push(file.name)
-      }
-    }
-
-    if (missing.length > 0) {
-      res.status(400).json({
-        ok: false,
-        error: `Missing files in backup: ${missing.join(', ')}`
-      })
-      return
-    }
-
-    // Check if daemon is running — warn if so
     const runtimeDbPath = join(JARVIS_DIR, 'runtime.db')
     if (fs.existsSync(runtimeDbPath)) {
       let checkDb: DatabaseSync | null = null
       try {
         checkDb = new DatabaseSync(runtimeDbPath)
-        checkDb.exec("PRAGMA journal_mode = WAL;")
-        checkDb.exec("PRAGMA busy_timeout = 5000;")
+        checkDb.exec('PRAGMA journal_mode = WAL;')
+        checkDb.exec('PRAGMA busy_timeout = 5000;')
         const heartbeat = checkDb.prepare(
-          'SELECT last_seen_at, pid FROM daemon_heartbeats ORDER BY last_seen_at DESC LIMIT 1'
+          'SELECT last_seen_at, pid FROM daemon_heartbeats ORDER BY last_seen_at DESC LIMIT 1',
         ).get() as { last_seen_at: string; pid: number } | undefined
         if (heartbeat) {
           const staleness = Date.now() - new Date(heartbeat.last_seen_at).getTime()
-          if (staleness < 30_000) {
-            // Daemon appears to be running
-            if (req.body.force !== true) {
-              res.status(409).json({
-                ok: false,
-                error: 'Daemon is running. Stop it before restoring, or pass force: true to override.',
-                daemon_pid: heartbeat.pid,
-              })
-              return
-            }
+          if (staleness < 30_000 && req.body.force !== true) {
+            res.status(409).json({
+              ok: false,
+              error: 'Daemon is running. Stop it before restoring, or pass force: true to override.',
+              daemon_pid: heartbeat.pid,
+            })
+            return
           }
         }
       } catch {
-        // Cannot read runtime.db — fail closed unless force
         if (req.body.force !== true) {
           res.status(409).json({
             ok: false,
-            error: 'Cannot verify daemon status (runtime.db unreadable). Pass force: true to override.',
+            error: 'Could not verify daemon state. Stop the daemon first, or pass force: true to override.',
           })
           return
         }
       } finally {
-        try { checkDb?.close() } catch { /* best-effort */ }
+        try { checkDb?.close() } catch {}
       }
     }
 
-    // Ensure target directory exists (fresh install or deleted dir)
-    fs.mkdirSync(JARVIS_DIR, { recursive: true })
-
-    // Pre-restore snapshot: save current files for rollback
-    const rollbackDir = join(BACKUPS_DIR, `rollback-${Date.now()}`)
-    fs.mkdirSync(rollbackDir, { recursive: true })
-    for (const file of safeFiles) {
-      const currentPath = join(JARVIS_DIR, file.name)
-      if (fs.existsSync(currentPath)) {
-        fs.copyFileSync(currentPath, join(rollbackDir, file.name))
-      }
-    }
-
-    // Copy each safe file back to ~/.jarvis/
-    const restored: string[] = []
-    for (const file of safeFiles) {
-      const src = join(resolvedPath, file.name)
-      const dest = join(JARVIS_DIR, file.name)
-      fs.copyFileSync(src, dest)
-      restored.push(file.name)
-    }
-
-    // Post-restore health validation
-    const healthChecks: Array<{ name: string; ok: boolean; message: string }> = []
-    for (const dbName of ['runtime.db', 'crm.db', 'knowledge.db']) {
-      const dbPath = join(JARVIS_DIR, dbName)
-      if (!fs.existsSync(dbPath)) {
-        healthChecks.push({ name: dbName, ok: false, message: 'File missing after restore' })
-        continue
-      }
-      let healthDb: DatabaseSync | undefined
-      try {
-        healthDb = new DatabaseSync(dbPath)
-        const integrity = healthDb.prepare('PRAGMA integrity_check').get() as { integrity_check: string }
-        healthChecks.push({
-          name: dbName,
-          ok: integrity.integrity_check === 'ok',
-          message: integrity.integrity_check === 'ok' ? 'Integrity OK' : `Integrity failed: ${integrity.integrity_check}`,
-        })
-      } catch (e) {
-        healthChecks.push({ name: dbName, ok: false, message: e instanceof Error ? e.message : 'Cannot open' })
-      } finally {
-        try { healthDb?.close() } catch { /* best-effort */ }
-      }
-    }
-
-    const allHealthy = healthChecks.every(c => c.ok)
-
-    if (!allHealthy) {
-      // Attempt rollback from pre-restore snapshot
-      let rollbackOk = true
-      for (const file of safeFiles) {
-        const rollbackSrc = join(rollbackDir, file.name)
-        if (fs.existsSync(rollbackSrc)) {
-          try {
-            fs.copyFileSync(rollbackSrc, join(JARVIS_DIR, file.name))
-          } catch {
-            rollbackOk = false
-          }
-        }
-      }
-
-      const actor = getActor(req as AuthenticatedRequest)
-      writeAuditLog(actor.type, actor.id, 'backup.restore_rollback', 'backup', resolvedPath, {
-        reason: 'post_restore_health_failed',
-        rollback_ok: rollbackOk,
-      })
-
-      const rollbackStatus = rollbackOk
-        ? 'successful'
-        : 'partial — manual intervention may be needed. Check /api/safemode or /api/repair.'
-
-      res.status(500).json({
-        ok: false,
-        error: 'Restore failed health validation — rolled back to previous state',
-        health_checks: healthChecks,
-        rollback: rollbackStatus,
-        rollback_dir: rollbackDir,
-      })
-      return
-    }
-
-    // Cleanup rollback snapshot on success
-    try { fs.rmSync(rollbackDir, { recursive: true, force: true }) } catch { /* best effort */ }
+    const result = restoreBackupDirectory(resolvedPath)
 
     const actor = getActor(req as AuthenticatedRequest)
-    writeAuditLog(actor.type, actor.id, 'backup.restored', 'backup', resolvedPath, { restored, healthy: allHealthy })
+    writeAuditLog(actor.type, actor.id, 'backup.restored', 'backup', resolvedPath, {
+      files: result.restored,
+    })
 
-    res.json({ ok: true, restored, health_checks: healthChecks, healthy: allHealthy })
+    res.json({ ok: true, restored: result.restored })
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    if (message === 'manifest.json not found in backup path') {
+      res.status(404).json({ ok: false, error: message })
+      return
+    }
+    if (message.startsWith('Missing files in backup:')) {
+      res.status(400).json({ ok: false, error: message })
+      return
+    }
     res.status(500).json({
       ok: false,
-      error: `Restore failed: ${err instanceof Error ? err.message : String(err)}`
+      error: `Restore failed: ${message}`,
     })
   }
 })

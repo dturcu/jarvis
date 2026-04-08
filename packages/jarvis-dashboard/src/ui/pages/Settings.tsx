@@ -24,15 +24,33 @@ interface Model {
 }
 
 interface BackupStatus {
-  last_backup_at: string | null
-  last_backup_path: string | null
-  size_mb: number | null
+  last_backup?: string | null
+  last_backup_at?: string | null
+  path?: string | null
+  last_backup_path?: string | null
+  size?: number | null
+  size_mb?: number | null
 }
 
 interface RestartPolicy {
   max_retries: number
   restart_delay_ms: number
   description: string
+}
+
+interface IntegrationField {
+  key: string
+  label: string
+  help: string
+  sensitive?: boolean
+}
+
+interface IntegrationDefinition {
+  key: string
+  label: string
+  icon: string
+  description: string
+  fields: readonly IntegrationField[]
 }
 
 /* ── Constants ───────────────────────────────────────────── */
@@ -45,7 +63,7 @@ type SettingsTab = typeof TABS[number]
 
 const LOG_LEVELS = ['debug', 'info', 'warn', 'error']
 
-const INTEGRATIONS = [
+const INTEGRATIONS: readonly IntegrationDefinition[] = [
   {
     key: 'gmail', label: 'Gmail', icon: 'M',
     description: 'Email search, read, draft, and send via Gmail API.',
@@ -89,7 +107,7 @@ const INTEGRATIONS = [
       { key: 'redirect_uri', label: 'Redirect URI', help: 'Usually http://localhost:4242/auth/callback' },
     ],
   },
-] as const
+]
 
 /* ── Helpers ─────────────────────────────────────────────── */
 
@@ -298,9 +316,19 @@ export default function Settings() {
 
   /* ── Derived ─────────────────────────────────────────────── */
 
-  const integrations = config.integrations as Record<string, Record<string, unknown>> | undefined
+  const legacyIntegrations = config.integrations as Record<string, Record<string, unknown>> | undefined
+  const integrations = Object.fromEntries(
+    INTEGRATIONS.map(integration => [
+      integration.key,
+      (config[integration.key] as Record<string, unknown> | undefined) ?? legacyIntegrations?.[integration.key] ?? {},
+    ])
+  ) as Record<string, Record<string, unknown>>
   const social = config.social as Record<string, unknown> | undefined
   const modelTiers = config.model_tiers as Record<string, string> | undefined
+  const backupDate = backupStatus?.last_backup_at ?? backupStatus?.last_backup ?? null
+  const backupPath = backupStatus?.last_backup_path ?? backupStatus?.path ?? null
+  const backupSizeMb = backupStatus?.size_mb
+    ?? (typeof backupStatus?.size === 'number' ? Number((backupStatus.size / (1024 * 1024)).toFixed(2)) : null)
 
   /* ── Loading ─────────────────────────────────────────────── */
 
@@ -363,8 +391,12 @@ export default function Settings() {
               <div>
                 <FieldLabel>LM Studio URL</FieldLabel>
                 <TextInput
-                  value={(config.lm_studio_url as string) ?? 'http://localhost:1234'}
-                  onChange={v => updateConfig('lm_studio_url', v)}
+                  value={(config.lmstudio_url as string) ?? (config.lm_studio_url as string) ?? 'http://localhost:1234'}
+                  onChange={v => setConfig(prev => {
+                    const next = { ...prev, lmstudio_url: v } as Record<string, unknown> & { lm_studio_url?: unknown }
+                    delete next.lm_studio_url
+                    return next
+                  })}
                   placeholder="http://localhost:1234"
                 />
               </div>
@@ -724,7 +756,7 @@ export default function Settings() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {INTEGRATIONS.map(integration => {
               const integrationConfig = integrations?.[integration.key] ?? {}
-              const isConfigured = Object.keys(integrationConfig).length > 0
+              const isConfigured = Object.values(integrationConfig).some(value => String(value ?? '').trim().length > 0)
               const isEditing = editingIntegration === integration.key
               return (
                 <DataCard key={integration.key}>
@@ -785,12 +817,13 @@ export default function Settings() {
                             type={field.sensitive ? 'password' : 'text'}
                             value={String(integrationConfig[field.key] ?? '')}
                             onChange={e => {
-                              const current = (config.integrations ?? {}) as Record<string, Record<string, unknown>>
-                              const updated = {
-                                ...current,
-                                [integration.key]: { ...(current[integration.key] ?? {}), [field.key]: e.target.value },
-                              }
-                              setConfig(prev => ({ ...prev, integrations: updated }))
+                              setConfig(prev => ({
+                                ...prev,
+                                [integration.key]: {
+                                  ...((prev[integration.key] as Record<string, unknown> | undefined) ?? {}),
+                                  [field.key]: e.target.value,
+                                },
+                              }))
                             }}
                             placeholder={field.help}
                             className="w-full text-xs bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-slate-300 placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono transition-colors"
@@ -825,23 +858,23 @@ export default function Settings() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-slate-500">Date</span>
                     <span className="text-sm text-slate-300">
-                      {backupStatus.last_backup_at
-                        ? new Date(backupStatus.last_backup_at).toLocaleString()
+                      {backupDate
+                        ? new Date(backupDate).toLocaleString()
                         : 'Never'}
                     </span>
                   </div>
-                  {backupStatus.last_backup_path && (
+                  {backupPath && (
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-slate-500">Path</span>
                       <span className="text-xs text-slate-400 font-mono truncate max-w-[300px]">
-                        {backupStatus.last_backup_path}
+                        {backupPath}
                       </span>
                     </div>
                   )}
-                  {backupStatus.size_mb != null && (
+                  {backupSizeMb != null && (
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-slate-500">Size</span>
-                      <span className="text-sm text-slate-300">{backupStatus.size_mb} MB</span>
+                      <span className="text-sm text-slate-300">{backupSizeMb} MB</span>
                     </div>
                   )}
                 </>
@@ -880,14 +913,14 @@ export default function Settings() {
           <DataCard>
             <SectionTitle>Restore from Backup</SectionTitle>
             <p className="text-xs text-slate-500 mt-1 mb-3">
-              Provide the path to a backup file to restore. This will overwrite current state.
+              Provide the path to a backup directory to restore. This will overwrite current state.
             </p>
             <div className="flex gap-3">
               <div className="flex-1">
                 <TextInput
                   value={restorePath}
                   onChange={setRestorePath}
-                  placeholder="/path/to/backup.tar.gz"
+                  placeholder="/path/to/backup-directory"
                 />
               </div>
               <button
@@ -905,7 +938,7 @@ export default function Settings() {
                       try {
                         await apiFetch('/api/backup/restore', {
                           method: 'POST',
-                          body: { path: restorePath },
+                          body: { backup_path: restorePath },
                         })
                         setRestorePath('')
                         fetchData()

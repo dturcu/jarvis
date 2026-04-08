@@ -10,6 +10,7 @@
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "allowImportingTsExtensions": true,
+    "composite": true,
     "noEmit": true,
     "types": ["node"]
   },

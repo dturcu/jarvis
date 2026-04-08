@@ -120,6 +120,15 @@
     },
     {
       "path": "./packages/jarvis-drive-worker"
+    },
+    {
+      "path": "./packages/jarvis-runtime"
+    },
+    {
+      "path": "./packages/jarvis-dashboard"
+    },
+    {
+      "path": "./packages/jarvis-telegram"
     }
   ]
 }

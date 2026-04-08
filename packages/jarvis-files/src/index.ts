@@ -43,6 +43,8 @@ const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
 /** Maximum number of entries returned during a recursive directory listing. */
 const MAX_RECURSIVE_ENTRIES = 10_000;
+const FILES_ROOT_ENV = "JARVIS_FILES_ROOT";
+const APPROVAL_TTL_MS = 10 * 60 * 1000;
 
 type FileEncoding = "utf8" | "base64";
 
@@ -125,6 +127,14 @@ type ToolResultPayload = ToolResponse & {
   structured_output?: Record<string, unknown>;
 };
 
+type PendingApproval = {
+  operation: string;
+  fingerprint: string;
+  createdAt: number;
+};
+
+const pendingApprovals = new Map<string, PendingApproval>();
+
 function asLiteralUnion<const Values extends readonly [string, ...string[]]>(
   values: Values,
 ) {
@@ -149,8 +159,36 @@ function createFilesTool(
   };
 }
 
+function cleanupExpiredApprovals(now = Date.now()): void {
+  for (const [approvalId, record] of pendingApprovals.entries()) {
+    if (now - record.createdAt > APPROVAL_TTL_MS) {
+      pendingApprovals.delete(approvalId);
+    }
+  }
+}
+
+function getConfiguredApprovedRoot(): string {
+  return resolve(process.env[FILES_ROOT_ENV]?.trim() || process.cwd());
+}
+
 function normalizeRoot(rootPath?: string): string {
-  return resolve(rootPath?.trim() || process.cwd());
+  const approvedRoot = getConfiguredApprovedRoot();
+  const requestedRoot = rootPath?.trim();
+
+  if (!requestedRoot) {
+    return approvedRoot;
+  }
+
+  const candidateRoot = isAbsolute(requestedRoot)
+    ? resolve(requestedRoot)
+    : resolve(approvedRoot, requestedRoot);
+  const relativePath = relative(approvedRoot, candidateRoot);
+
+  if (relativePath === "" || (!relativePath.startsWith("..") && !isAbsolute(relativePath))) {
+    return candidateRoot;
+  }
+
+  throw new Error(`Requested root escapes configured approved root: ${rootPath}`);
 }
 
 function assertPathWithinRoot(rootPath: string, candidatePath: string): string {
@@ -176,17 +214,54 @@ function writeText(filePath: string, content: string, encoding: FileEncoding = "
   writeFileSync(filePath, content, encoding);
 }
 
-function approvalRequired(operation: string, target: string): ToolResultPayload {
+function createApprovalFingerprint(operation: string, payload: Record<string, unknown>): string {
+  return JSON.stringify({ operation, ...payload });
+}
+
+function approvalRequired(operation: string, target: string, fingerprint: string): ToolResultPayload {
+  cleanupExpiredApprovals();
+  const approvalId = randomUUID();
+  pendingApprovals.set(approvalId, {
+    operation,
+    fingerprint,
+    createdAt: Date.now()
+  });
   return createToolResponse({
     status: "awaiting_approval",
     summary: `Approval required before ${operation} ${target}.`,
-    approval_id: randomUUID(),
+    approval_id: approvalId,
     structured_output: {
       approval_required: true,
       operation,
-      target
+      target,
+      approved_root: getConfiguredApprovedRoot()
     }
   });
+}
+
+function requireApprovalMatch(
+  operation: string,
+  approvalId: string | undefined,
+  target: string,
+  fingerprint: string,
+): ToolResultPayload | null {
+  const normalizedApprovalId = approvalId?.trim();
+  if (!normalizedApprovalId) {
+    return approvalRequired(operation, target, fingerprint);
+  }
+
+  cleanupExpiredApprovals();
+  const record = pendingApprovals.get(normalizedApprovalId);
+  if (!record || record.operation !== operation || record.fingerprint !== fingerprint) {
+    return failure(
+      "INVALID_APPROVAL",
+      `Approval id is missing, expired, or does not match the pending ${operation} request.`,
+      "approvalId",
+    );
+  }
+
+  pendingApprovals.delete(normalizedApprovalId);
+  return null;
 }
 
 function success(
@@ -413,16 +488,29 @@ function searchFiles(params: FilesSearchParams): ToolResultPayload {
 }
 
 function writeFile(params: FilesWriteParams): ToolResultPayload {
-  const approval = params.approvalId?.trim();
-  if (!approval) {
-    return approvalRequired("write", params.path);
-  }
-
   const rootPath = normalizeRoot(params.rootPath);
   const filePath = assertPathWithinRoot(rootPath, params.path);
+  const normalizedPath = relative(rootPath, filePath) || ".";
   if (existsSync(filePath) && params.overwrite === false) {
     return failure("FILE_EXISTS", `File already exists: ${params.path}.`, "path");
   }
+  const approval = requireApprovalMatch(
+    "write",
+    params.approvalId,
+    normalizedPath,
+    createApprovalFingerprint("write", {
+      root_path: rootPath,
+      path: normalizedPath,
+      content: params.content,
+      encoding: params.encoding ?? "utf8",
+      create_directories: params.createDirectories !== false,
+      overwrite: params.overwrite !== false
+    }),
+  );
+  if (approval) {
+    return approval;
+  }
+
   if (params.createDirectories !== false) {
     maybeCreateDirectory(filePath);
   }
@@ -440,15 +528,26 @@ function writeFile(params: FilesWriteParams): ToolResultPayload {
 }
 
 function patchFile(params: FilesPatchParams): ToolResultPayload {
-  const approval = params.approvalId?.trim();
-  if (!approval) {
-    return approvalRequired("patch", params.path);
-  }
-
   const rootPath = normalizeRoot(params.rootPath);
   const filePath = assertPathWithinRoot(rootPath, params.path);
+  const normalizedPath = relative(rootPath, filePath) || ".";
   if (!existsSync(filePath)) {
     return failure("FILE_NOT_FOUND", `File not found: ${params.path}.`, "path");
+  }
+  const approval = requireApprovalMatch(
+    "patch",
+    params.approvalId,
+    normalizedPath,
+    createApprovalFingerprint("patch", {
+      root_path: rootPath,
+      path: normalizedPath,
+      operations: params.operations,
+      encoding: params.encoding ?? "utf8",
+      create_directories: params.createDirectories === true
+    }),
+  );
+  if (approval) {
+    return approval;
   }
   if (params.createDirectories) {
     maybeCreateDirectory(filePath);
@@ -487,14 +586,11 @@ function patchFile(params: FilesPatchParams): ToolResultPayload {
 }
 
 function copyFile(params: FilesCopyParams): ToolResultPayload {
-  const approval = params.approvalId?.trim();
-  if (!approval) {
-    return approvalRequired("copy", `${params.sourcePath} -> ${params.destinationPath}`);
-  }
-
   const rootPath = normalizeRoot(params.rootPath);
   const sourcePath = assertPathWithinRoot(rootPath, params.sourcePath);
   const destinationPath = assertPathWithinRoot(rootPath, params.destinationPath);
+  const normalizedSource = relative(rootPath, sourcePath) || ".";
+  const normalizedDestination = relative(rootPath, destinationPath) || ".";
   if (!existsSync(sourcePath)) {
     return failure("FILE_NOT_FOUND", `Source file not found: ${params.sourcePath}.`, "sourcePath");
   }
@@ -504,6 +600,21 @@ function copyFile(params: FilesCopyParams): ToolResultPayload {
       `Destination already exists: ${params.destinationPath}.`,
       "destinationPath",
     );
+  }
+  const approval = requireApprovalMatch(
+    "copy",
+    params.approvalId,
+    `${normalizedSource} -> ${normalizedDestination}`,
+    createApprovalFingerprint("copy", {
+      root_path: rootPath,
+      source_path: normalizedSource,
+      destination_path: normalizedDestination,
+      create_directories: params.createDirectories !== false,
+      overwrite: params.overwrite === true
+    }),
+  );
+  if (approval) {
+    return approval;
   }
   if (params.createDirectories !== false) {
     maybeCreateDirectory(destinationPath);
@@ -522,14 +633,11 @@ function copyFile(params: FilesCopyParams): ToolResultPayload {
 }
 
 function moveFile(params: FilesMoveParams): ToolResultPayload {
-  const approval = params.approvalId?.trim();
-  if (!approval) {
-    return approvalRequired("move", `${params.sourcePath} -> ${params.destinationPath}`);
-  }
-
   const rootPath = normalizeRoot(params.rootPath);
   const sourcePath = assertPathWithinRoot(rootPath, params.sourcePath);
   const destinationPath = assertPathWithinRoot(rootPath, params.destinationPath);
+  const normalizedSource = relative(rootPath, sourcePath) || ".";
+  const normalizedDestination = relative(rootPath, destinationPath) || ".";
   if (!existsSync(sourcePath)) {
     return failure("FILE_NOT_FOUND", `Source file not found: ${params.sourcePath}.`, "sourcePath");
   }
@@ -539,6 +647,21 @@ function moveFile(params: FilesMoveParams): ToolResultPayload {
       `Destination already exists: ${params.destinationPath}.`,
       "destinationPath",
     );
+  }
+  const approval = requireApprovalMatch(
+    "move",
+    params.approvalId,
+    `${normalizedSource} -> ${normalizedDestination}`,
+    createApprovalFingerprint("move", {
+      root_path: rootPath,
+      source_path: normalizedSource,
+      destination_path: normalizedDestination,
+      create_directories: params.createDirectories !== false,
+      overwrite: params.overwrite === true
+    }),
+  );
+  if (approval) {
+    return approval;
   }
   if (params.createDirectories !== false) {
     maybeCreateDirectory(destinationPath);

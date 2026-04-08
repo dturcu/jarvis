@@ -266,7 +266,9 @@ function isWorkerCallback(value: Record<string, unknown>): value is WorkerCallba
     typeof value.attempt === "number" &&
     typeof value.status === "string" &&
     typeof value.summary === "string" &&
-    typeof value.worker_id === "string"
+    typeof value.worker_id === "string" &&
+    typeof value.claim_id === "string" &&
+    value.claim_id.trim().length > 0
   );
 }
 
@@ -548,6 +550,13 @@ export async function handleJobsCallback(
 
     if (message.startsWith("Unknown job ")) {
       return sendJson(res, 404, {
+        ok: false,
+        error: message
+      });
+    }
+
+    if (message.startsWith("Callback rejected for job ")) {
+      return sendJson(res, 409, {
         ok: false,
         error: message
       });

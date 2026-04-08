@@ -14,6 +14,7 @@ import type { Request, Response, NextFunction } from "express";
 import { Router } from "express";
 import crypto from "node:crypto";
 import fs from "node:fs";
+import type { IncomingHttpHeaders } from "node:http";
 import os from "node:os";
 import { join } from "node:path";
 
@@ -81,6 +82,9 @@ const ROUTE_PERMISSIONS: Record<string, Record<string, UserRole>> = {
   // Agent triggers and webhooks require operator
   "/api/webhooks": { POST: "operator" },
 
+  // Starter packs can change the system safety posture and must remain admin-only.
+  "/api/packs": { GET: "viewer", POST: "admin" },
+
   // CRM mutations require operator
   "/api/crm": { GET: "viewer", POST: "operator", PATCH: "operator", DELETE: "admin" },
 
@@ -111,10 +115,10 @@ const ROUTE_PERMISSIONS: Record<string, Record<string, UserRole>> = {
   "/api/runs": { GET: "viewer" },
   "/api/entities": { GET: "viewer" },
   "/api/analytics": { GET: "viewer" },
-  // Chat POST is viewer-level so it works in tokenless dev mode.
-  // All dangerous tools (shell, email send, file write) have been removed
-  // from chat — it's read-only queries + agent triggers via the runtime kernel.
-  "/api/chat": { GET: "viewer", POST: "viewer" },
+  // Chat GET is safe to expose to viewers, but POST can reach sensitive
+  // read surfaces (host files, Gmail, browser fetches) and must require an
+  // authenticated operator even in dev mode.
+  "/api/chat": { GET: "viewer", POST: "operator" },
 };
 
 const ROLE_HIERARCHY: Record<UserRole, number> = {
@@ -131,7 +135,7 @@ function hasPermission(userRole: UserRole, requiredRole: UserRole): boolean {
  * Resolve the minimum role required for a given route and method.
  * Falls back to "viewer" for GET, "operator" for mutations.
  */
-function getRequiredRole(path: string, method: string): UserRole {
+export function getRequiredRole(path: string, method: string): UserRole {
   // Find matching route prefix
   for (const [prefix, perms] of Object.entries(ROUTE_PERMISSIONS)) {
     if (path.startsWith(prefix)) {
@@ -210,6 +214,37 @@ function isBlocked(ip: string): boolean {
   return false;
 }
 
+function loadWebhookSecret(): string | undefined {
+  const configPath = join(os.homedir(), ".jarvis", "config.json");
+  if (!fs.existsSync(configPath)) {
+    return undefined;
+  }
+  try {
+    const raw = JSON.parse(fs.readFileSync(configPath, "utf8")) as Record<string, unknown>;
+    return typeof raw.webhook_secret === "string" && raw.webhook_secret.trim()
+      ? raw.webhook_secret
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export function shouldBypassWebhookBearerAuth(
+  path: string,
+  method: string,
+  headers: IncomingHttpHeaders,
+  hasWebhookSecret: boolean,
+): boolean {
+  if (!hasWebhookSecret) {
+    return false;
+  }
+  if (method.toUpperCase() !== "POST" || !path.startsWith("/api/webhooks")) {
+    return false;
+  }
+  return typeof headers["x-hub-signature-256"] === "string" ||
+    typeof headers["x-jarvis-signature"] === "string";
+}
+
 // ─── Auth Middleware ─────────────────────────────────────────────────────
 
 /**
@@ -229,6 +264,11 @@ export function createAuthMiddleware() {
 
     // Non-API routes (SPA, static assets) don't need auth
     if (!req.path.startsWith("/api/")) {
+      next();
+      return;
+    }
+
+    if (shouldBypassWebhookBearerAuth(req.path, req.method, req.headers, Boolean(loadWebhookSecret()))) {
       next();
       return;
     }

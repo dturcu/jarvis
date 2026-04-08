@@ -16,6 +16,23 @@ import {
   writeJson
 } from "./common.mjs";
 
+async function removeIfExists(filePath) {
+  try {
+    await fs.unlink(filePath);
+  } catch (error) {
+    if (!(error && typeof error === "object" && error.code === "ENOENT")) {
+      throw error;
+    }
+  }
+}
+
+async function clearSqliteSidecars(basePath) {
+  await Promise.all([
+    removeIfExists(`${basePath}-wal`),
+    removeIfExists(`${basePath}-shm`)
+  ]);
+}
+
 async function restoreBundle(bundleDir, profile, restoreWorkspace) {
   const manifestPath = path.join(bundleDir, "manifest.json");
   const manifest = await readJsonIfExists(manifestPath);
@@ -67,15 +84,21 @@ async function restoreBundle(bundleDir, profile, restoreWorkspace) {
           checksumResults[dbName] = "OK";
         }
 
-        await fs.copyFile(srcPath, path.join(jarvisDir, dbName));
+        const targetPath = path.join(jarvisDir, dbName);
+        if (dbName.endsWith(".db")) {
+          await clearSqliteSidecars(targetPath);
+        }
+
+        await fs.copyFile(srcPath, targetPath);
         restoredDatabases.push(dbName);
 
-        // Restore WAL/SHM if present
-        for (const suffix of ["-wal", "-shm"]) {
-          try {
-            await fs.access(srcPath + suffix);
-            await fs.copyFile(srcPath + suffix, path.join(jarvisDir, dbName + suffix));
-          } catch { /* no WAL/SHM */ }
+        if (dbName.endsWith(".db")) {
+          for (const suffix of ["-wal", "-shm"]) {
+            try {
+              await fs.access(srcPath + suffix);
+              await fs.copyFile(srcPath + suffix, path.join(jarvisDir, dbName + suffix));
+            } catch { /* no WAL/SHM */ }
+          }
         }
       } catch { /* file not in backup */ }
     }

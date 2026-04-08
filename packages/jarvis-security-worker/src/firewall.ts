@@ -4,6 +4,55 @@ export type CommandRunner = {
   exec(cmd: string): Promise<{ stdout: string; stderr: string }>;
 };
 
+const SAFE_RULE_NAME = /^[A-Za-z0-9 _().:\\/-]{1,120}$/;
+const UNSAFE_PROGRAM_CHARS = /["'`&|<>^%!$\r\n]/;
+
+function validateDirection(direction: string | undefined): "inbound" | "outbound" {
+  if (direction === undefined || direction === "inbound" || direction === "outbound") {
+    return direction ?? "inbound";
+  }
+  throw new Error(`Unsupported firewall direction: ${direction}`);
+}
+
+function validateProtocol(protocol: string | undefined): "tcp" | "udp" {
+  if (protocol === undefined || protocol === "tcp" || protocol === "udp") {
+    return protocol ?? "tcp";
+  }
+  throw new Error(`Unsupported firewall protocol: ${protocol}`);
+}
+
+function validatePort(port: number | undefined): number | undefined {
+  if (port === undefined) {
+    return undefined;
+  }
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error(`Unsupported firewall port: ${port}`);
+  }
+  return port;
+}
+
+function validateRuleName(ruleName: string): string {
+  const trimmed = ruleName.trim();
+  if (!SAFE_RULE_NAME.test(trimmed)) {
+    throw new Error("Firewall rule name contains unsupported characters.");
+  }
+  return trimmed;
+}
+
+function validateProgramPath(program: string | undefined): string | undefined {
+  if (program === undefined) {
+    return undefined;
+  }
+  const trimmed = program.trim();
+  if (!trimmed) {
+    throw new Error("Firewall program path must not be empty.");
+  }
+  if (UNSAFE_PROGRAM_CHARS.test(trimmed)) {
+    throw new Error("Firewall program path contains unsupported characters.");
+  }
+  return trimmed;
+}
+
 /**
  * Adds a Windows Firewall rule via netsh.
  */
@@ -11,20 +60,22 @@ export async function addFirewallRule(
   runner: CommandRunner,
   input: SecurityFirewallRuleInput,
 ): Promise<{ success: boolean; message: string }> {
-  const ruleName = input.rule_name ?? `Jarvis-Security-${Date.now()}`;
-  const dir = input.direction ?? "inbound";
-  const proto = input.protocol ?? "tcp";
-
-  let cmd = `netsh advfirewall firewall add rule name="${ruleName}" dir=${dir} action=block protocol=${proto}`;
-  if (input.port !== undefined) {
-    cmd += ` localport=${input.port}`;
-  }
-  if (input.program) {
-    cmd += ` program="${input.program}"`;
-  }
-  cmd += " enable=yes";
-
   try {
+    const ruleName = validateRuleName(input.rule_name ?? `Jarvis-Security-${Date.now()}`);
+    const dir = validateDirection(input.direction);
+    const proto = validateProtocol(input.protocol);
+    const port = validatePort(input.port);
+    const program = validateProgramPath(input.program);
+
+    let cmd = `netsh advfirewall firewall add rule name="${ruleName}" dir=${dir} action=block protocol=${proto}`;
+    if (port !== undefined) {
+      cmd += ` localport=${port}`;
+    }
+    if (program) {
+      cmd += ` program="${program}"`;
+    }
+    cmd += " enable=yes";
+
     const { stdout, stderr } = await runner.exec(cmd);
     const success = stdout.toLowerCase().includes("ok") || !stderr.trim();
     return {
@@ -46,13 +97,14 @@ export async function removeFirewallRule(
   runner: CommandRunner,
   ruleName: string,
 ): Promise<{ success: boolean; message: string }> {
-  const cmd = `netsh advfirewall firewall delete rule name="${ruleName}"`;
   try {
+    const safeRuleName = validateRuleName(ruleName);
+    const cmd = `netsh advfirewall firewall delete rule name="${safeRuleName}"`;
     const { stdout, stderr } = await runner.exec(cmd);
     const success = stdout.toLowerCase().includes("deleted") || stdout.toLowerCase().includes("ok") || !stderr.trim();
     return {
       success,
-      message: success ? `Firewall rule '${ruleName}' removed.` : (stderr.trim() || "Unknown error")
+      message: success ? `Firewall rule '${safeRuleName}' removed.` : (stderr.trim() || "Unknown error")
     };
   } catch (error) {
     return {

@@ -215,7 +215,7 @@ function isJobClaimable(record: JobRecord, routes: string[], runGroup?: string):
       ? record.envelope.metadata.run_group
       : undefined;
 
-  if (requiredRunGroup && runGroup && requiredRunGroup !== runGroup) {
+  if (requiredRunGroup && requiredRunGroup !== runGroup) {
     return false;
   }
 
@@ -729,6 +729,26 @@ class JarvisState {
 
     if (TERMINAL_STATES.has(job.result.status)) {
       return job.result;
+    }
+
+    if (!job.claim) {
+      throw new Error(`Callback rejected for job ${callback.job_id}: job is not actively claimed.`);
+    }
+
+    if (job.claim.claim_id !== callback.claim_id) {
+      throw new Error(`Callback rejected for job ${callback.job_id}: claim_id does not match the active claim.`);
+    }
+
+    if (job.claim.claimed_by !== callback.worker_id) {
+      throw new Error(`Callback rejected for job ${callback.job_id}: worker_id does not match the active claim.`);
+    }
+
+    if (job.envelope.attempt !== callback.attempt) {
+      throw new Error(`Callback rejected for job ${callback.job_id}: attempt does not match the active claim.`);
+    }
+
+    if (job.envelope.type !== callback.job_type) {
+      throw new Error(`Callback rejected for job ${callback.job_id}: job_type does not match the active claim.`);
     }
 
     job.claim = null;

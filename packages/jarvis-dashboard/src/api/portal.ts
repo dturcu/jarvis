@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import fs from 'node:fs'
 import os from 'node:os'
-import { join } from 'node:path'
+import { basename, join, win32 } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 
 export const portalRouter = Router()
@@ -33,6 +33,89 @@ type PortalMilestone = {
   notes: string
 }
 
+type PortalDocumentRow = Record<string, unknown> & {
+  id?: unknown
+  title?: unknown
+  type?: unknown
+  source_path?: unknown
+  created_at?: unknown
+  content_size?: unknown
+  tags?: unknown
+  collection?: unknown
+}
+
+function normalizePortalValue(value: string): string {
+  return value.trim().toLowerCase()
+}
+
+function parsePortalTags(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((entry): entry is string => typeof entry === 'string')
+  }
+  if (typeof value !== 'string' || !value.trim()) {
+    return []
+  }
+  try {
+    const parsed = JSON.parse(value) as unknown
+    return Array.isArray(parsed)
+      ? parsed.filter((entry): entry is string => typeof entry === 'string')
+      : []
+  } catch {
+    return []
+  }
+}
+
+function safePortalBasename(sourcePath: string): string {
+  return sourcePath.includes('\\') ? win32.basename(sourcePath) : basename(sourcePath)
+}
+
+export function sanitizePortalFilePath(sourcePath: unknown, title: string, id: string): string {
+  if (typeof sourcePath === 'string' && sourcePath.trim()) {
+    return safePortalBasename(sourcePath.trim())
+  }
+  const trimmedTitle = title.trim()
+  return trimmedTitle || `${id}.document`
+}
+
+export function portalDocumentMatchesClient(row: PortalDocumentRow, client: PortalClient): boolean {
+  const clientId = normalizePortalValue(client.client_id)
+  const company = normalizePortalValue(client.company)
+  const exactMatches = new Set<string>([
+    clientId,
+    company,
+    `client:${clientId}`,
+    `client_id:${clientId}`,
+    `company:${company}`,
+  ])
+
+  const collection = typeof row.collection === 'string' ? normalizePortalValue(row.collection) : ''
+  if (collection && exactMatches.has(collection)) {
+    return true
+  }
+
+  return parsePortalTags(row.tags)
+    .map(normalizePortalValue)
+    .some(tag => exactMatches.has(tag))
+}
+
+function getDocumentsTableColumns(db: DatabaseSync): Set<string> {
+  const columns = db.prepare('PRAGMA table_info(documents)').all() as Array<{ name?: unknown }>
+  return new Set(
+    columns
+      .map(column => (typeof column.name === 'string' ? column.name : ''))
+      .filter(Boolean)
+  )
+}
+
+function selectDocumentColumn(columns: Set<string>, ...candidates: string[]): string | null {
+  for (const candidate of candidates) {
+    if (columns.has(candidate)) {
+      return candidate
+    }
+  }
+  return null
+}
+
 // ── Auth middleware ───────────────────────────────────────────────────────────
 
 function portalAuth(
@@ -40,7 +123,8 @@ function portalAuth(
   res: import('express').Response,
   next: import('express').NextFunction,
 ): void {
-  const token = req.headers.authorization?.replace('Bearer ', '') ?? (req.query.token as string | undefined)
+  const authHeader = req.headers.authorization
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : undefined
 
   const tokensFile = join(os.homedir(), '.jarvis', 'portal-tokens.json')
   if (!fs.existsSync(tokensFile)) {
@@ -144,26 +228,53 @@ portalRouter.get('/documents', (req, res) => {
 
   try {
     const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'knowledge.db'))
+    const columns = getDocumentsTableColumns(db)
+    const idColumn = selectDocumentColumn(columns, 'doc_id', 'id')
+    const createdAtColumn = selectDocumentColumn(columns, 'indexed_at', 'created_at', 'updated_at')
 
-    // Search documents tagged with client company or ID
+    if (!idColumn || !columns.has('title') || !createdAtColumn) {
+      db.close()
+      res.json({ documents: [], total: 0 })
+      return
+    }
+
+    const typeColumn = selectDocumentColumn(columns, 'doc_type')
+    const sourcePathColumn = selectDocumentColumn(columns, 'source_path')
+    const collectionColumn = selectDocumentColumn(columns, 'collection')
+    const tagsColumn = selectDocumentColumn(columns, 'tags')
+    const contentSizeExpression = columns.has('content') ? 'length(content)' : '0'
+
     const docs = db.prepare(
-      `SELECT id, title, doc_type as type, source_path as file_path, indexed_at as created_at, chunk_count
+      `SELECT ${idColumn} AS id,
+              title,
+              ${typeColumn ? `${typeColumn} AS type` : `'document' AS type`},
+              ${sourcePathColumn ? `${sourcePathColumn} AS source_path` : 'NULL AS source_path'},
+              ${createdAtColumn} AS created_at,
+              ${collectionColumn ? `${collectionColumn} AS collection` : 'NULL AS collection'},
+              ${tagsColumn ? `${tagsColumn} AS tags` : 'NULL AS tags'},
+              ${contentSizeExpression} AS content_size
        FROM documents
-       WHERE title LIKE ? OR source_path LIKE ?
-       ORDER BY indexed_at DESC
-       LIMIT 50`
-    ).all(`%${client.company}%`, `%${client.company}%`) as Array<Record<string, unknown>>
+       ORDER BY ${createdAtColumn} DESC
+       LIMIT 200`
+    ).all() as PortalDocumentRow[]
 
     db.close()
 
-    const documents: PortalDocument[] = docs.map(d => ({
-      id: d.id as string,
-      title: d.title as string,
-      type: d.type as string,
-      file_path: d.file_path as string,
-      created_at: d.created_at as string,
-      size_bytes: ((d.chunk_count as number) ?? 1) * 1024, // approximate
-    }))
+    const documents: PortalDocument[] = docs
+      .filter(doc => portalDocumentMatchesClient(doc, client))
+      .slice(0, 50)
+      .map(doc => {
+        const id = String(doc.id ?? '')
+        const title = String(doc.title ?? 'Document')
+        return {
+          id,
+          title,
+          type: typeof doc.type === 'string' && doc.type.trim() ? doc.type : 'document',
+          file_path: sanitizePortalFilePath(doc.source_path, title, id),
+          created_at: typeof doc.created_at === 'string' ? doc.created_at : new Date().toISOString(),
+          size_bytes: typeof doc.content_size === 'number' ? doc.content_size : 0,
+        }
+      })
 
     res.json({
       documents,

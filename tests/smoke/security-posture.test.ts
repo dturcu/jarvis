@@ -26,6 +26,10 @@ import {
   type FilesystemPolicy,
 } from "@jarvis/runtime";
 import { validateJobInput } from "@jarvis/shared";
+import {
+  getRequiredRole,
+  shouldBypassWebhookBearerAuth,
+} from "../../packages/jarvis-dashboard/src/api/middleware/auth.ts";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -126,6 +130,33 @@ describe("Auth middleware: token enforcement", () => {
     // Dev mode without tokens: viewer-only (read-only)
     const grantedRole = tokens.length === 0 && mode !== "production" ? "viewer" : null;
     expect(grantedRole).toBe("viewer");
+  });
+
+  it("chat mutations require operator role, not viewer", () => {
+    expect(getRequiredRole("/api/chat", "POST")).toBe("operator");
+    expect(getRequiredRole("/api/chat/telegram", "POST")).toBe("operator");
+    expect(getRequiredRole("/api/chat/models", "GET")).toBe("viewer");
+  });
+
+  it("starter pack mutations require admin role", () => {
+    expect(getRequiredRole("/api/packs/development/apply", "POST")).toBe("admin");
+    expect(getRequiredRole("/api/packs", "GET")).toBe("viewer");
+  });
+
+  it("signed webhook posts bypass bearer auth only when a webhook secret exists", () => {
+    expect(shouldBypassWebhookBearerAuth(
+      "/api/webhooks/github",
+      "POST",
+      { "x-hub-signature-256": "sha256=abc" },
+      true,
+    )).toBe(true);
+
+    expect(shouldBypassWebhookBearerAuth(
+      "/api/webhooks/github",
+      "POST",
+      { "x-hub-signature-256": "sha256=abc" },
+      false,
+    )).toBe(false);
   });
 });
 

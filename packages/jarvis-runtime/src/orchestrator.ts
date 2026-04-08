@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { AgentDefinition, AgentTrigger, AgentRun, AgentRunStatus } from "@jarvis/agent-framework";
+import { ALL_AGENTS } from "@jarvis/agents";
 import { AgentRuntime, SqliteKnowledgeStore, LessonCapture } from "@jarvis/agent-framework";
 import { SqliteEntityGraph } from "@jarvis/agent-framework";
 import { SqliteDecisionLog } from "@jarvis/agent-framework";
@@ -12,7 +13,7 @@ import { writeTelegramQueue } from "./notify.js";
 import { RunStore } from "./run-store.js";
 import { isReadOnlyAction } from "./action-classifier.js";
 import { classifyDisagreement, shouldBlockExecution, shouldFlagForReview, DEFAULT_DISAGREEMENT_POLICY } from "./disagreement-policy.js";
-import { isActionPermitted, type PluginPermission } from "./plugin-loader.js";
+import { isActionPermitted, loadPlugins, type PluginPermission } from "./plugin-loader.js";
 import type { ChannelStore } from "./channel-store.js";
 import type { RagPipeline } from "./rag-pipeline.js";
 import type { Logger } from "./logger.js";
@@ -346,6 +347,7 @@ export async function runAgent(
 
       // ── Maturity-based approval gates ──
       const gate = resolveApprovalGate(def, step.action);
+      let envelopeApprovalState: "approved" | "not_required" = "not_required";
 
       if (gate && runtimeDb) {
         stepLog.info(`Approval required (${gate.severity}, ${gate.source})`);
@@ -370,13 +372,13 @@ export async function runAgent(
 
         const decision = await waitForApproval(runtimeDb, approvalId, 4 * 60 * 60 * 1000); // 4h timeout
 
-        // Emit approval_resolved event
-        runStore?.emitEvent(run.run_id, agentId, "approval_resolved", {
-          step_no: step.step, action: step.action,
-          details: { decision },
-        });
-
         if (decision === "rejected") {
+          run.status = "executing";
+          run.updated_at = new Date().toISOString();
+          runStore?.transition(run.run_id, agentId, "executing", "approval_resolved", {
+            step_no: step.step, action: step.action,
+            details: { decision },
+          });
           stepLog.info("Rejected — skipping");
           decisionLog.logDecision({
             agent_id: agentId, run_id: run.run_id, step: step.step,
@@ -404,9 +406,14 @@ export async function runAgent(
 
         run.status = "executing";
         run.updated_at = new Date().toISOString();
-        runStore?.transition(run.run_id, agentId, "executing", "step_started", {
+        runStore?.transition(run.run_id, agentId, "executing", "approval_resolved", {
+          step_no: step.step, action: step.action,
+          details: { decision },
+        });
+        runStore?.emitEvent(run.run_id, agentId, "step_started", {
           step_no: step.step, action: step.action,
         });
+        envelopeApprovalState = "approved";
         stepLog.info("Approved — executing");
       }
 
@@ -415,6 +422,8 @@ export async function runAgent(
         ...step.input,
         _agent_id: agentId,
         _run_id: run.run_id,
+      }, {
+        approval_state: envelopeApprovalState,
       });
 
       try {
@@ -624,28 +633,50 @@ function resolveApprovalGate(def: AgentDefinition, action: string): ResolvedGate
  * Returns null for built-in agents (no permission restrictions).
  * Returns empty array on error — fail closed (deny all actions).
  */
-function loadPluginPermissions(agentId: string, runtimeDb?: DatabaseSync): PluginPermission[] | null {
-  if (!runtimeDb) return null;
-
-  // Plugin agents typically have IDs starting with "plugin-"
+export function loadPluginPermissions(agentId: string, runtimeDb?: DatabaseSync): PluginPermission[] | null {
+  const builtinAgentIds = new Set(ALL_AGENTS.map((agent) => agent.agent_id));
   const pluginId = agentId.startsWith("plugin-") ? agentId.slice(7) : agentId;
 
-  try {
-    const row = runtimeDb.prepare(
-      "SELECT manifest_json FROM plugin_installs WHERE plugin_id = ? AND status = 'active'",
-    ).get(pluginId) as { manifest_json: string } | undefined;
-
-    // No plugin install record → not a plugin agent → no restrictions
-    if (!row?.manifest_json) return null;
-
-    const manifest = JSON.parse(row.manifest_json) as { permissions?: string[] };
-    // Plugin found but no permissions declared → deny all (fail closed)
+  const parsePermissions = (manifestJson: string): PluginPermission[] => {
+    const manifest = JSON.parse(manifestJson) as { permissions?: string[] };
     return (manifest.permissions as PluginPermission[]) ?? [];
+  };
+
+  if (runtimeDb) {
+    try {
+      const row = runtimeDb.prepare(
+        "SELECT manifest_json FROM plugin_installs WHERE plugin_id = ? AND status = 'active'",
+      ).get(pluginId) as { manifest_json: string } | undefined;
+
+      if (row?.manifest_json) {
+        return parsePermissions(row.manifest_json);
+      }
+    } catch {
+      // Fall back to the on-disk manifest below. If neither source confirms
+      // the agent is built-in, we still fail closed.
+    }
+  }
+
+  try {
+    const pluginManifest = loadPlugins().find((manifest) =>
+      manifest.agent.agent_id === agentId ||
+      manifest.id === pluginId ||
+      `plugin-${manifest.id}` === agentId,
+    );
+    if (pluginManifest) {
+      return (pluginManifest.permissions as PluginPermission[]) ?? [];
+    }
   } catch {
-    // Parse error on a known plugin → fail closed, deny all actions.
-    // Returning null would mean "unrestricted" which is unsafe for plugins.
+    if (!builtinAgentIds.has(agentId)) {
+      return [];
+    }
+  }
+
+  if (!builtinAgentIds.has(agentId)) {
     return [];
   }
+
+  return null;
 }
 
 /** Gather context from knowledge store + entity graph + RAG pipeline for the planner */

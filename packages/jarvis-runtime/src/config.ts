@@ -140,7 +140,12 @@ export function loadConfig(): JarvisRuntimeConfig {
 
   const config: JarvisRuntimeConfig = {
     ...defaults,
-    lmstudio_url: typeof raw.lmstudio_url === "string" ? raw.lmstudio_url : defaults.lmstudio_url,
+    lmstudio_url:
+      typeof raw.lmstudio_url === "string"
+        ? raw.lmstudio_url
+        : typeof raw.lm_studio_url === "string"
+          ? raw.lm_studio_url
+          : defaults.lmstudio_url,
     default_model: typeof raw.default_model === "string" ? raw.default_model : defaults.default_model,
     adapter_mode: raw.adapter_mode === "mock" || raw.adapter_mode === "real" ? raw.adapter_mode : defaults.adapter_mode,
     poll_interval_ms: typeof raw.poll_interval_ms === "number" ? raw.poll_interval_ms : defaults.poll_interval_ms,

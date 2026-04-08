@@ -2,6 +2,7 @@ import path from "node:path";
 import os from "node:os";
 import { promises as fs } from "node:fs";
 import crypto from "node:crypto";
+import { DatabaseSync } from "node:sqlite";
 import {
   DEFAULT_PROFILE,
   buildBackupManifest,
@@ -28,6 +29,28 @@ async function copyIfExists(source, target) {
       return false;
     }
     throw error;
+  }
+}
+
+function escapeSqlitePath(filePath) {
+  return filePath.replace(/\\/g, "/").replace(/'/g, "''");
+}
+
+async function snapshotSqliteDatabase(sourcePath, targetPath) {
+  try {
+    await fs.unlink(targetPath);
+  } catch (error) {
+    if (!(error && typeof error === "object" && error.code === "ENOENT")) {
+      throw error;
+    }
+  }
+
+  const db = new DatabaseSync(sourcePath, { readOnly: true });
+  try {
+    db.exec("PRAGMA busy_timeout = 5000;");
+    db.exec(`VACUUM INTO '${escapeSqlitePath(targetPath)}'`);
+  } finally {
+    try { db.close(); } catch {}
   }
 }
 
@@ -66,15 +89,8 @@ async function main() {
     try {
       await fs.access(dbPath);
       await ensureDir(jarvisTarget);
-      await fs.copyFile(dbPath, path.join(jarvisTarget, dbName));
+      await snapshotSqliteDatabase(dbPath, path.join(jarvisTarget, dbName));
       copiedDatabases.push(dbName);
-      // Also copy WAL/SHM files if they exist
-      for (const suffix of ["-wal", "-shm"]) {
-        try {
-          await fs.access(dbPath + suffix);
-          await fs.copyFile(dbPath + suffix, path.join(jarvisTarget, dbName + suffix));
-        } catch { /* no WAL/SHM file, fine */ }
-      }
     } catch { /* db doesn't exist, skip */ }
   }
   // Copy config.json if it exists

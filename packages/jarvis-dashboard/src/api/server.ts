@@ -40,9 +40,11 @@ const indexHtml = join(distPath, 'index.html')
 // ─── Appliance Mode Checks ───────────────────────────────────────────────
 {
   let applianceMode = false
+  let configForAppliance: Record<string, unknown> | null = null
   try {
     const cfg = loadConfig()
     applianceMode = cfg.appliance_mode
+    configForAppliance = cfg as Record<string, unknown>
   } catch { /* config may not exist yet */ }
 
   if (applianceMode) {
@@ -50,11 +52,7 @@ const indexHtml = join(distPath, 'index.html')
 
     // Verify API tokens exist — check both env var AND config file
     const hasEnvToken = !!process.env.JARVIS_API_TOKEN
-    let hasConfigToken = false
-    try {
-      const cfgRaw = cfg as Record<string, unknown>
-      hasConfigToken = !!(cfgRaw.api_token || cfgRaw.api_tokens)
-    } catch { /* already loaded above */ }
+    const hasConfigToken = !!(configForAppliance?.api_token || configForAppliance?.api_tokens)
     if (!hasEnvToken && !hasConfigToken) {
       console.error('  FATAL: appliance_mode is enabled but no API token is configured.')
       console.error('  Set JARVIS_API_TOKEN env var or add api_token to ~/.jarvis/config.json.')
@@ -69,8 +67,15 @@ const indexHtml = join(distPath, 'index.html')
   }
 }
 
-// Request size limit
-app.use(express.json({ limit: '1mb' }))
+// Request size limit. Preserve the raw payload for signed webhook verification.
+app.use(express.json({
+  limit: '1mb',
+  verify: (req, _res, buf) => {
+    if (req.url?.startsWith('/api/webhooks')) {
+      ;(req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(buf)
+    }
+  },
+}))
 app.use((req, _res, next) => {
   console.log(`[${req.method}] ${req.path}`)
   next()

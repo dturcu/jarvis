@@ -51,6 +51,11 @@ describe.sequential("Jarvis durable state persistence", () => {
 
       expect(queued.status).toBe("accepted");
       expect(queued.job_id).toBeTruthy();
+      const claim = getJarvisState().claimJob({
+        worker_id: "office-worker-1",
+        routes: ["office"],
+      });
+      expect(claim?.claim_id).toBeTruthy();
 
       const callback = {
         contract_version: "jarvis.v1" as const,
@@ -60,6 +65,7 @@ describe.sequential("Jarvis durable state persistence", () => {
         status: "completed" as const,
         summary: "Rendered preview.pdf",
         worker_id: "office-worker-1",
+        claim_id: claim!.claim_id!,
         artifacts: [
           {
             artifact_id: "preview-1",

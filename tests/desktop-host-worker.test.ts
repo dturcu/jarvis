@@ -4,7 +4,6 @@ import {
   CONTRACT_VERSION,
   getJarvisState,
   resetJarvisState,
-  submitDeviceOpenApp,
   type JobEnvelope
 } from "@jarvis/shared";
 import {
@@ -104,23 +103,41 @@ describe("Desktop host worker", () => {
       adapter: new MockDesktopHostAdapter()
     });
 
-    const submitResponse = submitDeviceOpenApp(
-      {
+    const approval = getJarvisState().requestApproval({
+      title: "Approve device.open_app",
+      description: "Needed for desktop-host callback round-trip test.",
+      severity: "warning",
+      scopes: ["device.open_app"],
+    });
+    getJarvisState().resolveApproval(approval.approval_id, "approved");
+
+    const submitResponse = getJarvisState().submitJob({
+      ctx: {
         agentId: "main",
         sessionKey: "agent:main:telegram:dm:123",
         messageChannel: "telegram",
         requesterSenderId: "123456789"
       } as any,
-      {
-        appId: "notepad",
+      type: "device.open_app",
+      approvalId: approval.approval_id,
+      input: {
+        app: { app_id: "notepad" },
         arguments: [],
-        waitForWindow: true
+        wait_for_window: true,
       },
-    );
+    });
 
     const envelope = extractEnvelope(submitResponse.job_id!);
+    const claim = getJarvisState().claimJob({
+      worker_id: worker.workerId,
+      routes: ["device"],
+    });
+    expect(claim?.claim_id).toBeTruthy();
     const result = await worker.execute(envelope);
-    const callback = worker.toCallback(result);
+    const callback = {
+      ...worker.toCallback(result),
+      claim_id: claim!.claim_id!,
+    };
     const finalResult = getJarvisState().handleWorkerCallback(callback);
     const jobResponse = getJarvisState().getJob(envelope.job_id);
 

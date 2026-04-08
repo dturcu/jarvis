@@ -9,6 +9,10 @@ import { createCommand } from '@jarvis/runtime'
 
 const JARVIS_DIR = join(os.homedir(), '.jarvis')
 
+type RawBodyRequest = import('express').Request & {
+  rawBody?: Buffer
+}
+
 const GITHUB_EVENT_TO_AGENT: Record<string, string> = {
   push: 'evidence-auditor',
   pull_request: 'contract-reviewer',
@@ -31,6 +35,30 @@ function getDb(): DatabaseSync {
   db.exec("PRAGMA journal_mode = WAL;")
   db.exec("PRAGMA busy_timeout = 5000;")
   return db
+}
+
+function getSignedPayload(req: RawBodyRequest): Buffer {
+  if (req.rawBody) {
+    return req.rawBody
+  }
+  return Buffer.from(JSON.stringify(req.body ?? {}), 'utf8')
+}
+
+export function computeWebhookSignature(secret: string, payload: Buffer | string): string {
+  const hmac = crypto.createHmac('sha256', secret)
+  hmac.update(payload)
+  return 'sha256=' + hmac.digest('hex')
+}
+
+export function signaturesMatch(signature: string, expected: string): boolean {
+  const sigBuf = Buffer.from(signature)
+  const expBuf = Buffer.from(expected)
+  const maxLen = Math.max(sigBuf.length, expBuf.length)
+  const paddedSig = Buffer.alloc(maxLen)
+  const paddedExp = Buffer.alloc(maxLen)
+  sigBuf.copy(paddedSig)
+  expBuf.copy(paddedExp)
+  return sigBuf.length === expBuf.length && crypto.timingSafeEqual(paddedSig, paddedExp)
 }
 
 /**
@@ -70,21 +98,8 @@ webhookRouter.post('/github', (req, res) => {
   const secret = loadWebhookSecret()
 
   if (secret && signature) {
-    const hmac = crypto.createHmac('sha256', secret)
-    hmac.update(JSON.stringify(req.body))
-    const expected = 'sha256=' + hmac.digest('hex')
-
-    const sigBuf = Buffer.from(signature)
-    const expBuf = Buffer.from(expected)
-    // Pad both buffers to the same length to avoid leaking length information
-    const maxLen = Math.max(sigBuf.length, expBuf.length)
-    const paddedSig = Buffer.alloc(maxLen)
-    const paddedExp = Buffer.alloc(maxLen)
-    sigBuf.copy(paddedSig)
-    expBuf.copy(paddedExp)
-
-    if (sigBuf.length !== expBuf.length ||
-        !crypto.timingSafeEqual(paddedSig, paddedExp)) {
+    const expected = computeWebhookSignature(secret, getSignedPayload(req as RawBodyRequest))
+    if (!signaturesMatch(signature, expected)) {
       res.status(401).json({ error: 'Invalid signature' })
       return
     }
@@ -133,19 +148,8 @@ function validateHmac(req: import('express').Request, secret: string | undefined
   const signature = req.headers['x-jarvis-signature'] as string | undefined
   if (!signature) return false
 
-  const hmac = crypto.createHmac('sha256', secret)
-  hmac.update(JSON.stringify(req.body))
-  const expected = 'sha256=' + hmac.digest('hex')
-
-  const sigBuf = Buffer.from(signature)
-  const expBuf = Buffer.from(expected)
-  const maxLen = Math.max(sigBuf.length, expBuf.length)
-  const paddedSig = Buffer.alloc(maxLen)
-  const paddedExp = Buffer.alloc(maxLen)
-  sigBuf.copy(paddedSig)
-  expBuf.copy(paddedExp)
-
-  return sigBuf.length === expBuf.length && crypto.timingSafeEqual(paddedSig, paddedExp)
+  const expected = computeWebhookSignature(secret, getSignedPayload(req as RawBodyRequest))
+  return signaturesMatch(signature, expected)
 }
 
 // POST /api/webhooks/generic — generic JSON webhook

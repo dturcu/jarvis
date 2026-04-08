@@ -93,17 +93,6 @@ export class RunStore {
     eventType: RunEventType,
     payload?: { step_no?: number; action?: string; details?: Record<string, unknown> },
   ): void {
-    // Read current status from DB (outside transaction — read-only)
-    const currentStatus = this.getStatus(runId);
-    if (currentStatus) {
-      const allowed = VALID_TRANSITIONS[currentStatus];
-      if (allowed && !allowed.includes(newStatus)) {
-        throw new Error(
-          `Invalid run transition: ${currentStatus} -> ${newStatus} (run ${runId})`,
-        );
-      }
-    }
-
     const completedAt = (newStatus === "completed" || newStatus === "failed" || newStatus === "cancelled")
       ? new Date().toISOString()
       : null;
@@ -112,17 +101,40 @@ export class RunStore {
     // Atomic: status update + event emission
     this.db.exec("BEGIN IMMEDIATE");
     try {
-      this.db.prepare(`
+      const row = this.db.prepare(
+        "SELECT status FROM runs WHERE run_id = ?",
+      ).get(runId) as { status: RunStatus } | undefined;
+
+      if (!row) {
+        throw new Error(`Unknown run ${runId}`);
+      }
+
+      const currentStatus = row.status;
+      const allowed = VALID_TRANSITIONS[currentStatus];
+      if (allowed && !allowed.includes(newStatus)) {
+        throw new Error(
+          `Invalid run transition: ${currentStatus} -> ${newStatus} (run ${runId})`,
+        );
+      }
+
+      const updateResult = this.db.prepare(`
         UPDATE runs SET status = ?, completed_at = COALESCE(?, completed_at),
           error = COALESCE(?, error), current_step = COALESCE(?, current_step)
-        WHERE run_id = ?
+        WHERE run_id = ? AND status = ?
       `).run(
         newStatus,
         completedAt,
         error ? String(error) : null,
         payload?.step_no ?? null,
         runId,
+        currentStatus,
       );
+
+      if ((updateResult as { changes?: number }).changes !== 1) {
+        throw new Error(
+          `Concurrent run transition rejected: ${currentStatus} -> ${newStatus} (run ${runId})`,
+        );
+      }
 
       this.db.prepare(`
         INSERT INTO run_events (event_id, run_id, agent_id, event_type, step_no, action, payload_json, created_at)

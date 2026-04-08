@@ -16,6 +16,30 @@ export type ApprovalEntry = {
   notified?: boolean
 }
 
+function asApprovalStatus(value: unknown): ApprovalEntry['status'] {
+  return value === 'approved' || value === 'rejected' ? value : 'pending'
+}
+
+function asApprovalSeverity(value: unknown): ApprovalEntry['severity'] {
+  return value === 'info' || value === 'critical' ? value : 'warning'
+}
+
+function mapApprovalRow(row: Record<string, unknown>): ApprovalEntry {
+  return {
+    id: String(row.id ?? ''),
+    agent: String(row.agent ?? ''),
+    action: String(row.action ?? ''),
+    payload: String(row.payload ?? ''),
+    created_at: String(row.created_at ?? ''),
+    status: asApprovalStatus(row.status),
+    run_id: String(row.run_id ?? ''),
+    severity: asApprovalSeverity(row.severity),
+    resolved_at: typeof row.resolved_at === 'string' ? row.resolved_at : undefined,
+    resolved_by: typeof row.resolved_by === 'string' ? row.resolved_by : undefined,
+    resolution_note: typeof row.resolution_note === 'string' ? row.resolution_note : undefined,
+  }
+}
+
 /**
  * Load approvals from the runtime database.
  */
@@ -24,7 +48,8 @@ export function loadApprovals(db: DatabaseSync, status?: 'pending' | 'approved' 
     const sql = status
       ? "SELECT approval_id as id, agent_id as agent, action, payload_json as payload, requested_at as created_at, status, run_id, severity, resolved_at, resolved_by, resolution_note FROM approvals WHERE status = ? ORDER BY requested_at DESC"
       : "SELECT approval_id as id, agent_id as agent, action, payload_json as payload, requested_at as created_at, status, run_id, severity, resolved_at, resolved_by, resolution_note FROM approvals ORDER BY requested_at DESC"
-    return (status ? db.prepare(sql).all(status) : db.prepare(sql).all()) as ApprovalEntry[]
+    const rows = (status ? db.prepare(sql).all(status) : db.prepare(sql).all()) as Array<Record<string, unknown>>
+    return rows.map(mapApprovalRow)
   } catch {
     return []
   }
@@ -36,7 +61,7 @@ export function loadApprovals(db: DatabaseSync, status?: 'pending' | 'approved' 
  */
 export function getUnnotifiedPending(db: DatabaseSync): ApprovalEntry[] {
   try {
-    return db.prepare(`
+    const rows = db.prepare(`
       SELECT a.approval_id as id, a.agent_id as agent, a.action, a.payload_json as payload,
              a.requested_at as created_at, a.status, a.run_id, a.severity
       FROM approvals a
@@ -45,9 +70,10 @@ export function getUnnotifiedPending(db: DatabaseSync): ApprovalEntry[] {
           SELECT 1 FROM notifications n
           WHERE n.kind = 'approval_prompt'
             AND json_extract(n.payload_json, '$.approval_id') = a.approval_id
-        )
-      ORDER BY a.requested_at ASC
-    `).all() as ApprovalEntry[]
+         )
+       ORDER BY a.requested_at ASC
+    `).all() as Array<Record<string, unknown>>
+    return rows.map(mapApprovalRow)
   } catch {
     return []
   }

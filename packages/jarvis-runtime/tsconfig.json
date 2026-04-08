@@ -16,6 +16,16 @@
     { "path": "../jarvis-crm-worker" },
     { "path": "../jarvis-web-worker" },
     { "path": "../jarvis-calendar-worker" },
+    { "path": "../jarvis-desktop-host-worker" },
+    { "path": "../jarvis-browser-worker" },
+    { "path": "../jarvis-social-worker" },
+    { "path": "../jarvis-system-worker" },
+    { "path": "../jarvis-office-worker" },
+    { "path": "../jarvis-interpreter-worker" },
+    { "path": "../jarvis-voice-worker" },
+    { "path": "../jarvis-security-worker" },
+    { "path": "../jarvis-time-worker" },
+    { "path": "../jarvis-drive-worker" },
     { "path": "../jarvis-scheduler" }
   ]
 }

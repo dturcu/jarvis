@@ -165,7 +165,7 @@ settingsRouter.post('/repair', (req, res) => {
   if (check === 'config' || check === 'all') {
     try {
       const config = readConfig()
-      const hasLms = typeof config.lmstudio_url === 'string'
+      const hasLms = typeof config.lmstudio_url === 'string' || typeof config.lm_studio_url === 'string'
       const hasMode = typeof config.adapter_mode === 'string'
       checks.push({ name: 'config', ok: hasLms && hasMode, message: hasLms && hasMode ? 'Config valid' : 'Missing lmstudio_url or adapter_mode' })
     } catch {
@@ -196,7 +196,7 @@ settingsRouter.post('/repair', (req, res) => {
   if (check === 'lmstudio' || check === 'all') {
     // Sync check — just verify config has a URL
     const config = readConfig()
-    const url = config.lmstudio_url as string | undefined
+    const url = (config.lmstudio_url as string | undefined) ?? (config.lm_studio_url as string | undefined)
     checks.push({ name: 'lmstudio', ok: !!url, message: url ? `LM Studio configured at ${url}` : 'No lmstudio_url in config' })
   }
 

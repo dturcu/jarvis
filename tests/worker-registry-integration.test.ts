@@ -354,8 +354,8 @@ describe("buildEnvelope", () => {
     const env = buildEnvelope("browser.navigate", { url: "https://example.com" });
     expect(env.metadata.agent_id).toBe("daemon");
     expect(env.metadata.thread_key).toBeNull();
-    expect(env.requested_by.source).toBe("agent");
-    expect(env.requested_by.agent_id).toBe("daemon");
+    expect(env.requested_by.channel).toBe("agent");
+    expect(env.requested_by.user_id).toBe("daemon");
   });
 
   it("sets contract_version, priority, approval_state, and attempt", () => {
@@ -368,6 +368,17 @@ describe("buildEnvelope", () => {
     expect(env.approval_state).toBe("not_required");
     expect(env.attempt).toBe(1);
     expect(env.artifacts_in).toEqual([]);
+  });
+
+  it("allows approval_state overrides for pre-approved actions", () => {
+    const env = buildEnvelope("email.send", {
+      to: ["test@example.com"],
+      subject: "Hello",
+      body_text: "world",
+    }, {
+      approval_state: "approved",
+    });
+    expect(env.approval_state).toBe("approved");
   });
 
   it("falls back to 120s timeout for unknown job types", () => {

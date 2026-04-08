@@ -239,7 +239,7 @@ export function deriveRequiredPermissions(capabilities: string[]): PluginPermiss
  * Fails closed: unknown/unmapped action families are denied.
  */
 export function isActionPermitted(action: string, grantedPermissions: PluginPermission[]): boolean {
-  const prefix = action.split(".")[0];
+  const prefix = action.split(".")[0] ?? action;
   const required = CAPABILITY_PERMISSION_MAP[prefix];
   if (!required) return false; // Unknown prefix — deny (fail closed)
   return grantedPermissions.includes(required);

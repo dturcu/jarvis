@@ -43,6 +43,11 @@ describe("Jarvis jobs callback route", () => {
       },
       artifactsIn: [{ artifact_id: "a1" }]
     });
+    const claim = getJarvisState().claimJob({
+      worker_id: "office-worker-1",
+      routes: ["office"],
+    });
+    expect(claim?.claim_id).toBeTruthy();
 
     const callbackPayload = {
       contract_version: "jarvis.v1" as const,
@@ -52,6 +57,7 @@ describe("Jarvis jobs callback route", () => {
       status: "completed" as const,
       summary: "Rendered preview.pdf",
       worker_id: "office-worker-1",
+      claim_id: claim!.claim_id!,
       artifacts: [
         {
           artifact_id: "preview-1",
@@ -89,5 +95,45 @@ describe("Jarvis jobs callback route", () => {
     const job = getJarvisState().getJob(queued.job_id!);
     expect(job.artifacts).toEqual(callbackPayload.artifacts);
     expect(job.summary).toBe("Rendered preview.pdf");
+  });
+
+  it("rejects callbacks whose claim_id does not match the active claim", async () => {
+    const queued = getJarvisState().submitJob({
+      type: "office.preview",
+      input: {
+        source_artifact: { artifact_id: "a1" },
+        format: "pdf",
+        output_name: "preview.pdf"
+      },
+      artifactsIn: [{ artifact_id: "a1" }]
+    });
+    const claim = getJarvisState().claimJob({
+      worker_id: "office-worker-1",
+      routes: ["office"],
+    });
+    expect(claim?.claim_id).toBeTruthy();
+
+    const request = Readable.from([JSON.stringify({
+      contract_version: "jarvis.v1",
+      job_id: queued.job_id,
+      job_type: "office.preview",
+      attempt: 1,
+      status: "completed",
+      summary: "Rendered preview.pdf",
+      worker_id: "office-worker-1",
+      claim_id: "wrong-claim-id"
+    })]) as any;
+    const response = createMockResponse();
+
+    await handleJobsCallback(request, response.response as any);
+
+    expect(response.response.statusCode).toBe(409);
+    expect(JSON.parse(response.readBody())).toMatchObject({
+      ok: false,
+      error: expect.stringContaining("claim_id does not match"),
+    });
+
+    const job = getJarvisState().getJob(queued.job_id!);
+    expect(job.status).toBe("in_progress");
   });
 });
