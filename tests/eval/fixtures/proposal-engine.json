@@ -1,0 +1,72 @@
+[
+  {
+    "fixture_id": "prop-001",
+    "agent_id": "proposal-engine",
+    "description": "Standard AUTOSAR RFQ from known client",
+    "input": { "goal": "Analyze RFQ from Volvo for AUTOSAR BSW workstream", "documents": ["volvo-rfq-autosar.pdf"], "knowledge_available": { "proposals": ["volvo-2025-proposal.json"], "case-studies": ["volvo-asild-delivery.json"] } },
+    "expected": { "artifacts": ["proposal_document", "cover_email", "risk_summary", "crm_note"], "must_contain": ["Phase 1", "workstream ownership", "ASIL"], "must_not_contain": ["T&M", "staff augmentation"], "approval_gates_triggered": ["email.send", "document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 3 }
+  },
+  {
+    "fixture_id": "prop-002",
+    "agent_id": "proposal-engine",
+    "description": "RFQ with vague acceptance criteria",
+    "input": { "goal": "Analyze this RFQ", "documents": ["vague-rfq.pdf"] },
+    "expected": { "artifacts": ["proposal_document", "risk_summary"], "must_contain": ["missing", "acceptance criteria", "risk"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "prop-003",
+    "agent_id": "proposal-engine",
+    "description": "RFQ outside TIC domain (hardware design)",
+    "input": { "goal": "Analyze RFQ for PCB layout and hardware design", "documents": ["hw-design-rfq.pdf"] },
+    "expected": { "artifacts": [], "must_contain": ["outside", "domain"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": true, "abort_expected": true, "min_retrieval_queries": 0 }
+  },
+  {
+    "fixture_id": "prop-004",
+    "agent_id": "proposal-engine",
+    "description": "Invoice generation for accepted proposal",
+    "input": { "goal": "Generate milestone invoices for accepted Garrett engagement", "crm_state": { "engagement": "garrett-2026", "status": "won", "milestones": 4 } },
+    "expected": { "artifacts": ["invoice_structure", "crm_note"], "must_contain": ["milestone", "EUR"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "prop-005",
+    "agent_id": "proposal-engine",
+    "description": "High-value engagement should escalate",
+    "input": { "goal": "Build proposal for EUR 750k ASIL-D program", "documents": ["large-rfq.pdf"] },
+    "expected": { "artifacts": ["proposal_document", "risk_summary"], "must_contain": ["escalat"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": true, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "prop-006",
+    "agent_id": "proposal-engine",
+    "description": "New client always gets Phase 1 recommendation",
+    "input": { "goal": "Propose engagement to new client Aptiv", "documents": ["aptiv-rfq.pdf"], "crm_state": { "prior_interactions": 0 } },
+    "expected": { "artifacts": ["proposal_document", "cover_email", "risk_summary", "crm_note"], "must_contain": ["Phase 1", "diagnostic"], "must_not_contain": [], "approval_gates_triggered": ["email.send", "document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "prop-007",
+    "agent_id": "proposal-engine",
+    "description": "Corrupted input document aborts",
+    "input": { "goal": "Analyze attached RFQ", "documents": ["corrupted.pdf"] },
+    "expected": { "artifacts": [], "must_contain": ["parse", "resubmit"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": true, "min_retrieval_queries": 0 }
+  },
+  {
+    "fixture_id": "prop-008",
+    "agent_id": "proposal-engine",
+    "description": "Prospect with rejection history escalates",
+    "input": { "goal": "Build follow-up proposal for ZF", "crm_state": { "prior_proposals": 3, "outcomes": ["rejected", "rejected", "parked"] } },
+    "expected": { "artifacts": ["proposal_document", "risk_summary"], "must_contain": ["escalat", "history"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": true, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "prop-009",
+    "agent_id": "proposal-engine",
+    "description": "Missing DIA flagged as risk",
+    "input": { "goal": "Analyze RFQ with multi-supplier scope", "documents": ["multi-supplier-rfq.pdf"] },
+    "expected": { "artifacts": ["proposal_document", "risk_summary"], "must_contain": ["DIA", "risk"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "prop-010",
+    "agent_id": "proposal-engine",
+    "description": "Regulatory context enriches proposal",
+    "input": { "goal": "Propose cybersecurity assessment for Stellantis", "documents": ["stellantis-cyber-rfq.pdf"], "knowledge_available": { "regulatory": ["unr155-update-2026.json", "iso21434-amendment.json"] } },
+    "expected": { "artifacts": ["proposal_document", "risk_summary", "crm_note"], "must_contain": ["ISO 21434", "regulatory"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 3 }
+  }
+]

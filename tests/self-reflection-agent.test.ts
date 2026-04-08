@@ -7,23 +7,17 @@ describe("selfReflectionAgent definition", () => {
   });
 
   it("has a weekly schedule trigger (Sunday 6am)", () => {
-    const scheduleTrigger = selfReflectionAgent.triggers.find(
-      (t) => t.kind === "schedule",
-    );
-    expect(scheduleTrigger).toBeDefined();
-    expect(scheduleTrigger!.cron).toBe("0 6 * * 0");
+    const sched = selfReflectionAgent.triggers.find(t => t.kind === "schedule");
+    expect(sched).toBeDefined();
+    expect(sched!.cron).toBe("0 6 * * 0");
   });
 
   it("also supports manual trigger", () => {
-    expect(selfReflectionAgent.triggers.some((t) => t.kind === "manual")).toBe(true);
+    expect(selfReflectionAgent.triggers.some(t => t.kind === "manual")).toBe(true);
   });
 
   it("uses critic planner mode", () => {
     expect(selfReflectionAgent.planner_mode).toBe("critic");
-  });
-
-  it("has experimental maturity", () => {
-    expect(selfReflectionAgent.maturity).toBe("experimental");
   });
 
   it("uses the lessons knowledge collection", () => {
@@ -39,40 +33,36 @@ describe("selfReflectionAgent definition", () => {
   });
 
   it("system prompt requires minimum 5 proposals", () => {
-    expect(selfReflectionAgent.system_prompt).toContain("Minimum 5 proposals");
+    expect(selfReflectionAgent.system_prompt).toContain("fewer than 5 proposals");
   });
 
   it("system prompt includes all 6 proposal categories", () => {
     const categories = [
-      "prompt_change",
-      "schema_enhancement",
-      "knowledge_gap",
-      "retrieval_miss",
-      "approval_friction",
-      "workflow_optimization",
+      "prompt_change", "schema_enhancement", "knowledge_gap",
+      "retrieval_miss", "approval_friction", "workflow_optimization",
     ];
     for (const cat of categories) {
       expect(selfReflectionAgent.system_prompt).toContain(cat);
     }
   });
 
-  it("system prompt emphasizes proposals over auto-apply", () => {
-    expect(selfReflectionAgent.system_prompt).toContain("NEVER auto-apply");
+  it("system prompt forbids auto-apply", () => {
+    expect(selfReflectionAgent.system_prompt).toContain("Auto-apply changes to production prompts");
   });
 });
 
 describe("selfReflectionAgent registry", () => {
   it("is included in ALL_AGENTS", () => {
-    expect(ALL_AGENTS.find((a) => a.agent_id === "self-reflection")).toBeDefined();
+    expect(ALL_AGENTS.find(a => a.agent_id === "self-reflection")).toBeDefined();
   });
 
   it("is findable via getAgent()", () => {
     const agent = getAgent("self-reflection");
     expect(agent).toBeDefined();
-    expect(agent!.label).toBe("Self-Reflection & Improvement Agent");
+    expect(agent!.label).toBe("Self-Reflection & Improvement");
   });
 
-  it("ALL_AGENTS now has 15 agents", () => {
-    expect(ALL_AGENTS).toHaveLength(15);
+  it("ALL_AGENTS has 8 agents", () => {
+    expect(ALL_AGENTS).toHaveLength(8);
   });
 });

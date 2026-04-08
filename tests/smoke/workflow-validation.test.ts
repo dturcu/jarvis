@@ -114,13 +114,13 @@ describe("Workflow: input validation and transactional start", () => {
     expect(crCmd.command_type).toBe("run_agent");
     expect(crCmd.target_agent_id).toBe("contract-reviewer");
 
-    // weekly-report has 3 agents ("evidence-auditor", "staffing-monitor", "bd-pipeline")
+    // weekly-report has 3 agents ("evidence-auditor", "staffing-monitor", "regulatory-watch")
     const wrResult = startWorkflow(db, "weekly-report", { week: "2026-01-05" });
     expect(wrResult.ok).toBe(true);
     expect(wrResult.commands).toHaveLength(3);
 
     const wrAgentIds = wrResult.commands.map(c => c.agent_id).sort();
-    expect(wrAgentIds).toEqual(["bd-pipeline", "evidence-auditor", "staffing-monitor"]);
+    expect(wrAgentIds).toEqual(["evidence-auditor", "regulatory-watch", "staffing-monitor"]);
 
     // Verify all 3 commands exist in DB
     for (const cmd of wrResult.commands) {
@@ -147,7 +147,7 @@ describe("Workflow: input validation and transactional start", () => {
   });
 
   it("workflow start with preview=false (default) sets preview to false", () => {
-    const result = startWorkflow(db, "bd-pipeline", { focus: "German OEMs" });
+    const result = startWorkflow(db, "staffing-check", { period: "This week" });
 
     const cmd = db.prepare(
       "SELECT payload_json FROM agent_commands WHERE command_id = ?",

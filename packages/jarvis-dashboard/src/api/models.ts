@@ -48,7 +48,7 @@ async function probeRuntime(probeUrl: string): Promise<boolean> {
  *   - "plan" with accuracy preference or complex multi-step → opus
  *   - "plan" standard → sonnet
  */
-// Only V1 workflows — aligned with V1_WORKFLOWS from @jarvis/runtime
+// Workflow-to-agent mapping — aligned with new 8-agent roster (2026-04-08)
 const WORKFLOW_MAPPING: Array<{
   workflow_id: string;
   agent_id: string;
@@ -57,11 +57,13 @@ const WORKFLOW_MAPPING: Array<{
   { workflow_id: "contract-review", agent_id: "contract-reviewer", inference_tier: "opus" },
   { workflow_id: "rfq-analysis", agent_id: "evidence-auditor", inference_tier: "sonnet" },
   { workflow_id: "rfq-analysis", agent_id: "proposal-engine", inference_tier: "opus" },
-  { workflow_id: "bd-pipeline", agent_id: "bd-pipeline", inference_tier: "sonnet" },
   { workflow_id: "staffing-check", agent_id: "staffing-monitor", inference_tier: "sonnet" },
   { workflow_id: "weekly-report", agent_id: "evidence-auditor", inference_tier: "sonnet" },
   { workflow_id: "weekly-report", agent_id: "staffing-monitor", inference_tier: "sonnet" },
-  { workflow_id: "weekly-report", agent_id: "bd-pipeline", inference_tier: "sonnet" },
+  { workflow_id: "orchestrated", agent_id: "orchestrator", inference_tier: "opus" },
+  { workflow_id: "regulatory-scan", agent_id: "regulatory-watch", inference_tier: "sonnet" },
+  { workflow_id: "knowledge-maintenance", agent_id: "knowledge-curator", inference_tier: "sonnet" },
+  { workflow_id: "self-review", agent_id: "self-reflection", inference_tier: "sonnet" },
 ];
 
 /** Seven-day staleness threshold in milliseconds. */
