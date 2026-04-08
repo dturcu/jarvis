@@ -121,13 +121,7 @@ export async function runAgent(
         details: { mode: "orchestrated", goal: run.goal },
       });
 
-      const allAgents = runtime.listAgents();
-      const orchResult = await executeOrchestratedGoal(run.goal, {
-        registry,
-        agents: allAgents,
-        logger,
-        maxConcurrent: 2,
-      });
+      const orchResult = await executeOrchestratedGoal(run.goal, deps, { maxConcurrent: 2 });
 
       // Record the graph as run metadata
       runStore?.emitEvent(run.run_id, agentId, "step_completed", {

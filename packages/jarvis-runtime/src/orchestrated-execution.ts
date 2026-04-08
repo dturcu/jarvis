@@ -1,19 +1,22 @@
 /**
  * Orchestrated multi-agent execution.
  *
- * When the orchestrator agent is invoked with a goal that requires multiple
- * agents, this module decomposes the goal into a DAG of sub-goals, presents
- * the execution plan for approval, and dispatches agents in topological order.
+ * Decomposes a goal into a DAG of sub-goals, then dispatches each
+ * sub-goal through the real `runAgent()` path — preserving per-agent
+ * context gathering, approval gates, run events, decision logs, and
+ * artifact handling.
  *
- * Integrates GoalDecomposer + MetaPlanner + approval gates.
+ * The orchestrator's own `workflow.execute_multi` approval gate should
+ * be checked by the caller before invoking this function.
  */
 
+import { randomUUID } from "node:crypto";
 import { GoalDecomposer, type AgentSummary } from "./goal-decomposer.js";
-import { MetaPlanner, type MetaPlannerResult, type SubGoalRunResult } from "./meta-planner.js";
+import { JobGraph } from "./job-graph.js";
+import type { SubGoalRunResult } from "./meta-planner.js";
 import type { SubGoal, JobGraphData } from "./orchestration-types.js";
-import type { WorkerRegistry } from "./worker-registry.js";
-import type { Logger } from "./logger.js";
-import type { AgentDefinition } from "@jarvis/agent-framework";
+import type { OrchestratorDeps } from "./orchestrator.js";
+import type { AgentDefinition, AgentRun } from "@jarvis/agent-framework";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -25,37 +28,36 @@ export type OrchestratedResult = {
   aborted_reason?: string;
 };
 
-export type OrchestratedExecutionDeps = {
-  registry: WorkerRegistry;
-  agents: AgentDefinition[];
-  logger: Logger;
+export type OrchestratedExecutionConfig = {
   maxConcurrent?: number;
 };
 
 // ─── Execution ──────────────────────────────────────────────────────────────
 
 /**
- * Decompose a goal into a DAG and execute it.
+ * Decompose a goal into a DAG and execute each sub-goal through runAgent().
  *
  * Steps:
- * 1. Build agent summaries from active definitions.
- * 2. Decompose the goal via LLM (or deterministic fallback).
- * 3. Validate the DAG (cycle check, agent existence).
- * 4. Execute sub-goals in topological order, respecting dependencies.
- * 5. Merge outputs into a single deliverable.
+ * 1. Decompose the goal via LLM (or deterministic fallback) — once only.
+ * 2. Validate the DAG (cycle check, agent existence).
+ * 3. Execute sub-goals in topological order via runAgent(), respecting deps.
+ * 4. Collect run outputs and merge into a composite deliverable.
  *
- * Approval gates from constituent agents are preserved — this function
- * does not bypass them.  The orchestrator's own `workflow.execute_multi`
- * gate should be checked by the caller before invoking this function.
+ * Each child agent runs through the full runtime execution contract:
+ * context gathering, planning, step execution, approval gates, decision
+ * logs, and lesson capture.  No shortcuts.
  */
 export async function executeOrchestratedGoal(
   goal: string,
-  deps: OrchestratedExecutionDeps,
+  deps: OrchestratorDeps,
+  config?: OrchestratedExecutionConfig,
 ): Promise<OrchestratedResult> {
-  const { registry, agents, logger, maxConcurrent } = deps;
+  const { runtime, registry, logger } = deps;
+  const maxConcurrent = config?.maxConcurrent ?? 2;
 
-  // 1. Build agent summaries (exclude orchestrator itself to avoid recursion)
-  const agentSummaries: AgentSummary[] = agents
+  // 1. Decompose — once only, no re-decomposition
+  const allAgents = runtime.listAgents();
+  const agentSummaries: AgentSummary[] = allAgents
     .filter(a => a.agent_id !== "orchestrator")
     .map(a => ({
       agent_id: a.agent_id,
@@ -63,7 +65,6 @@ export async function executeOrchestratedGoal(
       capabilities: a.capabilities,
     }));
 
-  // 2. Decompose
   const chatFn = async (systemPrompt: string, userMessage: string): Promise<string> => {
     return registry.chat(userMessage, systemPrompt);
   };
@@ -82,7 +83,7 @@ export async function executeOrchestratedGoal(
   }
 
   // Validate all referenced agents exist
-  const agentIds = new Set(agents.map(a => a.agent_id));
+  const agentIds = new Set(allAgents.map(a => a.agent_id));
   const invalidAgents = subGoals.filter(sg => !agentIds.has(sg.agent_id));
   if (invalidAgents.length > 0) {
     return {
@@ -96,69 +97,95 @@ export async function executeOrchestratedGoal(
 
   logger.info(`Orchestrated goal decomposed into ${subGoals.length} sub-goal(s): ${subGoals.map(sg => sg.agent_id).join(", ")}`);
 
-  // 3. Execute via MetaPlanner
-  const runAgentFn = async (agentId: string, subGoal: string): Promise<SubGoalRunResult> => {
-    logger.info(`Dispatching sub-goal to ${agentId}: ${subGoal.slice(0, 80)}`);
-
-    // Execute via the inference worker's chat — this simulates a single-agent run
-    // without going through the full orchestrator path (avoids recursion).
-    // The agent's system prompt provides the domain knowledge.
-    const agentDef = agents.find(a => a.agent_id === agentId);
-    const systemPrompt = agentDef?.system_prompt ?? "";
-
-    try {
-      const response = await registry.chat(subGoal, systemPrompt);
-      return {
-        sub_goal_id: "",
-        run_id: "",
-        status: "completed",
-        summary: response.slice(0, 500),
-      };
-    } catch (e) {
-      return {
-        sub_goal_id: "",
-        run_id: "",
-        status: "failed",
-        summary: `Agent ${agentId} failed`,
-        error: e instanceof Error ? e.message : String(e),
-      };
-    }
+  // 2. Build the validated DAG from the single decomposition
+  const graphData: JobGraphData = {
+    graph_id: randomUUID(),
+    root_goal: goal,
+    sub_goals: subGoals,
+    created_at: new Date().toISOString(),
+    status: "executing",
   };
+  const graph = new JobGraph(graphData);
 
-  const planner = new MetaPlanner(decomposer, runAgentFn, { maxConcurrent: maxConcurrent ?? 2 });
+  // 3. Execute sub-goals through runAgent() in topological order
+  const allResults: SubGoalRunResult[] = [];
 
-  // Re-execute using the already-decomposed sub-goals by running the planner
-  // Note: MetaPlanner.execute() re-decomposes, which is fine since the LLM
-  // should produce consistent results for the same goal.
-  let metaResult: MetaPlannerResult;
-  try {
-    metaResult = await planner.execute(goal);
-  } catch (e) {
-    return {
-      status: "failed",
-      graph: emptyGraph(goal),
-      results: [],
-      merged_output: "",
-      aborted_reason: `MetaPlanner execution failed: ${e instanceof Error ? e.message : String(e)}`,
-    };
+  // Lazy import to avoid circular dependency at module level.
+  // orchestrated-execution.ts is imported by orchestrator.ts, so we
+  // cannot statically import runAgent from orchestrator.ts.
+  const { runAgent } = await import("./orchestrator.js");
+
+  while (!graph.isComplete()) {
+    const ready = graph.getReady();
+    if (ready.length === 0) break;
+
+    const batch = ready.slice(0, maxConcurrent);
+    const promises = batch.map(async (sg): Promise<SubGoalRunResult> => {
+      graph.markRunning(sg.sub_goal_id, randomUUID());
+      logger.info(`Dispatching sub-goal to ${sg.agent_id}: ${sg.goal.slice(0, 80)}`);
+
+      try {
+        // Dispatch through the real agent execution path.
+        // This preserves: context gathering, planning, step execution,
+        // approval gates, run events, decision logs, and lesson capture.
+        const childRun: AgentRun = await runAgent(
+          sg.agent_id,
+          { kind: "manual", goal: sg.goal },
+          deps,
+        );
+
+        const succeeded = childRun.status === "completed";
+        const summary = succeeded
+          ? `Agent ${sg.agent_id} completed: ${(childRun as any).goal ?? sg.goal}`
+          : `Agent ${sg.agent_id} failed: ${childRun.error ?? "unknown error"}`;
+
+        if (succeeded) {
+          graph.markCompleted(sg.sub_goal_id, summary);
+        } else {
+          graph.markFailed(sg.sub_goal_id, childRun.error ?? summary);
+        }
+
+        return {
+          sub_goal_id: sg.sub_goal_id,
+          run_id: childRun.run_id,
+          status: succeeded ? "completed" : "failed",
+          summary,
+          error: childRun.error,
+        };
+      } catch (e) {
+        const error = e instanceof Error ? e.message : String(e);
+        graph.markFailed(sg.sub_goal_id, error);
+        return {
+          sub_goal_id: sg.sub_goal_id,
+          run_id: "",
+          status: "failed",
+          summary: `Agent ${sg.agent_id} failed: ${error}`,
+          error,
+        };
+      }
+    });
+
+    const settled = await Promise.allSettled(promises);
+    for (const result of settled) {
+      if (result.status === "fulfilled") {
+        allResults.push(result.value);
+      }
+    }
   }
 
-  // 4. Check for excessive failures
-  const failedCount = metaResult.results.filter(r => r.status === "failed").length;
-  if (failedCount >= 2) {
-    logger.warn(`Orchestrated execution: ${failedCount} sub-goals failed — aborting`);
-  }
+  // 4. Build composite output from completed sub-goal runs
+  const graphResult = graph.toJSON();
+  const failed = allResults.filter(r => r.status === "failed");
+  const completed = allResults.filter(r => r.status === "completed");
 
-  // 5. Merge outputs
-  const completedResults = metaResult.results.filter(r => r.status === "completed");
-  const mergedOutput = completedResults.length > 0
-    ? completedResults.map(r => `[${r.sub_goal_id.slice(0, 8)}] ${r.summary}`).join("\n\n")
+  const mergedOutput = completed.length > 0
+    ? completed.map(r => `## ${r.sub_goal_id.slice(0, 8)} (${r.run_id.slice(0, 8)})\n${r.summary}`).join("\n\n---\n\n")
     : "(no completed sub-goals)";
 
   return {
-    status: metaResult.status === "completed" ? "completed" : "failed",
-    graph: metaResult.graph,
-    results: metaResult.results,
+    status: failed.length > 0 ? "failed" : "completed",
+    graph: graphResult,
+    results: allResults,
     merged_output: mergedOutput,
   };
 }
@@ -182,15 +209,12 @@ function emptyGraph(goal: string): JobGraphData {
 export function isMultiAgentGoal(goal: string, agentIds: string[]): boolean {
   const lower = goal.toLowerCase();
   const mentionedAgents = agentIds.filter(id => {
-    // Check for agent ID or key parts of it
     const parts = id.split("-");
     return parts.some(p => p.length > 3 && lower.includes(p));
   });
 
-  // Multiple agents mentioned
   if (mentionedAgents.length >= 2) return true;
 
-  // Coordination keywords
   const coordKeywords = ["and then", "followed by", "after that", "weekly report", "full review", "end to end", "comprehensive"];
   if (coordKeywords.some(kw => lower.includes(kw))) return true;
 

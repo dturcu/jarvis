@@ -132,8 +132,32 @@ async function main() {
   // VectorStore and SparseStore self-create their tables on construction.
   const vectorStore = new VectorStore(KNOWLEDGE_DB_PATH);
   const sparseStore = new SparseStore(KNOWLEDGE_DB_PATH);
-  const embeddingBaseUrl = config.lmstudio_url ?? "http://localhost:1234";
-  const embeddingModel = "nomic-embed-text";
+
+  // Embedding model selection: check the model registry for a model tagged
+  // "embedding", fall back to well-known defaults for each runtime.
+  const EMBEDDING_DEFAULTS: Record<string, { url: string; model: string }> = {
+    lmstudio: { url: config.lmstudio_url ?? "http://localhost:1234", model: "nomic-embed-text" },
+    ollama:   { url: "http://localhost:11434", model: "nomic-embed-text" },
+  };
+  let embeddingBaseUrl = EMBEDDING_DEFAULTS.lmstudio.url;
+  let embeddingModel = EMBEDDING_DEFAULTS.lmstudio.model;
+  try {
+    const { loadRegisteredModels } = await import("@jarvis/inference");
+    const models = loadRegisteredModels(runtimeDb);
+    const embeddingCapable = models.find(m =>
+      m.tags?.includes("embedding") && m.enabled,
+    );
+    if (embeddingCapable) {
+      embeddingBaseUrl = EMBEDDING_DEFAULTS[embeddingCapable.runtime]?.url ?? embeddingBaseUrl;
+      embeddingModel = embeddingCapable.model_id;
+      logger.info(`Embedding model: ${embeddingModel} (${embeddingCapable.runtime}, from registry)`);
+    } else {
+      logger.info(`Embedding model: ${embeddingModel} (default — no embedding-tagged model in registry)`);
+    }
+  } catch {
+    logger.info(`Embedding model: ${embeddingModel} (default — registry unavailable)`);
+  }
+
   const embedFn: import("@jarvis/agent-framework").EmbedFn = async (params) => {
     const { embedTexts } = await import("@jarvis/inference");
     return embedTexts(params);

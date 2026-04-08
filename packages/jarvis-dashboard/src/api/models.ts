@@ -42,30 +42,29 @@ async function probeRuntime(probeUrl: string): Promise<boolean> {
 }
 
 /**
- * Static workflow-to-tier mapping for V1 agents.
- * Since @jarvis/agents is not a dependency of the dashboard, this is hardcoded.
- * The inference tier is derived from each agent's task_profile.objective:
- *   - "plan" with accuracy preference or complex multi-step → opus
- *   - "plan" standard → sonnet
+ * Workflow-to-agent mapping generated from V1_WORKFLOWS at import time.
+ * No longer hardcoded — always matches the actual workflow definitions.
+ *
+ * Inference tier heuristic: agents with multi planner mode → "opus",
+ * all others → "sonnet".  This mirrors the task_profile routing logic
+ * in the inference worker.
  */
-// Workflow-to-agent mapping — aligned with new 8-agent roster (2026-04-08)
-// TODO: Generate from V1_WORKFLOWS in @jarvis/runtime to prevent drift.
+import { V1_WORKFLOWS } from "@jarvis/runtime";
+import { ALL_AGENTS } from "@jarvis/agents";
+
+const agentPlannerModes = new Map(ALL_AGENTS.map(a => [a.agent_id, a.planner_mode]));
+
 const WORKFLOW_MAPPING: Array<{
   workflow_id: string;
   agent_id: string;
   inference_tier: string;
-}> = [
-  { workflow_id: "contract-review", agent_id: "contract-reviewer", inference_tier: "opus" },
-  { workflow_id: "rfq-analysis", agent_id: "evidence-auditor", inference_tier: "sonnet" },
-  { workflow_id: "rfq-analysis", agent_id: "proposal-engine", inference_tier: "opus" },
-  { workflow_id: "staffing-check", agent_id: "staffing-monitor", inference_tier: "sonnet" },
-  { workflow_id: "weekly-report", agent_id: "evidence-auditor", inference_tier: "sonnet" },
-  { workflow_id: "weekly-report", agent_id: "staffing-monitor", inference_tier: "sonnet" },
-  { workflow_id: "orchestrated", agent_id: "orchestrator", inference_tier: "opus" },
-  { workflow_id: "regulatory-scan", agent_id: "regulatory-watch", inference_tier: "sonnet" },
-  { workflow_id: "knowledge-maintenance", agent_id: "knowledge-curator", inference_tier: "sonnet" },
-  { workflow_id: "self-review", agent_id: "self-reflection", inference_tier: "sonnet" },
-];
+}> = V1_WORKFLOWS.flatMap(wf =>
+  wf.agent_ids.map(agentId => ({
+    workflow_id: wf.workflow_id,
+    agent_id: agentId,
+    inference_tier: agentPlannerModes.get(agentId) === "multi" ? "opus" : "sonnet",
+  })),
+);
 
 /** Seven-day staleness threshold in milliseconds. */
 const STALE_THRESHOLD_MS = 7 * 24 * 60 * 60 * 1000;
