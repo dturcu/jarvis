@@ -29,6 +29,24 @@ export class RealOfficeAdapter implements OfficeAdapter {
     fs.mkdirSync(this.outputDir, { recursive: true });
   }
 
+  /**
+   * Resolve an output file path and verify it stays within this.outputDir.
+   * Prevents path traversal via malicious output_name values like "../../etc/owned".
+   */
+  private safeOutputPath(outputName: string): string {
+    const resolved = path.resolve(this.outputDir, outputName);
+    const resolvedDir = path.resolve(this.outputDir);
+    if (!resolved.startsWith(resolvedDir + path.sep) && resolved !== resolvedDir) {
+      throw new OfficeWorkerError(
+        "INVALID_INPUT",
+        `Output path escapes output directory: ${outputName}`,
+        false,
+        { output_name: outputName },
+      );
+    }
+    return resolved;
+  }
+
   // ── inspect ─────────────────────────────────────────────────────────────────
 
   async inspect(input: OfficeInspectInput): Promise<ExecutionOutcome<OfficeInspectOutput>> {
@@ -171,7 +189,7 @@ export class RealOfficeAdapter implements OfficeAdapter {
       }
     }
 
-    const outputPath = path.join(this.outputDir, input.output_name);
+    const outputPath = this.safeOutputPath(input.output_name);
     XLSX.writeFile(outputWb, outputPath);
 
     return {
@@ -270,7 +288,7 @@ export class RealOfficeAdapter implements OfficeAdapter {
       XLSX.utils.book_append_sheet(outputWb, newWs, sheetName.slice(0, 31));
     }
 
-    const outputPath = path.join(this.outputDir, input.output_name);
+    const outputPath = this.safeOutputPath(input.output_name);
     XLSX.writeFile(outputWb, outputPath);
 
     return {
@@ -334,7 +352,7 @@ export class RealOfficeAdapter implements OfficeAdapter {
     }
 
     const buf = doc.getZip().generate({ type: "nodebuffer" }) as Buffer;
-    const outputPath = path.join(this.outputDir, input.output_name);
+    const outputPath = this.safeOutputPath(input.output_name);
     fs.writeFileSync(outputPath, buf);
 
     const variablesFilled = Object.keys(input.variables).length;
@@ -442,7 +460,7 @@ export class RealOfficeAdapter implements OfficeAdapter {
       }
     }
 
-    const outputPath = path.join(this.outputDir, input.output_name);
+    const outputPath = this.safeOutputPath(input.output_name);
     await pptx.writeFile({ fileName: outputPath });
 
     return {
@@ -515,7 +533,7 @@ export class RealOfficeAdapter implements OfficeAdapter {
     }
 
     // Write output in requested format
-    const outputPath = path.join(this.outputDir, input.output_name);
+    const outputPath = this.safeOutputPath(input.output_name);
 
     if (input.format === "json") {
       fs.writeFileSync(outputPath, JSON.stringify(tables, null, 2));
@@ -628,7 +646,7 @@ export class RealOfficeAdapter implements OfficeAdapter {
       content = lines.slice(0, maxLines).join("\n");
     }
 
-    const outputPath = path.join(this.outputDir, input.output_name);
+    const outputPath = this.safeOutputPath(input.output_name);
     fs.writeFileSync(outputPath, content);
 
     return {

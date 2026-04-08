@@ -39,6 +39,20 @@ See `docs/ADR-PLATFORM-KERNEL-BOUNDARY.md` for the authoritative ownership split
 Architecture boundary tests (`tests/architecture-boundary.test.ts`) enforce forbidden patterns in CI.
 Convergence roadmap: `docs/CONVERGENCE-ROADMAP.md` (12 epics, 3-year plan).
 
+### Convergence Status (Wave 8 -- Final Cleanup)
+
+All four primary-path duplication targets from Year 1 are addressed:
+
+| Duplication Target | Status | Detail |
+|---|---|---|
+| Webhook ingress | **Eliminated** | `webhooks.ts` deleted; v2 normalizer serves both paths |
+| Telegram transport | **Session default** | Session mode is default; legacy via `JARVIS_TELEGRAM_MODE=legacy` |
+| Operator chat (godmode) | **Session default** | Session-backed adapter at `/api/godmode`; legacy at `/api/godmode/legacy` |
+| Browser runtime | **OpenClaw default** | OpenClaw bridge is default; legacy via `JARVIS_BROWSER_MODE=legacy` |
+
+Legacy paths remain available behind env vars for rollback but carry deprecation warnings.
+See `docs/CONVERGENCE-ROADMAP.md` for the full epic map and `docs/RELEASE-GATES.md` for exit criteria.
+
 ## Architecture
 
 Jarvis has two execution modes:

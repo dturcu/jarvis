@@ -346,6 +346,9 @@ export async function runAgent(
 
     log.info(`Plan: ${plan.steps.length} steps`);
 
+    // Track fatal step failures (non-retryable, or retry also failed)
+    let fatalStepFailure: { step: number; action: string; error: string } | null = null;
+
     // 4. Execute steps sequentially
     for (const step of plan.steps) {
       // ── Check for external cancellation before each step ──
@@ -528,6 +531,11 @@ export async function runAgent(
                   failure_class: retryFailureClass,
                 },
               });
+              fatalStepFailure = {
+                step: step.step,
+                action: step.action,
+                error: retry.error?.message ?? "Retry failed",
+              };
             } else {
               runStore?.emitEvent(run.run_id, agentId, "step_completed", {
                 step_no: step.step, action: step.action,
@@ -536,6 +544,11 @@ export async function runAgent(
             }
           } else {
             stepLog.warn(`Failed: ${result.error?.message}`);
+            fatalStepFailure = {
+              step: step.step,
+              action: step.action,
+              error: result.error?.message ?? "Step failed",
+            };
           }
         } else {
           runStore?.emitEvent(run.run_id, agentId, "step_completed", {
@@ -558,6 +571,11 @@ export async function runAgent(
           agent_id: agentId, run_id: run.run_id, step: step.step,
           action: step.action, reasoning: step.reasoning, outcome: `error: ${errMsg}`,
         });
+        fatalStepFailure = {
+          step: step.step,
+          action: step.action,
+          error: errMsg,
+        };
       }
 
       // ── Post-step cancellation check ──
@@ -587,6 +605,21 @@ export async function runAgent(
       finalizeRun(run, "Cancelled by operator");
       return run;
     }
+
+    // If any step failed fatally, mark the run as failed
+    if (fatalStepFailure) {
+      const failMsg = `Step ${fatalStepFailure.step} (${fatalStepFailure.action}) failed: ${fatalStepFailure.error}`;
+      log.warn(`Run failed due to step failure: ${failMsg}`);
+      runStore?.transition(run.run_id, agentId, "failed", "run_failed", {
+        details: { steps_completed: run.current_step, total_steps: plan.steps.length, fatal_step: fatalStepFailure },
+      });
+      runStore?.completeCommand(run.run_id, "failed");
+      statusWriter?.completeRun("failed");
+      finalizeRun(run, failMsg);
+      runtime.clearRunMemory(run.run_id);
+      return run;
+    }
+
     runStore?.transition(run.run_id, agentId, "completed", "run_completed", {
       details: { steps_completed: run.current_step, total_steps: plan.steps.length },
     });

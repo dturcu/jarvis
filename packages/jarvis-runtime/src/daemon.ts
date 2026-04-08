@@ -17,6 +17,7 @@ import { ALL_AGENTS } from "@jarvis/agents";
 import { loadPlugins } from "./plugin-loader.js";
 import { computeNextFireAt } from "@jarvis/scheduler";
 import { loadConfig, JARVIS_DIR, KNOWLEDGE_DB_PATH } from "./config.js";
+import { createDbScheduleTrigger, createExternalTriggerSource, type ScheduleTriggerSource } from "./schedule-trigger.js";
 import { RagPipeline } from "./rag-pipeline.js";
 import { openRuntimeDb } from "./runtime-db.js";
 import { createWorkerRegistry } from "./worker-registry.js";
@@ -198,6 +199,23 @@ async function main() {
 
   // DB-backed scheduler — persists across restarts
   const scheduler = new DbSchedulerStore(runtimeDb);
+
+  // ─── Schedule trigger source ────────────────────────────────────────────────
+  // Select based on JARVIS_SCHEDULE_SOURCE env var (default: "db").
+  // "db"       — daemon polls DbSchedulerStore for due schedules (legacy/standalone).
+  // "external" — OpenClaw TaskFlow fires schedules; daemon skips schedule polling.
+  const scheduleSourceEnv = (process.env.JARVIS_SCHEDULE_SOURCE ?? "db").toLowerCase();
+  let scheduleTrigger: ScheduleTriggerSource;
+  if (scheduleSourceEnv === "external") {
+    scheduleTrigger = createExternalTriggerSource();
+    logger.info("Schedule source: external (OpenClaw TaskFlow manages schedule evaluation)");
+  } else {
+    scheduleTrigger = createDbScheduleTrigger(scheduler, computeNextFireAt);
+    if (scheduleSourceEnv !== "db") {
+      logger.warn(`Unknown JARVIS_SCHEDULE_SOURCE="${scheduleSourceEnv}", defaulting to "db"`);
+    }
+    logger.info("Schedule source: db (daemon polls DbSchedulerStore)");
+  }
 
   // Register all built-in agents
   for (const def of ALL_AGENTS) {
@@ -390,17 +408,14 @@ async function main() {
     const pollInterval = setInterval(async () => {
       if (agentQueue.isDraining) return;
 
-      // Check scheduled agents (from DB-backed scheduler)
+      // Check scheduled agents (via pluggable trigger source)
       const now = new Date();
-      const due = scheduler.getDueSchedules(now);
+      const due = scheduleTrigger.getDueSchedules(now);
       for (const schedule of due) {
-        const agentId = (schedule.input as { agent_id: string }).agent_id;
-        const cronTrigger: AgentTrigger = { kind: "schedule", cron: schedule.cron_expression! };
+        const cronTrigger: AgentTrigger = { kind: "schedule", cron: schedule.cron_expression };
         // Pass "scheduler" as owner so scheduled runs have attribution in audit trail
-        agentQueue.enqueue(agentId, cronTrigger, 0, undefined, undefined, "scheduler");
-        scheduler.markFired(schedule.schedule_id);
-        const nextFire = computeNextFireAt(schedule, now);
-        scheduler.updateNextFireAt(schedule.schedule_id, nextFire);
+        agentQueue.enqueue(schedule.agent_id, cronTrigger, 0, undefined, undefined, "scheduler");
+        scheduleTrigger.markFired(schedule.schedule_id, now);
       }
 
       // Check queued commands in runtime.db

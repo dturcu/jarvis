@@ -80,16 +80,23 @@ OpenClaw owns channels, sessions, browser lifecycle, webhook ingress, automation
 - Browser tasks produce equivalent artifacts
 - Approval enforcement still works for risky browser actions
 
-### Progress (as of Wave 5)
+### Progress (as of Wave 8 -- Final Cleanup)
 
 | Duplication Target | Status | Notes |
 |---|---|---|
 | Webhook ingress | **Eliminated** | `webhooks.ts` deleted; v2 normalizer serves both paths |
-| Telegram transport | **Default session** | Session mode is now default; legacy available via `JARVIS_TELEGRAM_MODE=legacy` |
-| Operator chat (godmode) | **Default session** | Session-backed adapter is now `/api/godmode`; v1 at `/api/godmode/legacy` |
-| Browser runtime | **Default openclaw** | OpenClaw bridge is now default; legacy available via `JARVIS_BROWSER_MODE=legacy` |
+| Telegram transport | **Session default** | Session mode is default; legacy available via `JARVIS_TELEGRAM_MODE=legacy` |
+| Operator chat (godmode) | **Session default** | Session-backed adapter at `/api/godmode`; legacy at `/api/godmode/legacy`. All direct LM Studio functions in `godmode.ts` marked `@deprecated`. |
+| Browser runtime | **OpenClaw default** | OpenClaw bridge is default; legacy available via `JARVIS_BROWSER_MODE=legacy` |
 
-**Year 1 Success Metric:** Four primary-path duplications eliminated. The biggest duplications (Telegram, webhooks, operator chat, browser) are gone or behind thin compatibility bridges.
+**Wave 8 cleanup completed:**
+- All direct LM Studio call functions (`llmChat`, `streamLlm`, `classifyIntent`) in `godmode.ts` marked `@deprecated` with JSDoc
+- Dead imports removed (`deprecated-bot`, `claude-fallback` references verified absent)
+- Stale `/api/godmode/v2` path references cleaned from doc comments
+- `CLAUDE.md` convergence section added with final status table
+- `ARCHITECTURE-STATUS.md` updated to reflect session-backed adapter as primary path
+
+**Year 1 Success Metric:** Four primary-path duplications eliminated. The biggest duplications (Telegram, webhooks, operator chat, browser) are gone or behind thin compatibility bridges. Legacy paths remain available via env vars for rollback safety.
 
 ## Year 2: Operational Strength
 
