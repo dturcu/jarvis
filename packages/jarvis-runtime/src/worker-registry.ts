@@ -36,7 +36,18 @@ export type WorkerRegistry = {
   getHealthMonitor(): WorkerHealthMonitor | undefined;
 };
 
-export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger, runtimeDb?: DatabaseSync, healthMonitor?: WorkerHealthMonitor): WorkerRegistry {
+export type WorkerRegistryOptions = {
+  embeddingPipeline?: import("@jarvis/agent-framework").EmbeddingPipeline;
+  hybridRetriever?: import("@jarvis/agent-framework").HybridRetriever;
+};
+
+export function createWorkerRegistry(
+  config: JarvisRuntimeConfig,
+  logger: Logger,
+  runtimeDb?: DatabaseSync,
+  healthMonitor?: WorkerHealthMonitor,
+  opts?: WorkerRegistryOptions,
+): WorkerRegistry {
   const useReal = config.adapter_mode === "real";
 
   // Audit helper: log credential access for security trail (best-effort)
@@ -50,7 +61,9 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
   };
 
   // ─── Inference ──────────────────────────────────────────────────────────
-  const inferenceAdapter = useReal ? new DefaultInferenceAdapter(runtimeDb, config.lmstudio_url) : new MockInferenceAdapter();
+  const inferenceAdapter = useReal
+    ? new DefaultInferenceAdapter(runtimeDb, config.lmstudio_url, opts?.embeddingPipeline, opts?.hybridRetriever)
+    : new MockInferenceAdapter();
   const inferenceWorker = createInferenceWorker({ adapter: inferenceAdapter });
 
   // Chat helper for adapters that need LLM access.

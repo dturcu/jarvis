@@ -43,6 +43,11 @@ export class SqliteKnowledgeStore {
     }
   }
 
+  /** Attach an embedding pipeline after construction (for deferred initialization). */
+  setEmbeddingPipeline(pipeline: EmbeddingPipeline): void {
+    this.embeddingPipeline = pipeline;
+  }
+
   private hasFts(): boolean {
     try {
       this.db.prepare("SELECT * FROM documents_fts LIMIT 0").all();

@@ -6,6 +6,10 @@ import {
   SqliteMemoryStore,
   SqliteKnowledgeStore,
   LessonCapture,
+  VectorStore,
+  SparseStore,
+  EmbeddingPipeline,
+  HybridRetriever,
 } from "@jarvis/agent-framework";
 import { SqliteEntityGraph } from "@jarvis/agent-framework";
 import { SqliteDecisionLog } from "@jarvis/agent-framework";
@@ -13,6 +17,7 @@ import { ALL_AGENTS } from "@jarvis/agents";
 import { loadPlugins } from "./plugin-loader.js";
 import { computeNextFireAt } from "@jarvis/scheduler";
 import { loadConfig, JARVIS_DIR, KNOWLEDGE_DB_PATH } from "./config.js";
+import { RagPipeline } from "./rag-pipeline.js";
 import { openRuntimeDb } from "./runtime-db.js";
 import { createWorkerRegistry } from "./worker-registry.js";
 import { AgentQueue } from "./agent-queue.js";
@@ -122,11 +127,48 @@ async function main() {
   const memory = new SqliteMemoryStore(KNOWLEDGE_DB_PATH);
   const runtime = new AgentRuntime(memory);
   const lessonCapture = new LessonCapture(knowledgeStore);
+
+  // ─── Retrieval stores ────────────────────────────────────────────────────
+  // VectorStore and SparseStore self-create their tables on construction.
+  const vectorStore = new VectorStore(KNOWLEDGE_DB_PATH);
+  const sparseStore = new SparseStore(KNOWLEDGE_DB_PATH);
+  const embeddingBaseUrl = config.lmstudio_url ?? "http://localhost:1234";
+  const embeddingModel = "nomic-embed-text";
+  const embedFn: import("@jarvis/agent-framework").EmbedFn = async (params) => {
+    const { embedTexts } = await import("@jarvis/inference");
+    return embedTexts(params);
+  };
+  const hybridRetriever = new HybridRetriever({
+    vectorStore,
+    sparseStore,
+    embeddingBaseUrl,
+    embeddingModel,
+    embedFn,
+  });
+  logger.info("Retrieval stores initialized (vector + sparse + hybrid)");
+
   // Worker health monitor — tracks per-worker execution outcomes
   const healthMonitor = new WorkerHealthMonitor(WORKER_EXECUTION_POLICIES);
   setWorkerHealthProvider(() => healthMonitor.getHealthReport());
 
-  const registry = createWorkerRegistry(config, logger, runtimeDb, healthMonitor);
+  const registry = createWorkerRegistry(config, logger, runtimeDb, healthMonitor, {
+    hybridRetriever,
+  });
+
+  // ─── Embedding + RAG pipeline ────────────────────────────────────────────
+  // Created after registry (needs worker for embedding calls).
+  // EmbeddingPipeline is attached to the knowledge store so new documents
+  // are automatically chunked and embedded on ingestion.
+  const embeddingPipeline = new EmbeddingPipeline({
+    vectorStore,
+    sparseStore,
+    embeddingBaseUrl,
+    embeddingModel,
+    embedFn,
+  });
+  knowledgeStore.setEmbeddingPipeline(embeddingPipeline);
+  const ragPipeline = new RagPipeline(vectorStore, registry, logger, sparseStore);
+  logger.info("Embedding pipeline + RAG pipeline initialized");
 
   // DB-backed scheduler — persists across restarts
   const scheduler = new DbSchedulerStore(runtimeDb);
@@ -290,7 +332,7 @@ async function main() {
   }
 
   // Orchestrator deps
-  const deps = { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, runtimeDb, channelStore };
+  const deps = { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, runtimeDb, channelStore, ragPipeline };
 
   // Agent Queue
   const agentQueue = new AgentQueue(config.max_concurrent, deps, logger);
