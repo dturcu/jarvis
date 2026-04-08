@@ -1,164 +1,212 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
-import PageHeader from '../shared/PageHeader.tsx'
-import TabBar from '../shared/TabBar.tsx'
-import StatusBadge from '../shared/StatusBadge.tsx'
-import DataCard from '../shared/DataCard.tsx'
+import SectionCard from '../shared/SectionCard.tsx'
+import StatusPill from '../shared/StatusPill.tsx'
 import EmptyState from '../shared/EmptyState.tsx'
 import LoadingSpinner from '../shared/LoadingSpinner.tsx'
 import ConfirmDialog from '../shared/ConfirmDialog.tsx'
-import { IconWarning, IconError, IconCheck, IconClock, IconArrowRight } from '../shared/icons.tsx'
+import { IconWarning, IconError, IconCheck, IconClock } from '../shared/icons.tsx'
 import { usePolling } from '../hooks/usePolling.ts'
 import { useApi, apiFetch } from '../hooks/useApi.ts'
-import type { EnrichedApproval, Run, RunExplanation, RepairReport } from '../types/index.ts'
-import { agentLabel, timeAgo, STATUS_COLORS } from '../types/index.ts'
+import type { EnrichedApproval, Run, RunExplanation, RepairReport, RepairCheck, FixAction } from '../types/index.ts'
+import { agentLabel, timeAgo } from '../types/index.ts'
 
-/* ── Constants ───────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   UNIFIED QUEUE — normalize all item types into one priority stream
+   ═══════════════════════════════════════════════════════════════ */
 
-const TABS = ['Approvals', 'Failures', 'Retries', 'Alerts'] as const
-type Tab = (typeof TABS)[number]
+type ItemKind = 'approval' | 'failure' | 'alert'
 
-const RISK_COLORS: Record<string, string> = {
-  low: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  medium: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-  high: 'bg-red-500/10 text-red-400 border-red-500/20',
+interface QueueItem {
+  id: string
+  kind: ItemKind
+  priority: number          // lower = more urgent
+  approval?: EnrichedApproval
+  failure?: Run
+  alert?: { check: RepairCheck; fix: FixAction | null }
 }
 
-const REPAIR_BANNER: Record<string, { bg: string; border: string; text: string; dot: string }> = {
-  healthy: { bg: 'bg-emerald-500/5', border: 'border-emerald-500/15', text: 'text-emerald-300', dot: 'bg-emerald-500' },
-  degraded: { bg: 'bg-amber-500/5', border: 'border-amber-500/15', text: 'text-amber-300', dot: 'bg-amber-400' },
-  broken: { bg: 'bg-red-500/5', border: 'border-red-500/15', text: 'text-red-300', dot: 'bg-red-500' },
+function prioritize(approval: EnrichedApproval): number {
+  if (approval.status !== 'pending') return 900
+  const risk = approval.risk?.level ?? 'low'
+  if (risk === 'high') return 100
+  if (risk === 'medium') return 200
+  return 300
 }
 
-/* ── Main component ──────────────────────────────────────── */
+function buildQueue(
+  approvals: EnrichedApproval[] | null,
+  failures: Run[] | null,
+  repair: RepairReport | null,
+): QueueItem[] {
+  const items: QueueItem[] = []
 
-export default function Inbox() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const initialTab = (searchParams.get('tab') as Tab) || 'Approvals'
-  const [activeTab, setActiveTab] = useState<Tab>(TABS.includes(initialTab) ? initialTab : 'Approvals')
-  const [filterPending, setFilterPending] = useState(true)
+  approvals?.forEach(a => {
+    items.push({ id: `apr-${a.id}`, kind: 'approval', priority: prioritize(a), approval: a })
+  })
 
-  // Approvals: poll every 10s
-  const approvalsUrl = filterPending ? '/api/approvals?status=pending' : '/api/approvals'
-  const { data: approvals, loading: loadingApprovals, refetch: refetchApprovals } = usePolling<EnrichedApproval[]>(approvalsUrl, 10_000)
+  failures?.forEach(r => {
+    items.push({ id: `fail-${r.run_id}`, kind: 'failure', priority: 150, failure: r })
+  })
 
-  // Failures: single fetch + manual refetch
-  const { data: failedRuns, loading: loadingFailures, refetch: refetchFailures } = useApi<Run[]>('/api/runs/failed')
+  repair?.checks
+    .filter(c => c.status !== 'ok')
+    .forEach(c => {
+      const fix = repair.recommended_actions.find(a => a.check === c.name)?.action ?? null
+      const pri = c.status === 'critical' ? 120 : 250
+      items.push({ id: `alert-${c.name}`, kind: 'alert', priority: pri, alert: { check: c, fix } })
+    })
 
-  // Repair: single fetch
-  const { data: repair, loading: loadingRepair } = useApi<RepairReport>('/api/repair')
+  items.sort((a, b) => a.priority - b.priority)
+  return items
+}
 
-  // Tab badges
-  const pendingCount = approvals?.filter(a => a.status === 'pending').length ?? 0
-  const failureCount = failedRuns?.length ?? 0
-  const retryCount = failedRuns?.length ?? 0
-  const alertCount = repair?.recommended_actions?.length ?? 0
+/* ═══════════════════════════════════════════════════════════════
+   FILTER CHIPS
+   ═══════════════════════════════════════════════════════════════ */
 
-  const badges: Partial<Record<Tab, number>> = {
-    Approvals: pendingCount,
-    Failures: failureCount,
-    Retries: retryCount,
-    Alerts: alertCount,
-  }
+type Filter = 'all' | 'approval' | 'failure' | 'alert'
 
-  const handleTabChange = useCallback((tab: Tab) => {
-    setActiveTab(tab)
-    setSearchParams(tab === 'Approvals' ? {} : { tab })
-  }, [setSearchParams])
+const FILTER_LABELS: Record<Filter, string> = {
+  all: 'All', approval: 'Approvals', failure: 'Failures', alert: 'Alerts',
+}
 
-  // Sync from URL on mount/navigation
-  useEffect(() => {
-    const urlTab = searchParams.get('tab') as Tab
-    if (urlTab && TABS.includes(urlTab) && urlTab !== activeTab) {
-      setActiveTab(urlTab)
-    }
-  }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
-
+function FilterChip({ filter, active, count, onClick }: {
+  filter: Filter; active: boolean; count: number; onClick: () => void
+}) {
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <PageHeader
-        title="Inbox"
-        subtitle="Decisions that need you — approvals, failures, and system alerts"
-      />
-
-      <TabBar
-        tabs={TABS}
-        active={activeTab}
-        onChange={handleTabChange}
-        badges={badges}
-      />
-
-      {activeTab === 'Approvals' && (
-        <ApprovalsTab
-          approvals={approvals}
-          loading={loadingApprovals}
-          filterPending={filterPending}
-          onToggleFilter={() => setFilterPending(f => !f)}
-          onActionComplete={refetchApprovals}
-        />
+    <button
+      onClick={onClick}
+      aria-pressed={active}
+      className={`text-[11px] px-3 py-1.5 font-semibold uppercase tracking-wide transition-colors cursor-pointer border ${
+        active
+          ? 'text-j-accent bg-j-accent-glow border-j-accent/20'
+          : 'text-j-text-secondary bg-j-surface border-j-border hover:text-j-text hover:border-j-border-active'
+      }`}
+    >
+      {FILTER_LABELS[filter]}
+      {count > 0 && (
+        <span className={`ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[16px] text-center inline-block leading-none ${
+          active ? 'bg-j-accent/20 text-j-accent' : 'bg-j-hover text-j-text-muted'
+        }`}>
+          {count}
+        </span>
       )}
-      {activeTab === 'Failures' && (
-        <FailuresTab runs={failedRuns} loading={loadingFailures} onRetry={refetchFailures} />
-      )}
-      {activeTab === 'Retries' && (
-        <RetriesTab runs={failedRuns} loading={loadingFailures} />
-      )}
-      {activeTab === 'Alerts' && (
-        <AlertsTab repair={repair} loading={loadingRepair} />
-      )}
-    </div>
+    </button>
   )
 }
 
-/* ── Approvals Tab ───────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   INBOX PAGE
+   ═══════════════════════════════════════════════════════════════ */
 
-function ApprovalsTab({
-  approvals, loading, filterPending, onToggleFilter, onActionComplete,
-}: {
-  approvals: EnrichedApproval[] | null
-  loading: boolean
-  filterPending: boolean
-  onToggleFilter: () => void
-  onActionComplete: () => void
-}) {
-  if (loading && !approvals) return <LoadingSpinner message="Loading approvals..." />
+export default function Inbox() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const urlFilter = searchParams.get('filter') as Filter | null
+  // Support legacy ?tab=Failures links
+  const urlTab = searchParams.get('tab')
+  const initialFilter: Filter = urlFilter
+    ?? (urlTab === 'Failures' ? 'failure' : urlTab === 'Alerts' ? 'alert' : 'all')
+  const [filter, setFilter] = useState<Filter>(initialFilter)
+  const [showResolved, setShowResolved] = useState(false)
+
+  // Data
+  const approvalsUrl = showResolved ? '/api/approvals' : '/api/approvals?status=pending'
+  const { data: approvals, loading: loadingApprovals, refetch: refetchApprovals } = usePolling<EnrichedApproval[]>(approvalsUrl, 10_000)
+  const { data: failedRuns, loading: loadingFailures, refetch: refetchFailures } = useApi<Run[]>('/api/runs/failed')
+  const { data: repair, loading: loadingRepair } = useApi<RepairReport>('/api/repair')
+
+  const loading = (loadingApprovals && !approvals) && (loadingFailures && !failedRuns) && (loadingRepair && !repair)
+
+  // Build + filter queue
+  const queue = useMemo(() => buildQueue(approvals, failedRuns, repair), [approvals, failedRuns, repair])
+  const filtered = useMemo(
+    () => filter === 'all' ? queue : queue.filter(i => i.kind === filter),
+    [queue, filter],
+  )
+
+  // Counts
+  const counts = useMemo(() => ({
+    all: queue.length,
+    approval: queue.filter(i => i.kind === 'approval').length,
+    failure: queue.filter(i => i.kind === 'failure').length,
+    alert: queue.filter(i => i.kind === 'alert').length,
+  }), [queue])
+
+  const handleFilter = useCallback((f: Filter) => {
+    setFilter(f)
+    setSearchParams(f === 'all' ? {} : { filter: f })
+  }, [setSearchParams])
+
+  // Sync from URL changes
+  useEffect(() => {
+    const f = searchParams.get('filter') as Filter | null
+    if (f && f !== filter) setFilter(f)
+  }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const refetchAll = useCallback(() => {
+    refetchApprovals()
+    refetchFailures()
+  }, [refetchApprovals, refetchFailures])
+
+  if (loading) return <LoadingSpinner message="Loading inbox..." />
 
   return (
-    <div>
-      {/* Filter toggle */}
-      <div className="flex items-center gap-2 mb-5">
+    <div className="p-6 max-w-[1100px]">
+      {/* Summary strip */}
+      <div className="bg-j-elevated border border-j-border px-5 py-3 flex items-center justify-between mb-4">
+        <div className="flex items-center gap-4 text-[11px] font-mono">
+          {counts.approval > 0 && (
+            <span className="text-amber-400">{counts.approval} approval{counts.approval !== 1 ? 's' : ''}</span>
+          )}
+          {counts.failure > 0 && (
+            <span className="text-red-400">{counts.failure} failure{counts.failure !== 1 ? 's' : ''}</span>
+          )}
+          {counts.alert > 0 && (
+            <span className="text-j-accent">{counts.alert} alert{counts.alert !== 1 ? 's' : ''}</span>
+          )}
+          {counts.all === 0 && (
+            <span className="text-emerald-400">All clear</span>
+          )}
+        </div>
         <button
-          onClick={onToggleFilter}
-          className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${
-            filterPending
-              ? 'bg-amber-500/15 text-amber-300 border border-amber-500/20'
-              : 'bg-slate-800 text-slate-400 border border-white/5 hover:text-white'
+          onClick={() => setShowResolved(!showResolved)}
+          className={`text-[10px] font-medium transition-colors cursor-pointer ${
+            showResolved ? 'text-j-accent' : 'text-j-text-muted hover:text-j-text-secondary'
           }`}
         >
-          Pending
-        </button>
-        <button
-          onClick={onToggleFilter}
-          className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors cursor-pointer ${
-            !filterPending
-              ? 'bg-indigo-600 text-white'
-              : 'bg-slate-800 text-slate-400 border border-white/5 hover:text-white'
-          }`}
-        >
-          All
+          {showResolved ? 'Hide resolved' : 'Show resolved'}
         </button>
       </div>
 
-      {!approvals?.length ? (
+      {/* Filters */}
+      <div className="flex items-center gap-1.5 mb-5" role="group" aria-label="Filter inbox items">
+        {(['all', 'approval', 'failure', 'alert'] as Filter[]).map(f => (
+          <FilterChip key={f} filter={f} active={filter === f} count={counts[f]} onClick={() => handleFilter(f)} />
+        ))}
+      </div>
+
+      {/* Queue */}
+      {filtered.length === 0 ? (
         <EmptyState
           icon={<IconCheck size={28} />}
-          title="No pending approvals"
-          subtitle="All agent actions are resolved. Jarvis is running autonomously."
+          title={filter === 'all' ? 'Inbox clear' : `No ${FILTER_LABELS[filter].toLowerCase()}`}
+          subtitle="Nothing needs your attention right now."
         />
       ) : (
-        <div className="space-y-3">
-          {approvals.map(approval => (
-            <ApprovalCard key={approval.id} approval={approval} onActionComplete={onActionComplete} />
+        <div className="flex flex-col gap-3" role="list" aria-label="Inbox items">
+          {filtered.map(item => (
+            <div key={item.id} role="listitem">
+              {item.kind === 'approval' && item.approval && (
+                <ApprovalItem approval={item.approval} onAction={refetchAll} />
+              )}
+              {item.kind === 'failure' && item.failure && (
+                <FailureItem run={item.failure} onRetry={refetchAll} />
+              )}
+              {item.kind === 'alert' && item.alert && (
+                <AlertItem check={item.alert.check} fix={item.alert.fix} />
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -166,14 +214,11 @@ function ApprovalsTab({
   )
 }
 
-/* ── Single approval card ────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   APPROVAL ITEM
+   ═══════════════════════════════════════════════════════════════ */
 
-function ApprovalCard({
-  approval, onActionComplete,
-}: {
-  approval: EnrichedApproval
-  onActionComplete: () => void
-}) {
+function ApprovalItem({ approval, onAction }: { approval: EnrichedApproval; onAction: () => void }) {
   const [acting, setActing] = useState<'approve' | 'reject' | null>(null)
   const [expanded, setExpanded] = useState(false)
   const [explanation, setExplanation] = useState<RunExplanation | null>(null)
@@ -181,189 +226,121 @@ function ApprovalCard({
 
   const isPending = approval.status === 'pending'
   const riskLevel = approval.risk?.level ?? 'low'
-  const riskColor = RISK_COLORS[riskLevel] ?? RISK_COLORS.low
+  const accent = riskLevel === 'high' ? 'error' as const : riskLevel === 'medium' ? 'warn' as const : 'default' as const
 
   const handleAction = useCallback(async (action: 'approve' | 'reject') => {
     setActing(action)
-    try {
-      await apiFetch(`/api/approvals/${approval.id}/${action}`)
-      onActionComplete()
-    } catch {
-      // swallow -- the refetch will show current state
-    } finally {
-      setActing(null)
-    }
-  }, [approval.id, onActionComplete])
+    try { await apiFetch(`/api/approvals/${approval.id}/${action}`) }
+    catch { /* refetch shows state */ }
+    finally { setActing(null); onAction() }
+  }, [approval.id, onAction])
 
   const handleInspect = useCallback(async () => {
     if (expanded) { setExpanded(false); return }
-    if (!approval.linked_run) { setExpanded(true); return }
     setExpanded(true)
-    if (explanation) return // already loaded
+    if (explanation || !approval.linked_run) return
     setExplainLoading(true)
     try {
-      const data = await apiFetch<RunExplanation>(`/api/runs/${approval.linked_run.run_id}/explain`, { method: 'GET' })
-      setExplanation(data)
+      setExplanation(await apiFetch<RunExplanation>(`/api/runs/${approval.linked_run.run_id}/explain`, { method: 'GET' }))
     } catch { /* ignore */ }
     finally { setExplainLoading(false) }
   }, [expanded, approval.linked_run, explanation])
 
-  const variant = riskLevel === 'high' ? 'error' as const
-    : riskLevel === 'medium' ? 'warning' as const
-    : 'default' as const
-
   return (
-    <DataCard variant={variant} hover={false}>
+    <SectionCard accent={accent}>
       <div className="flex items-start justify-between gap-4">
-        {/* Left: content */}
         <div className="flex-1 min-w-0">
-          {/* Action name + status */}
-          <div className="flex items-center gap-3 mb-2">
-            <h3 className="text-base font-semibold text-slate-100 tracking-tight truncate">
-              {approval.action}
-            </h3>
-            {!isPending && <StatusBadge status={approval.status} />}
+          {/* Type + action */}
+          <div className="flex items-center gap-2.5 mb-2">
+            <span className={riskLevel === 'high' ? 'text-red-400' : riskLevel === 'medium' ? 'text-amber-400' : 'text-j-text-secondary'}>
+              <IconWarning size={14} />
+            </span>
+            <StatusPill status={isPending ? 'awaiting_approval' : approval.status} label={isPending ? 'Approval' : undefined} />
+            <h3 className="text-[13px] font-semibold text-j-text tracking-tight truncate">{approval.action}</h3>
+            {!isPending && <StatusPill status={approval.status} />}
           </div>
 
-          {/* Risk + reversibility + agent */}
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <span className={`inline-flex items-center border rounded-full text-xs font-medium px-2 py-0.5 ${riskColor}`}>
+          {/* Meta row */}
+          <div className="flex flex-wrap items-center gap-2 ml-6 mb-2 text-[11px]">
+            <span className={`font-semibold ${
+              riskLevel === 'high' ? 'text-red-400' : riskLevel === 'medium' ? 'text-amber-400' : 'text-emerald-400'
+            }`}>
               {riskLevel} risk
             </span>
             {approval.risk && (
-              <span className={`text-xs font-medium ${approval.risk.reversible ? 'text-emerald-400/70' : 'text-red-400/70'}`}>
-                {approval.risk.reversible ? 'Reversible' : 'Irreversible'}
+              <span className={approval.risk.reversible ? 'text-emerald-400/60' : 'text-red-400/60'}>
+                {approval.risk.reversible ? 'reversible' : 'irreversible'}
               </span>
             )}
-            <span className="text-xs text-slate-500">
-              {agentLabel(approval.agent)}
-            </span>
+            <span className="text-j-text-muted">·</span>
+            <span className="text-j-text-secondary">{agentLabel(approval.agent)}</span>
             {approval.created_at && (
-              <span className="text-xs text-slate-600">{timeAgo(approval.created_at)}</span>
+              <>
+                <span className="text-j-text-muted">·</span>
+                <span className="text-j-text-muted font-mono">{timeAgo(approval.created_at)}</span>
+              </>
             )}
           </div>
 
           {/* Linked run */}
           {approval.linked_run && (
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs text-slate-500">Run:</span>
-              <span className="text-xs text-slate-400 font-medium">{approval.linked_run.goal ?? approval.linked_run.run_id}</span>
+            <p className="text-[11px] text-j-text-muted ml-6 mb-2 font-mono">
+              Run: {approval.linked_run.goal ?? approval.linked_run.run_id}
               {approval.linked_run.total_steps != null && approval.linked_run.current_step != null && (
-                <span className="text-xs text-slate-600 font-mono tabular-nums">
-                  Step {approval.linked_run.current_step}/{approval.linked_run.total_steps}
-                </span>
+                <span className="ml-2">step {approval.linked_run.current_step}/{approval.linked_run.total_steps}</span>
               )}
-            </div>
+            </p>
           )}
 
           {/* Timeout consequence */}
           {isPending && approval.what_happens_if_nothing && (
-            <div className="bg-slate-900/50 border border-white/5 rounded-lg px-3 py-2 mt-2">
-              <p className="text-xs text-slate-400">
-                <span className="text-slate-500 font-medium">If no action: </span>
+            <div className="bg-j-surface border border-j-border px-3 py-2 ml-6 mt-1">
+              <p className="text-[11px] text-j-text-secondary">
+                <span className="text-j-text-muted font-medium">If no action: </span>
                 {approval.what_happens_if_nothing}
               </p>
             </div>
           )}
         </div>
 
-        {/* Right: actions + countdown */}
+        {/* Right: timer + actions */}
         <div className="flex flex-col items-end gap-2 shrink-0">
-          {/* Time remaining */}
           {isPending && approval.time_remaining_ms != null && (
             <TimeRemaining ms={approval.time_remaining_ms} />
           )}
-
-          {/* Buttons */}
           {isPending ? (
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleInspect}
-                className="text-xs px-3 py-1.5 rounded-lg font-medium bg-slate-700/50 text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer border border-white/5"
-              >
-                Inspect
-              </button>
-              <button
-                onClick={() => handleAction('reject')}
-                disabled={!!acting}
-                className="text-xs px-3 py-1.5 rounded-lg font-medium bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20 transition-colors cursor-pointer disabled:opacity-50"
-              >
+              <button onClick={handleInspect} className="j-btn-secondary">{expanded ? 'Collapse' : 'Inspect'}</button>
+              <button onClick={() => handleAction('reject')} disabled={!!acting} className="j-btn-danger">
                 {acting === 'reject' ? 'Rejecting...' : 'Reject'}
               </button>
-              <button
-                onClick={() => handleAction('approve')}
-                disabled={!!acting}
-                className="text-xs px-3.5 py-1.5 rounded-lg font-medium bg-emerald-600 text-white hover:bg-emerald-500 transition-colors cursor-pointer disabled:opacity-50"
-              >
+              <button onClick={() => handleAction('approve')} disabled={!!acting} className="j-btn-primary">
                 {acting === 'approve' ? 'Approving...' : 'Approve'}
               </button>
             </div>
           ) : (
-            <button
-              onClick={handleInspect}
-              className="text-xs px-3 py-1.5 rounded-lg font-medium bg-slate-700/50 text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer border border-white/5"
-            >
-              {expanded ? 'Collapse' : 'Inspect'}
-            </button>
+            <button onClick={handleInspect} className="j-btn-secondary">{expanded ? 'Collapse' : 'Inspect'}</button>
           )}
         </div>
       </div>
 
-      {/* Expandable explanation */}
+      {/* Expandable */}
       {expanded && (
-        <div className="mt-4 pt-4 border-t border-white/5">
-          {explainLoading ? (
-            <div className="flex items-center gap-2 py-2">
-              <div className="w-4 h-4 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-              <span className="text-xs text-slate-500">Loading explanation...</span>
-            </div>
-          ) : explanation ? (
-            <ExplanationPanel explanation={explanation} />
-          ) : (
-            <p className="text-xs text-slate-500">No run data available for this approval.</p>
+        <div className="mt-4 pt-4 border-t border-j-border ml-6">
+          {explainLoading ? <Spinner /> : explanation ? <ExplanationPanel explanation={explanation} /> : (
+            <p className="text-[11px] text-j-text-muted">No run data available.</p>
           )}
         </div>
       )}
-    </DataCard>
+    </SectionCard>
   )
 }
 
-/* ── Failures Tab ────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   FAILURE ITEM
+   ═══════════════════════════════════════════════════════════════ */
 
-function FailuresTab({
-  runs, loading, onRetry,
-}: {
-  runs: Run[] | null
-  loading: boolean
-  onRetry: () => void
-}) {
-  if (loading && !runs) return <LoadingSpinner message="Loading failed runs..." />
-
-  if (!runs?.length) {
-    return (
-      <EmptyState
-        icon={<IconCheck size={28} />}
-        title="No recent failures"
-        subtitle="All agent runs completed successfully."
-      />
-    )
-  }
-
-  return (
-    <div className="space-y-3">
-      {runs.map(run => (
-        <FailureCard key={run.run_id} run={run} onRetryComplete={onRetry} />
-      ))}
-    </div>
-  )
-}
-
-function FailureCard({
-  run, onRetryComplete,
-}: {
-  run: Run
-  onRetryComplete: () => void
-}) {
+function FailureItem({ run, onRetry }: { run: Run; onRetry: () => void }) {
   const [expanded, setExpanded] = useState(false)
   const [explanation, setExplanation] = useState<RunExplanation | null>(null)
   const [explainLoading, setExplainLoading] = useState(false)
@@ -375,94 +352,69 @@ function FailureCard({
     setExpanded(true)
     if (explanation) return
     setExplainLoading(true)
-    try {
-      const data = await apiFetch<RunExplanation>(`/api/runs/${run.run_id}/explain`, { method: 'GET' })
-      setExplanation(data)
-    } catch { /* ignore */ }
+    try { setExplanation(await apiFetch<RunExplanation>(`/api/runs/${run.run_id}/explain`, { method: 'GET' })) }
+    catch { /* ignore */ }
     finally { setExplainLoading(false) }
   }, [expanded, run.run_id, explanation])
 
   const handleRetry = useCallback(async () => {
-    // If we have explanation and outbound effects occurred, require confirmation
     if (explanation?.failure?.outbound_effects_may_have_occurred && !confirmRetry) {
       setConfirmRetry(true)
       return
     }
     setRetrying(true)
     setConfirmRetry(false)
-    try {
-      await apiFetch(`/api/runs/${run.run_id}/retry`)
-      onRetryComplete()
-    } catch { /* ignore */ }
-    finally { setRetrying(false) }
-  }, [run.run_id, onRetryComplete, explanation, confirmRetry])
+    try { await apiFetch(`/api/runs/${run.run_id}/retry`) }
+    catch { /* ignore */ }
+    finally { setRetrying(false); onRetry() }
+  }, [run.run_id, onRetry, explanation, confirmRetry])
 
   return (
     <>
-      <DataCard variant="error" hover={false}>
+      <SectionCard accent="error">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            {/* Agent + goal */}
-            <div className="flex items-center gap-3 mb-1.5">
-              <span className="text-red-400 shrink-0"><IconError size={16} /></span>
-              <h3 className="text-sm font-semibold text-slate-100 tracking-tight truncate">
-                {agentLabel(run.agent_id)}
-              </h3>
-              <StatusBadge status="failed" />
+            <div className="flex items-center gap-2.5 mb-2">
+              <span className="text-red-400"><IconError size={14} /></span>
+              <StatusPill status="failed" />
+              <h3 className="text-[13px] font-semibold text-j-text tracking-tight truncate">{agentLabel(run.agent_id)}</h3>
             </div>
+
             {run.goal && (
-              <p className="text-xs text-slate-400 mb-2 ml-7">{run.goal}</p>
+              <p className="text-[11px] text-j-text-secondary ml-6 mb-2">{run.goal}</p>
             )}
 
-            {/* Error message */}
             {run.error && (
-              <div className="bg-red-500/5 border border-red-500/10 rounded-lg px-3 py-2 ml-7">
-                <p className="text-xs text-red-300/80 font-mono break-all">{run.error}</p>
+              <div className="bg-red-500/5 border border-red-500/10 px-3 py-2 ml-6">
+                <p className="text-[11px] text-red-300/80 font-mono break-all">{run.error}</p>
               </div>
             )}
           </div>
 
           <div className="flex flex-col items-end gap-2 shrink-0">
-            <span className="text-xs text-slate-600">{timeAgo(run.started_at)}</span>
+            <span className="text-[10px] font-mono text-j-text-muted">{timeAgo(run.started_at)}</span>
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleInspect}
-                className="text-xs px-3 py-1.5 rounded-lg font-medium bg-slate-700/50 text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer border border-white/5"
-              >
-                {expanded ? 'Collapse' : 'Inspect'}
-              </button>
-              <button
-                onClick={handleRetry}
-                disabled={retrying}
-                className="text-xs px-3 py-1.5 rounded-lg font-medium bg-indigo-600 text-white hover:bg-indigo-500 transition-colors cursor-pointer disabled:opacity-50"
-              >
+              <button onClick={handleInspect} className="j-btn-secondary">{expanded ? 'Collapse' : 'Inspect'}</button>
+              <button onClick={handleRetry} disabled={retrying} className="j-btn-primary">
                 {retrying ? 'Retrying...' : 'Retry'}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Expandable explanation */}
         {expanded && (
-          <div className="mt-4 pt-4 border-t border-white/5 ml-7">
-            {explainLoading ? (
-              <div className="flex items-center gap-2 py-2">
-                <div className="w-4 h-4 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-                <span className="text-xs text-slate-500">Loading explanation...</span>
-              </div>
-            ) : explanation ? (
-              <ExplanationPanel explanation={explanation} />
-            ) : (
-              <p className="text-xs text-slate-500">No explanation available.</p>
+          <div className="mt-4 pt-4 border-t border-j-border ml-6">
+            {explainLoading ? <Spinner /> : explanation ? <ExplanationPanel explanation={explanation} /> : (
+              <p className="text-[11px] text-j-text-muted">No explanation available.</p>
             )}
           </div>
         )}
-      </DataCard>
+      </SectionCard>
 
       <ConfirmDialog
         open={confirmRetry}
         title="Retry with caution"
-        message={`This run may have produced outbound effects before failing. Retrying could cause duplicate actions.`}
+        message="This run may have produced outbound effects before failing. Retrying could cause duplicate actions."
         warning={explanation?.failure?.probable_cause}
         confirmLabel="Retry anyway"
         cancelLabel="Cancel"
@@ -474,245 +426,64 @@ function FailureCard({
   )
 }
 
-/* ── Retries Tab ─────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   ALERT ITEM
+   ═══════════════════════════════════════════════════════════════ */
 
-function RetriesTab({ runs, loading }: { runs: Run[] | null; loading: boolean }) {
-  if (loading && !runs) return <LoadingSpinner message="Loading retry guidance..." />
-
-  if (!runs?.length) {
-    return (
-      <EmptyState
-        icon={<IconCheck size={28} />}
-        title="Nothing to retry"
-        subtitle="No failed runs require retry assessment."
-      />
-    )
-  }
+function AlertItem({ check, fix }: { check: RepairCheck; fix: FixAction | null }) {
+  const [expanded, setExpanded] = useState(false)
+  const isCritical = check.status === 'critical'
 
   return (
-    <div className="space-y-3">
-      {runs.map(run => (
-        <RetryCard key={run.run_id} run={run} />
-      ))}
-    </div>
-  )
-}
-
-function RetryCard({ run }: { run: Run }) {
-  const [explanation, setExplanation] = useState<RunExplanation | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    setLoading(true)
-    apiFetch<RunExplanation>(`/api/runs/${run.run_id}/explain`, { method: 'GET' })
-      .then(setExplanation)
-      .catch(() => {})
-      .finally(() => setLoading(false))
-  }, [run.run_id])
-
-  const failure = explanation?.failure
-  const hasOutbound = failure?.outbound_effects_may_have_occurred
-
-  return (
-    <DataCard variant={hasOutbound ? 'warning' : 'default'} hover={false}>
+    <SectionCard accent={isCritical ? 'error' : 'warn'}>
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 mb-2">
-            <h3 className="text-sm font-semibold text-slate-100 tracking-tight truncate">
-              {agentLabel(run.agent_id)}
-            </h3>
-            {run.goal && (
-              <span className="text-xs text-slate-500 truncate">{run.goal}</span>
-            )}
+          <div className="flex items-center gap-2.5 mb-2">
+            <span className={isCritical ? 'text-red-400' : 'text-amber-400'}>
+              {isCritical ? <IconError size={14} /> : <IconWarning size={14} />}
+            </span>
+            <StatusPill status={check.status} />
+            <h3 className="text-[13px] font-semibold text-j-text tracking-tight">{check.name}</h3>
           </div>
-
-          {loading ? (
-            <div className="flex items-center gap-2 py-1">
-              <div className="w-3 h-3 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
-              <span className="text-xs text-slate-500">Assessing...</span>
-            </div>
-          ) : failure ? (
-            <div className="space-y-2">
-              {/* Probable cause */}
-              <div className="bg-slate-900/50 border border-white/5 rounded-lg px-3 py-2">
-                <p className="text-xs text-slate-500 font-medium mb-0.5">Probable cause</p>
-                <p className="text-xs text-slate-300">{failure.probable_cause}</p>
-              </div>
-
-              {/* Outbound effects warning */}
-              {hasOutbound && (
-                <div className="bg-amber-500/5 border border-amber-500/15 rounded-lg px-3 py-2 flex items-start gap-2">
-                  <span className="text-amber-400 shrink-0 mt-0.5"><IconWarning size={14} /></span>
-                  <p className="text-xs text-amber-300/80">
-                    Outbound effects may have occurred before failure. Retry with caution.
-                  </p>
-                </div>
-              )}
-
-              {/* Retry recommendation */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 font-medium">Recommendation:</span>
-                <span className={`text-xs font-medium ${
-                  failure.retry_recommendation === 'safe'
-                    ? 'text-emerald-400'
-                    : failure.retry_recommendation === 'caution'
-                    ? 'text-amber-400'
-                    : 'text-red-400'
-                }`}>
-                  {failure.retry_recommendation}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <p className="text-xs text-slate-500">No retry guidance available for this run.</p>
-          )}
+          <p className="text-[11px] text-j-text-secondary ml-6">{check.message}</p>
         </div>
 
         <div className="flex flex-col items-end gap-2 shrink-0">
-          <span className="text-xs text-slate-600">{timeAgo(run.started_at)}</span>
-          {failure && (
-            <span className={`inline-flex items-center border rounded-full text-xs font-medium px-2 py-0.5 ${
-              hasOutbound
-                ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-            }`}>
-              {hasOutbound ? 'Has side effects' : 'Safe to retry'}
-            </span>
+          <span className="text-[10px] font-mono text-j-text-muted">severity {check.severity}</span>
+          <div className="flex items-center gap-2">
+            {fix && (
+              <button onClick={() => setExpanded(!expanded)} className="j-btn-secondary">
+                {expanded ? 'Collapse' : 'Fix'}
+              </button>
+            )}
+            <Link to="/recovery" className="j-btn-secondary">Recovery</Link>
+          </div>
+        </div>
+      </div>
+
+      {expanded && fix && (
+        <div className="mt-4 pt-4 border-t border-j-border ml-6">
+          <p className="text-[11px] text-j-text-secondary mb-1 font-medium">Suggested fix</p>
+          <p className="text-[11px] text-j-text">{fix.description}</p>
+          {fix.example && (
+            <pre className="text-[10px] text-j-accent/80 mt-1.5 font-mono overflow-x-auto">{fix.example}</pre>
           )}
         </div>
-      </div>
-    </DataCard>
+      )}
+    </SectionCard>
   )
 }
 
-/* ── Alerts Tab ──────────────────────────────────────────── */
-
-function AlertsTab({ repair, loading }: { repair: RepairReport | null; loading: boolean }) {
-  if (loading && !repair) return <LoadingSpinner message="Loading system health..." />
-
-  if (!repair) {
-    return (
-      <EmptyState
-        icon={<IconCheck size={28} />}
-        title="No repair data"
-        subtitle="Could not load system health information."
-      />
-    )
-  }
-
-  const banner = REPAIR_BANNER[repair.status] ?? REPAIR_BANNER.healthy
-
-  return (
-    <div>
-      {/* Status banner */}
-      <div className={`${banner.bg} border ${banner.border} rounded-xl px-5 py-4 mb-5 backdrop-blur-sm`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="relative flex h-2.5 w-2.5">
-              {repair.status !== 'healthy' && (
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${banner.dot} opacity-75`} />
-              )}
-              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${banner.dot}`} />
-            </span>
-            <span className={`text-sm font-semibold ${banner.text} tracking-tight`}>
-              System {repair.status}
-            </span>
-            <span className="text-xs text-slate-500">
-              {repair.checks.length} check{repair.checks.length !== 1 ? 's' : ''} evaluated
-            </span>
-          </div>
-          <Link
-            to="/recovery"
-            className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
-          >
-            Full recovery view
-          </Link>
-        </div>
-      </div>
-
-      {/* Safe mode warning */}
-      {repair.safe_mode && (
-        <div className="bg-red-500/5 border border-red-500/15 rounded-xl px-5 py-3 mb-5 flex items-center gap-3">
-          <span className="text-red-400 shrink-0"><IconWarning size={18} /></span>
-          <div>
-            <p className="text-sm text-red-300 font-medium">Safe mode active</p>
-            <p className="text-xs text-red-400/60 mt-0.5">
-              Autonomous operations are paused. Resolve critical checks to resume.
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Repair checks */}
-      {repair.checks.length === 0 ? (
-        <EmptyState
-          icon={<IconCheck size={28} />}
-          title="All checks passed"
-          subtitle="No issues detected."
-        />
-      ) : (
-        <div className="space-y-3">
-          {repair.checks.map(check => {
-            const checkColors = STATUS_COLORS[check.status] ?? STATUS_COLORS.ok
-            const fixAction = repair.recommended_actions.find(a => a.check === check.name)
-
-            return (
-              <DataCard
-                key={check.name}
-                variant={check.status === 'critical' ? 'error' : check.status === 'warning' ? 'warning' : 'default'}
-                hover={false}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-1.5">
-                      <span className={check.status === 'ok' ? 'text-emerald-400' : check.status === 'warning' ? 'text-amber-400' : 'text-red-400'}>
-                        {check.status === 'ok' ? <IconCheck size={16} /> : check.status === 'warning' ? <IconWarning size={16} /> : <IconError size={16} />}
-                      </span>
-                      <h3 className="text-sm font-semibold text-slate-100 tracking-tight">
-                        {check.name}
-                      </h3>
-                      <StatusBadge status={check.status} />
-                    </div>
-                    <p className="text-xs text-slate-400 ml-7 mb-1">{check.message}</p>
-
-                    {/* Fix action */}
-                    {fixAction && (
-                      <div className="bg-slate-900/50 border border-white/5 rounded-lg px-3 py-2 mt-2 ml-7">
-                        <p className="text-xs text-slate-500 font-medium mb-0.5">Suggested fix</p>
-                        <p className="text-xs text-slate-300">{fixAction.action.description}</p>
-                        {fixAction.action.example && (
-                          <pre className="text-[11px] text-indigo-400/80 mt-1 font-mono overflow-x-auto">
-                            {fixAction.action.example}
-                          </pre>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="shrink-0">
-                    <span className={`inline-flex items-center border rounded-full text-xs font-medium px-2 py-0.5 ${checkColors}`}>
-                      severity {check.severity}
-                    </span>
-                  </div>
-                </div>
-              </DataCard>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-/* ── Shared sub-components ───────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════════
+   SHARED SUB-COMPONENTS
+   ═══════════════════════════════════════════════════════════════ */
 
 function ExplanationPanel({ explanation }: { explanation: RunExplanation }) {
   return (
-    <div className="space-y-3">
-      {/* Summary */}
-      <p className="text-sm text-slate-200">{explanation.summary}</p>
+    <div className="flex flex-col gap-3">
+      <p className="text-[12px] text-j-text">{explanation.summary}</p>
 
-      {/* Stats row */}
+      {/* Stats */}
       <div className="flex flex-wrap gap-4">
         <Stat label="Trigger" value={explanation.trigger} />
         <Stat label="Steps" value={`${explanation.steps_completed}/${explanation.steps_total}`} />
@@ -724,10 +495,10 @@ function ExplanationPanel({ explanation }: { explanation: RunExplanation }) {
       {/* Data sources */}
       {explanation.data_sources.length > 0 && (
         <div>
-          <p className="text-xs text-slate-500 font-medium mb-1">Data sources</p>
+          <p className="text-[10px] text-j-text-muted font-medium mb-1 uppercase tracking-wider">Data sources</p>
           <div className="flex flex-wrap gap-1.5">
             {explanation.data_sources.map(src => (
-              <span key={src} className="text-[11px] text-slate-400 bg-slate-800 border border-white/5 px-2 py-0.5 rounded">
+              <span key={src} className="text-[10px] text-j-text-secondary bg-j-surface border border-j-border px-2 py-0.5">
                 {src}
               </span>
             ))}
@@ -735,38 +506,34 @@ function ExplanationPanel({ explanation }: { explanation: RunExplanation }) {
         </div>
       )}
 
-      {/* Failure details */}
+      {/* Failure */}
       {explanation.failure && (
-        <div className="bg-red-500/5 border border-red-500/10 rounded-lg px-3 py-2.5">
-          <p className="text-xs text-red-300/80 font-medium mb-1">Probable cause</p>
-          <p className="text-xs text-red-300/60">{explanation.failure.probable_cause}</p>
+        <div className="bg-red-500/5 border border-red-500/10 px-3 py-2.5">
+          <p className="text-[10px] text-red-300/80 font-medium mb-1">Probable cause</p>
+          <p className="text-[11px] text-red-300/60">{explanation.failure.probable_cause}</p>
           {explanation.failure.outbound_effects_may_have_occurred && (
             <div className="flex items-center gap-1.5 mt-2">
-              <span className="text-amber-400"><IconWarning size={12} /></span>
-              <span className="text-[11px] text-amber-300/80">Outbound effects may have occurred</span>
+              <IconWarning size={12} />
+              <span className="text-[10px] text-amber-300/80">Outbound effects may have occurred</span>
             </div>
           )}
           <div className="flex items-center gap-2 mt-2">
-            <span className="text-[11px] text-slate-500">Retry:</span>
-            <span className={`text-[11px] font-medium ${
+            <span className="text-[10px] text-j-text-muted">Retry:</span>
+            <span className={`text-[10px] font-medium ${
               explanation.failure.retry_recommendation === 'safe' ? 'text-emerald-400'
               : explanation.failure.retry_recommendation === 'caution' ? 'text-amber-400'
               : 'text-red-400'
-            }`}>
-              {explanation.failure.retry_recommendation}
-            </span>
+            }`}>{explanation.failure.retry_recommendation}</span>
           </div>
         </div>
       )}
 
       {/* Preview mode */}
       {explanation.preview_mode?.enabled && (
-        <div className="bg-blue-500/5 border border-blue-500/10 rounded-lg px-3 py-2">
-          <p className="text-xs text-blue-300/80 font-medium mb-1">Preview mode</p>
+        <div className="bg-blue-500/5 border border-blue-500/10 px-3 py-2">
+          <p className="text-[10px] text-blue-300/80 font-medium mb-1">Preview mode</p>
           {explanation.preview_mode.skipped_actions.length > 0 && (
-            <p className="text-xs text-blue-300/60">
-              Skipped: {explanation.preview_mode.skipped_actions.join(', ')}
-            </p>
+            <p className="text-[10px] text-blue-300/60">Skipped: {explanation.preview_mode.skipped_actions.join(', ')}</p>
           )}
         </div>
       )}
@@ -774,19 +541,13 @@ function ExplanationPanel({ explanation }: { explanation: RunExplanation }) {
   )
 }
 
-function Stat({
-  label, value, highlight,
-}: {
-  label: string; value: string; highlight?: 'red' | 'emerald'
-}) {
-  const valueColor = highlight === 'red' ? 'text-red-400'
-    : highlight === 'emerald' ? 'text-emerald-400'
-    : 'text-slate-200'
-
+function Stat({ label, value, highlight }: { label: string; value: string; highlight?: 'red' | 'emerald' }) {
   return (
     <div>
-      <p className="text-[10px] text-slate-600 uppercase tracking-wider">{label}</p>
-      <p className={`text-xs font-medium ${valueColor}`}>{value}</p>
+      <p className="text-[10px] text-j-text-muted uppercase tracking-wider">{label}</p>
+      <p className={`text-[11px] font-medium ${
+        highlight === 'red' ? 'text-red-400' : highlight === 'emerald' ? 'text-emerald-400' : 'text-j-text'
+      }`}>{value}</p>
     </div>
   )
 }
@@ -796,9 +557,7 @@ function TimeRemaining({ ms }: { ms: number }) {
 
   useEffect(() => {
     setRemaining(ms)
-    const interval = setInterval(() => {
-      setRemaining(prev => Math.max(0, prev - 1000))
-    }, 1000)
+    const interval = setInterval(() => setRemaining(prev => Math.max(0, prev - 1000)), 1000)
     return () => clearInterval(interval)
   }, [ms])
 
@@ -808,11 +567,18 @@ function TimeRemaining({ ms }: { ms: number }) {
   const isUrgent = totalSecs < 60
 
   return (
-    <div className={`flex items-center gap-1.5 ${isUrgent ? 'text-red-400' : 'text-slate-500'}`}>
+    <div className={`flex items-center gap-1.5 ${isUrgent ? 'text-red-400' : 'text-j-text-muted'}`} aria-label={`${mins} minutes ${secs} seconds remaining`}>
       <IconClock size={12} />
-      <span className="text-xs font-mono tabular-nums">
-        {mins}:{secs.toString().padStart(2, '0')}
-      </span>
+      <span className="text-[11px] font-mono tabular-nums">{mins}:{secs.toString().padStart(2, '0')}</span>
+    </div>
+  )
+}
+
+function Spinner() {
+  return (
+    <div className="flex items-center gap-2 py-2">
+      <div className="size-3 border-2 border-j-accent/30 border-t-j-accent rounded-full animate-spin" />
+      <span className="text-[11px] text-j-text-muted">Loading...</span>
     </div>
   )
 }

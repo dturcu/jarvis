@@ -167,9 +167,9 @@ function RuntimeHealthSection({
                 <p className="text-[11px] text-red-400 mb-2 truncate">{rt.error}</p>
               )}
 
-              {rt.models.length > 0 ? (
+              {(rt.models ?? []).length > 0 ? (
                 <div className="flex flex-wrap gap-1.5">
-                  {rt.models.map(m => (
+                  {(rt.models ?? []).map(m => (
                     <span
                       key={m}
                       className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-md font-mono"

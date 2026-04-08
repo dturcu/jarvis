@@ -4,8 +4,9 @@
     {
       "name": "jarvis-dashboard",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "packages/jarvis-dashboard/dist", "-l", "4250", "-s"],
-      "port": 4250
+      "runtimeArgs": ["vite", "--port", "4250"],
+      "port": 4250,
+      "cwd": "packages/jarvis-dashboard"
     }
   ]
 }
