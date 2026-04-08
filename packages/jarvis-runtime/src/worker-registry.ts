@@ -376,6 +376,21 @@ export function createWorkerRegistry(
 
       logger.debug(`Executing ${envelope.type}`, { job_id: envelope.job_id, timeout_ms: timeoutMs });
 
+      // Audit credential access at the actual job dispatch boundary,
+      // where we have job_id and run context. Workers that use external
+      // credentials are logged here (not at adapter construction time).
+      const CRED_WORKERS: Record<string, string[]> = {
+        email: ["gmail"], calendar: ["calendar"], browser: ["chrome"],
+        social: ["chrome"], time: ["toggl"], drive: ["drive"],
+      };
+      const credKeys = CRED_WORKERS[prefix!];
+      if (credKeys) {
+        auditCredentialAccess(prefix!, credKeys, {
+          jobId: envelope.job_id,
+          runId: (envelope as Record<string, unknown>).run_id as string | undefined,
+        });
+      }
+
       try {
         const result = await withJobSpan(
           envelope.type,

@@ -24,7 +24,7 @@ The Telegram bot stores conversation context in process memory, shared across al
 
 ## No Credential Access Audit Log
 
-**Status: Mitigated** — `packages/jarvis-security/src/credential-audit.ts` provides structured audit logging via `logCredentialAccess()`. The worker registry (`packages/jarvis-runtime/src/worker-registry.ts`) now imports and uses this module at every credential distribution point (email/gmail, calendar, browser/chrome, time/toggl, drive). Each credential access is logged to the `audit_log` table with worker ID, credential keys, and timestamps. Query function `queryCredentialAccessLog()` enables retrospective investigation.
+**Status: Mitigated** — `packages/jarvis-security/src/credential-audit.ts` provides structured audit logging via `logCredentialAccess()`. The worker registry logs credential access at two boundaries: (1) adapter construction time (records which workers were configured with real credentials), and (2) job dispatch time (records job_id and run_id when a credential-bearing worker executes a job). Workers with credential scope: email/gmail, calendar, browser/chrome, social/chrome, time/toggl, drive. Query function `queryCredentialAccessLog()` enables retrospective investigation.
 
 ## No Database Integrity Verification
 

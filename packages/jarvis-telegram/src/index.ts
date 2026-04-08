@@ -44,6 +44,9 @@ async function startSessionMode(): Promise<void> {
     sessionKey,
     channelStore,
     threadId,
+    // In session mode, route free-text through the OpenClaw gateway session
+    // instead of the legacy HTTP loopback to /api/chat/telegram.
+    sessionChat: true,
   })
 
   // In session mode, the OpenClaw gateway drives inbound message delivery.
