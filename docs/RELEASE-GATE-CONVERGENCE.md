@@ -20,11 +20,13 @@ The legacy `bot.ts` / `relay.ts` / `chat-handler.ts` files remain for fallback b
 
 ### Exit 2 -- Zero Primary-Path Dashboard-Owned Webhook Ingress
 
-**Status**: Pass
+**Status**: Partial
 
-The original `webhooks.ts` (v1) is deleted. Webhook ingress uses `webhooks-v2.ts` which normalizes events through the shared normalizer and injectable `onEvent` callback, avoiding direct writes to runtime state.
+The original `webhooks.ts` (v1) is deleted. `webhooks-v2.ts` normalizes events through the shared normalizer and provides an injectable `onEvent` callback via `createWebhookRouter()`. However, the dashboard still mounts the webhook router at `/api/webhooks` and the default `onEvent` handler still calls `createCommand()` directly into `runtime.db`. The domain logic (normalization, HMAC verification) is cleanly separated, but the HTTP ingress surface and command persistence are still dashboard-owned.
 
-**Verification**: `tests/convergence-final.test.ts` confirms `webhooks.ts` does not exist.
+**What remains**: Wire an OpenClaw webhook/TaskFlow ingress that calls the normalizer and forwards events to the runtime through the OpenClaw gateway, then remove the dashboard webhook mount. The `createWebhookRouter({ onEvent })` factory is ready for this — the runtime just needs to inject its own handler.
+
+**Verification**: `tests/convergence-final.test.ts` confirms `webhooks.ts` (v1) does not exist. Full exit requires the v2 router to also be removed from the dashboard.
 
 ### Exit 3 -- Zero Primary-Path Direct Dashboard-to-Model Orchestration
 
@@ -38,13 +40,13 @@ No primary path calls `localhost:1234/v1/chat/completions` outside `jarvis-infer
 
 ### Exit 4 -- Zero Primary-Path Direct Browser Runtime Ownership
 
-**Status**: Pass
+**Status**: Partial
 
-Browser automation defaults to the OpenClaw bridge (`JARVIS_BROWSER_MODE=openclaw`).
-The legacy `chrome-adapter.ts` with direct `puppeteer.connect/launch` is deprecated.
-The browser worker dispatch routes high-level types through the bridge and only falls back to the adapter for low-level operations.
+Browser automation defaults to the OpenClaw bridge (`JARVIS_BROWSER_MODE=openclaw`). The bridge supports high-level job types: `browser.navigate`, `browser.extract`, `browser.capture`, `browser.download`, `browser.run_task`. Low-level types (`browser.click`, `browser.type`, `browser.evaluate`, `browser.wait_for`) fall back to the direct adapter even in openclaw mode because the bridge does not support them.
 
-**Verification**: `tests/convergence-final.test.ts` scans for direct `puppeteer.connect/launch` outside deprecated files.
+**What remains**: Either extend the OpenClaw browser bridge to support low-level operations, or document them as adapter-only capabilities. The current hybrid routing is correct but means the adapter (and therefore Puppeteer) is still required for the full browser job catalog.
+
+**Verification**: `tests/convergence-final.test.ts` scans for direct `puppeteer.connect/launch` outside deprecated files. `tests/smoke/convergence-session-path.test.ts` verifies low-level types are NOT in the bridge set.
 
 ### Exit 5 -- Zero Undocumented Boundary Exceptions
 
@@ -66,9 +68,9 @@ ADR documents all boundaries. Legacy exclusions in tests are tightened to specif
 | # | Condition | Status |
 |---|---|---|
 | 1 | Zero primary-path direct Telegram transport from Jarvis | **Pass** |
-| 2 | Zero primary-path dashboard-owned webhook ingress writing directly to runtime state | **Pass** |
+| 2 | Zero primary-path dashboard-owned webhook ingress writing directly to runtime state | **Partial** — domain logic separated, but HTTP surface + default persistence still dashboard-owned |
 | 3 | Zero primary-path direct dashboard-to-model orchestration outside approved boundary | **Pass** |
-| 4 | Zero primary-path direct browser runtime ownership for managed workflows | **Pass** |
+| 4 | Zero primary-path direct browser runtime ownership for managed workflows | **Partial** — high-level types bridge-backed, low-level types still use adapter |
 | 5 | Zero undocumented boundary exceptions between OpenClaw and Jarvis | **Pass** |
 
 ## What Must Be True Before Legacy Deletion

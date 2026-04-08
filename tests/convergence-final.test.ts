@@ -56,10 +56,17 @@ describe("Convergence Program: Global Exit Conditions", () => {
     expect(violations, `Direct Telegram API in: ${violations.join(", ")}`).toHaveLength(0);
   });
 
-  it("Exit 2: No primary-path dashboard-owned webhook ingress writing directly to runtime state", () => {
-    // webhooks.ts (v1) was deleted in Wave 3. Only webhooks-v2.ts remains,
-    // which uses the normalizer and injectable onEvent callback.
+  it("Exit 2: Webhook v1 deleted and v2 uses injectable onEvent (PARTIAL — HTTP surface still dashboard-owned)", () => {
+    // webhooks.ts (v1) deleted in Wave 3.
     expect(existsSync(resolve(ROOT, "packages/jarvis-dashboard/src/api/webhooks.ts"))).toBe(false);
+
+    // v2 provides createWebhookRouter with injectable onEvent callback.
+    // NOTE: Full exit requires moving the HTTP mount out of the dashboard entirely.
+    // Currently the dashboard still mounts /api/webhooks and the default onEvent
+    // still calls createCommand() directly. This is "domain logic separated, HTTP not."
+    const v2Source = readSource("packages/jarvis-dashboard/src/api/webhooks-v2.ts");
+    expect(v2Source).toContain("createWebhookRouter");
+    expect(v2Source).toContain("onEvent");
   });
 
   it("Exit 3: No primary-path direct dashboard-to-model orchestration outside deprecated files", () => {
@@ -116,6 +123,29 @@ describe("Convergence Program: Default Activation", () => {
   it("Browser bridge defaults to openclaw", () => {
     const source = readSource("packages/jarvis-browser/src/openclaw-bridge.ts");
     expect(source).toMatch(/JARVIS_BROWSER_MODE.*['"]openclaw['"]/);
+  });
+
+  it("Browser worker only routes bridge-supported types through bridge", () => {
+    const source = readSource("packages/jarvis-browser-worker/src/execute.ts");
+    // Must check BRIDGE_SUPPORTED_TYPES before routing
+    expect(source).toContain("BRIDGE_SUPPORTED_TYPES.has(envelope.type)");
+    // Low-level types must NOT be in the bridge set
+    const bridgeSet = source.match(/BRIDGE_SUPPORTED_TYPES\s*=\s*new\s+Set[^;]+;/s)?.[0] ?? "";
+    expect(bridgeSet).not.toContain("browser.click");
+    expect(bridgeSet).not.toContain("browser.type");
+    expect(bridgeSet).not.toContain("browser.evaluate");
+    expect(bridgeSet).not.toContain("browser.wait_for");
+    // High-level types must be in the bridge set
+    expect(bridgeSet).toContain("browser.navigate");
+    expect(bridgeSet).toContain("browser.extract");
+    expect(bridgeSet).toContain("browser.capture");
+    expect(bridgeSet).toContain("browser.run_task");
+  });
+
+  it("Telegram sessionChat is enabled in session mode", () => {
+    const source = readSource("packages/jarvis-telegram/src/index.ts");
+    // startSessionMode must pass sessionChat: true
+    expect(source).toContain("sessionChat: true");
   });
 
   it("Notification dispatcher is wired into orchestrator", () => {
