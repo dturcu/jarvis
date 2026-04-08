@@ -1,0 +1,37 @@
+[
+  {
+    "fixture_id": "stf-001",
+    "agent_id": "staffing-monitor",
+    "description": "Normal weekly report — all green",
+    "input": { "goal": "Generate weekly staffing report" },
+    "expected": { "artifacts": ["utilization_report", "pipeline_gaps", "staffing_recommendations", "overall_health"], "must_contain": ["GREEN", "utilization"], "must_not_contain": ["external"], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "stf-002",
+    "agent_id": "staffing-monitor",
+    "description": "Overloaded engineers flagged",
+    "input": { "goal": "Generate report — 4 engineers above 95%" },
+    "expected": { "artifacts": ["utilization_report", "overall_health"], "must_contain": ["RED", "overload", "escalat"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": true, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "stf-003",
+    "agent_id": "staffing-monitor",
+    "description": "Pipeline gap for timing/MPU specialty",
+    "input": { "goal": "Check staffing for upcoming timing project" },
+    "expected": { "artifacts": ["utilization_report", "pipeline_gaps", "staffing_recommendations"], "must_contain": ["Timing/MPU", "4 qualified"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "stf-004",
+    "agent_id": "staffing-monitor",
+    "description": "Missing spreadsheet aborts",
+    "input": { "goal": "Generate report — spreadsheet not found" },
+    "expected": { "artifacts": [], "must_contain": ["spreadsheet", "missing"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": true, "min_retrieval_queries": 0 }
+  },
+  {
+    "fixture_id": "stf-005",
+    "agent_id": "staffing-monitor",
+    "description": "High-value unstaffable engagement escalates",
+    "input": { "goal": "Match staffing to EUR 300k pipeline engagement", "crm_state": { "engagement_value": 300000, "required_skills": ["ASIL-D", "AUTOSAR"] } },
+    "expected": { "artifacts": ["pipeline_gaps", "staffing_recommendations"], "must_contain": ["escalat", "cannot be staffed"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": true, "abort_expected": false, "min_retrieval_queries": 1 }
+  }
+]

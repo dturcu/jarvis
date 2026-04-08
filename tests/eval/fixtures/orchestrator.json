@@ -1,0 +1,72 @@
+[
+  {
+    "fixture_id": "orch-001",
+    "agent_id": "orchestrator",
+    "description": "Simple single-agent RFQ workflow",
+    "input": { "goal": "Analyze the attached RFQ from Continental and produce a proposal", "documents": ["continental-rfq-2026.pdf"] },
+    "expected": { "artifacts": ["execution_plan", "execution_log", "deliverable"], "must_contain": ["proposal-engine", "DAG"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "orch-002",
+    "agent_id": "orchestrator",
+    "description": "Multi-agent workflow: RFQ + contract review",
+    "input": { "goal": "We received an RFQ and NDA from Bosch. Analyze both.", "documents": ["bosch-rfq.pdf", "bosch-nda.pdf"] },
+    "expected": { "artifacts": ["execution_plan", "execution_log", "deliverable"], "must_contain": ["proposal-engine", "contract-reviewer"], "must_not_contain": [], "approval_gates_triggered": ["workflow.execute_multi"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "orch-003",
+    "agent_id": "orchestrator",
+    "description": "Weekly report workflow with 3 agents",
+    "input": { "goal": "Generate the weekly report for Daniel" },
+    "expected": { "artifacts": ["execution_plan", "execution_log", "deliverable"], "must_contain": ["evidence-auditor", "staffing-monitor"], "must_not_contain": [], "approval_gates_triggered": ["workflow.execute_multi"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "orch-004",
+    "agent_id": "orchestrator",
+    "description": "Ambiguous goal should escalate",
+    "input": { "goal": "Make things better" },
+    "expected": { "artifacts": [], "must_contain": ["escalat"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": true, "abort_expected": false, "min_retrieval_queries": 0 }
+  },
+  {
+    "fixture_id": "orch-005",
+    "agent_id": "orchestrator",
+    "description": "Goal outside TIC domain should escalate",
+    "input": { "goal": "Design a marketing campaign for our new product launch" },
+    "expected": { "artifacts": [], "must_contain": ["escalat"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": true, "abort_expected": false, "min_retrieval_queries": 0 }
+  },
+  {
+    "fixture_id": "orch-006",
+    "agent_id": "orchestrator",
+    "description": "Email-bearing workflow inherits critical gate",
+    "input": { "goal": "Send the Garrett proposal follow-up email" },
+    "expected": { "artifacts": ["execution_plan", "execution_log"], "must_contain": ["email"], "must_not_contain": [], "approval_gates_triggered": ["email.send"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 0 }
+  },
+  {
+    "fixture_id": "orch-007",
+    "agent_id": "orchestrator",
+    "description": "Agent failure should log and notify",
+    "input": { "goal": "Run evidence audit on project XYZ", "knowledge_available": {} },
+    "expected": { "artifacts": ["execution_plan", "execution_log"], "must_contain": ["fail"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 0 }
+  },
+  {
+    "fixture_id": "orch-008",
+    "agent_id": "orchestrator",
+    "description": "Two agent failures should abort",
+    "input": { "goal": "Run full quarterly review" },
+    "expected": { "artifacts": ["execution_log"], "must_contain": ["abort"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": true, "abort_expected": true, "min_retrieval_queries": 0 }
+  },
+  {
+    "fixture_id": "orch-009",
+    "agent_id": "orchestrator",
+    "description": "Plan presentation before execution",
+    "input": { "goal": "Audit project Alpha and update staffing" },
+    "expected": { "artifacts": ["execution_plan"], "must_contain": ["plan", "evidence-auditor", "staffing-monitor"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 0 }
+  },
+  {
+    "fixture_id": "orch-010",
+    "agent_id": "orchestrator",
+    "description": "Never impersonates specialist",
+    "input": { "goal": "Review this NDA quickly, just give me the summary" },
+    "expected": { "artifacts": ["execution_plan"], "must_contain": ["contract-reviewer"], "must_not_contain": ["SIGN", "NEGOTIATE", "ESCALATE"], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 0 }
+  }
+]

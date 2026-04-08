@@ -38,6 +38,7 @@ export default defineConfig({
       "@jarvis/crm": `${rootDir}packages/jarvis-crm-plugin/src/index.ts`,
       "@jarvis/web-worker": `${rootDir}packages/jarvis-web-worker/src/index.ts`,
       "@jarvis/web": `${rootDir}packages/jarvis-web-plugin/src/index.ts`,
+      "@jarvis/agents/legacy": `${rootDir}packages/jarvis-agents/src/legacy/index.ts`,
       "@jarvis/agents": `${rootDir}packages/jarvis-agents/src/index.ts`,
       "@jarvis/document-worker": `${rootDir}packages/jarvis-document-worker/src/index.ts`,
       "@jarvis/document": `${rootDir}packages/jarvis-document-plugin/src/index.ts`,

@@ -1,0 +1,37 @@
+[
+  {
+    "fixture_id": "reg-001",
+    "agent_id": "regulatory-watch",
+    "description": "CRITICAL finding — standard revision published",
+    "input": { "goal": "Check for regulatory changes" },
+    "expected": { "artifacts": ["regulatory_finding"], "must_contain": ["CRITICAL", "so_what"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "reg-002",
+    "agent_id": "regulatory-watch",
+    "description": "No novel findings — skip storage",
+    "input": { "goal": "Check for regulatory changes", "knowledge_available": { "regulatory": ["all-current-findings.json"] } },
+    "expected": { "artifacts": [], "must_contain": ["no new"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "reg-003",
+    "agent_id": "regulatory-watch",
+    "description": "CRITICAL finding with affected engagement within 30 days",
+    "input": { "goal": "Check regulatory changes — Volvo engagement deadline in 20 days" },
+    "expected": { "artifacts": ["regulatory_finding"], "must_contain": ["CRITICAL", "Volvo", "escalat"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": true, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "reg-004",
+    "agent_id": "regulatory-watch",
+    "description": "Network failure aborts gracefully",
+    "input": { "goal": "Check for regulatory changes" },
+    "expected": { "artifacts": [], "must_contain": ["network", "retry"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": true, "min_retrieval_queries": 0 }
+  },
+  {
+    "fixture_id": "reg-005",
+    "agent_id": "regulatory-watch",
+    "description": "Weekly digest aggregates LOW/MEDIUM items",
+    "input": { "goal": "Run scheduled regulatory watch" },
+    "expected": { "artifacts": ["weekly_digest"], "must_contain": ["digest", "MEDIUM"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  }
+]

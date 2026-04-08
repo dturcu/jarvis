@@ -1,0 +1,72 @@
+[
+  {
+    "fixture_id": "evi-001",
+    "agent_id": "evidence-auditor",
+    "description": "Complete ASIL-D project with all work products",
+    "input": { "goal": "Audit project Volvo-Alpha for ASIL-D gate readiness" },
+    "expected": { "artifacts": ["gap_matrix", "gate_readiness", "traceability_report", "regulatory_delta"], "must_contain": ["GREEN", "ASIL-D"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "evi-002",
+    "agent_id": "evidence-auditor",
+    "description": "Project missing Software Safety Analysis (required at ASIL-C+)",
+    "input": { "goal": "Audit project Beta for ASIL-C compliance" },
+    "expected": { "artifacts": ["gap_matrix", "gate_readiness", "traceability_report"], "must_contain": ["Software Safety Analysis", "missing", "RED"], "must_not_contain": ["GREEN"], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "evi-003",
+    "agent_id": "evidence-auditor",
+    "description": "Empty project directory should abort",
+    "input": { "goal": "Audit project Gamma" },
+    "expected": { "artifacts": [], "must_contain": ["empty", "inaccessible"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": true, "min_retrieval_queries": 0 }
+  },
+  {
+    "fixture_id": "evi-004",
+    "agent_id": "evidence-auditor",
+    "description": "Missing DIA in multi-supplier project escalates",
+    "input": { "goal": "Audit multi-supplier project Delta" },
+    "expected": { "artifacts": ["gap_matrix", "gate_readiness"], "must_contain": ["DIA", "missing"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": true, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "evi-005",
+    "agent_id": "evidence-auditor",
+    "description": "Traceability gaps in requirement chain",
+    "input": { "goal": "Audit traceability for project Epsilon" },
+    "expected": { "artifacts": ["gap_matrix", "gate_readiness", "traceability_report"], "must_contain": ["traceability", "gap"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "evi-006",
+    "agent_id": "evidence-auditor",
+    "description": "Regulatory delta detected since last audit",
+    "input": { "goal": "Audit project Zeta", "knowledge_available": { "regulatory": ["iso26262-part6-amendment-2026.json"] } },
+    "expected": { "artifacts": ["gap_matrix", "gate_readiness", "regulatory_delta"], "must_contain": ["regulatory", "amendment"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 3 }
+  },
+  {
+    "fixture_id": "evi-007",
+    "agent_id": "evidence-auditor",
+    "description": "ASIL level not specified should abort",
+    "input": { "goal": "Audit project with unknown ASIL level" },
+    "expected": { "artifacts": [], "must_contain": ["ASIL", "clarif"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": true, "min_retrieval_queries": 0 }
+  },
+  {
+    "fixture_id": "evi-008",
+    "agent_id": "evidence-auditor",
+    "description": "RED gate with delivery milestone in 14 days escalates",
+    "input": { "goal": "Audit project Theta — gate review in 10 days" },
+    "expected": { "artifacts": ["gap_matrix", "gate_readiness"], "must_contain": ["RED", "escalat"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": true, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "evi-009",
+    "agent_id": "evidence-auditor",
+    "description": "Scanned PDF input (multimodal)",
+    "input": { "goal": "Audit scanned evidence package", "documents": ["scanned-evidence.pdf"] },
+    "expected": { "artifacts": ["gap_matrix", "gate_readiness"], "must_contain": ["OCR"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "evi-010",
+    "agent_id": "evidence-auditor",
+    "description": "ASIL-A project with reduced requirements",
+    "input": { "goal": "Audit ASIL-A project Kappa" },
+    "expected": { "artifacts": ["gap_matrix", "gate_readiness", "traceability_report"], "must_contain": ["ASIL-A"], "must_not_contain": ["Software Safety Analysis mandatory"], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  }
+]

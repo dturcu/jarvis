@@ -14,7 +14,7 @@ import {
 } from "../packages/jarvis-agent-framework/src/lesson-capture.ts";
 import { AgentMemoryStore } from "../packages/jarvis-agent-framework/src/memory.ts";
 import { AgentRuntime, type AgentRun } from "../packages/jarvis-agent-framework/src/runtime.ts";
-import { bdPipelineAgent } from "../packages/jarvis-agents/src/definitions/bd-pipeline.ts";
+import { bdPipelineAgent } from "../packages/jarvis-agents/src/legacy/definitions/bd-pipeline.ts";
 
 // ─── KnowledgeStore ───────────────────────────────────────────────────────────
 

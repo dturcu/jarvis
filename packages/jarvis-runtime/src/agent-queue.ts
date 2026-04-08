@@ -16,9 +16,9 @@ type QueueEntry = {
 /**
  * Manages concurrent agent execution with resource-lock awareness.
  *
- * Browser-using agents (social-engagement, content-engine) share a single
- * browser resource and cannot run concurrently with each other. All other
- * agents can run in parallel up to `maxConcurrent`.
+ * Agents listed in `browserAgents` share a single browser resource and
+ * cannot run concurrently with each other. All other agents can run in
+ * parallel up to `maxConcurrent`.
  */
 export class AgentQueue {
   private running = new Map<string, Promise<AgentRun>>();
@@ -28,8 +28,10 @@ export class AgentQueue {
   private _draining = false;
   private _drainResolvers: Array<() => void> = [];
 
-  // Browser-using agents: social-engagement, content-engine
-  private readonly browserAgents = new Set(["social-engagement", "content-engine"]);
+  // Agents that require an exclusive browser lock.  Empty after the
+  // 2026-04-08 roster reset — will be populated when browser-using
+  // agents are re-introduced.
+  private readonly browserAgents = new Set<string>();
 
   constructor(
     maxConcurrent: number,

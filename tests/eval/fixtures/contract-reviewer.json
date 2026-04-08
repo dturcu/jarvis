@@ -1,0 +1,72 @@
+[
+  {
+    "fixture_id": "con-001",
+    "agent_id": "contract-reviewer",
+    "description": "Clean NDA with standard terms — should SIGN",
+    "input": { "goal": "Review NDA from Volvo", "documents": ["volvo-nda-standard.pdf"] },
+    "expected": { "artifacts": ["clause_analysis", "recommendation"], "must_contain": ["SIGN"], "must_not_contain": ["RED FLAG"], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "con-002",
+    "agent_id": "contract-reviewer",
+    "description": "NDA with perpetual confidentiality — RED FLAG, NEGOTIATE",
+    "input": { "goal": "Review NDA", "documents": ["perpetual-conf-nda.pdf"] },
+    "expected": { "artifacts": ["clause_analysis", "recommendation", "negotiation_priorities"], "must_contain": ["NEGOTIATE", "perpetual", "RED FLAG"], "must_not_contain": ["SIGN"], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "con-003",
+    "agent_id": "contract-reviewer",
+    "description": "US jurisdiction + unlimited liability — ESCALATE",
+    "input": { "goal": "Review MSA from US client", "documents": ["us-msa-unlimited.pdf"] },
+    "expected": { "artifacts": ["clause_analysis", "recommendation", "negotiation_priorities"], "must_contain": ["ESCALATE", "unlimited", "US"], "must_not_contain": ["SIGN"], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": true, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "con-004",
+    "agent_id": "contract-reviewer",
+    "description": "Corrupted document aborts",
+    "input": { "goal": "Review contract", "documents": ["corrupted.pdf"] },
+    "expected": { "artifacts": [], "must_contain": ["parse", "resubmit"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": true, "min_retrieval_queries": 0 }
+  },
+  {
+    "fixture_id": "con-005",
+    "agent_id": "contract-reviewer",
+    "description": "Broad IP assignment flagged",
+    "input": { "goal": "Review MSA with broad IP clause", "documents": ["broad-ip-msa.pdf"] },
+    "expected": { "artifacts": ["clause_analysis", "recommendation", "negotiation_priorities"], "must_contain": ["IP", "FLAG", "background"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "con-006",
+    "agent_id": "contract-reviewer",
+    "description": "Industry-wide non-compete flagged",
+    "input": { "goal": "Review NDA with broad non-compete", "documents": ["broad-noncompete.pdf"] },
+    "expected": { "artifacts": ["clause_analysis", "recommendation"], "must_contain": ["non-compete", "industry-wide", "FLAG"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "con-007",
+    "agent_id": "contract-reviewer",
+    "description": "High risk score escalates",
+    "input": { "goal": "Review high-risk contract", "documents": ["toxic-contract.pdf"] },
+    "expected": { "artifacts": ["clause_analysis", "recommendation", "negotiation_priorities"], "must_contain": ["ESCALATE"], "must_not_contain": ["SIGN"], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": true, "abort_expected": false, "min_retrieval_queries": 2 }
+  },
+  {
+    "fixture_id": "con-008",
+    "agent_id": "contract-reviewer",
+    "description": "Scanned contract (multimodal input)",
+    "input": { "goal": "Review scanned NDA", "documents": ["scanned-nda.jpg"] },
+    "expected": { "artifacts": ["clause_analysis", "recommendation"], "must_contain": ["OCR"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "con-009",
+    "agent_id": "contract-reviewer",
+    "description": "Regulatory change affects contract analysis",
+    "input": { "goal": "Review NDA in light of new EU CRA requirements", "documents": ["standard-nda.pdf"], "knowledge_available": { "regulatory": ["eu-cra-update-2026.json"] } },
+    "expected": { "artifacts": ["clause_analysis", "recommendation", "regulatory_notes"], "must_contain": ["CRA", "regulatory"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 3 }
+  },
+  {
+    "fixture_id": "con-010",
+    "agent_id": "contract-reviewer",
+    "description": "Past contract history referenced",
+    "input": { "goal": "Review follow-up NDA from Bosch", "knowledge_available": { "contracts": ["bosch-nda-2025.json", "bosch-msa-2024.json"] } },
+    "expected": { "artifacts": ["clause_analysis", "recommendation"], "must_contain": ["prior", "Bosch"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  }
+]

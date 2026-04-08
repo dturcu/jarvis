@@ -1,0 +1,37 @@
+[
+  {
+    "fixture_id": "ref-001",
+    "agent_id": "self-reflection",
+    "description": "Normal weekly analysis with healthy system",
+    "input": { "goal": "Run weekly self-reflection analysis" },
+    "expected": { "artifacts": ["review_report"], "must_contain": ["health_score", "proposals"], "must_not_contain": ["auto-apply"], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "ref-002",
+    "agent_id": "self-reflection",
+    "description": "System with low health score should escalate",
+    "input": { "goal": "Run weekly analysis — system has 0 successful runs in 7 days" },
+    "expected": { "artifacts": ["review_report"], "must_contain": ["CRITICAL", "escalat"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": true, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "ref-003",
+    "agent_id": "self-reflection",
+    "description": "Empty decision logs should abort",
+    "input": { "goal": "Run weekly analysis — no agent activity in period" },
+    "expected": { "artifacts": [], "must_contain": ["empty", "abort"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": true, "min_retrieval_queries": 0 }
+  },
+  {
+    "fixture_id": "ref-004",
+    "agent_id": "self-reflection",
+    "description": "Must produce at least 5 proposals",
+    "input": { "goal": "Run weekly analysis" },
+    "expected": { "artifacts": ["review_report"], "must_contain": ["proposal"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "ref-005",
+    "agent_id": "self-reflection",
+    "description": "Week-over-week comparison when prior report exists",
+    "input": { "goal": "Run weekly analysis", "knowledge_available": { "lessons": ["review-report-2026-W14.json"] } },
+    "expected": { "artifacts": ["review_report"], "must_contain": ["trend", "week-over-week"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+  }
+]

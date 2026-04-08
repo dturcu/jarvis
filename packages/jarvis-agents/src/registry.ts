@@ -1,36 +1,37 @@
 import type { AgentDefinition } from "@jarvis/agent-framework";
-import { bdPipelineAgent } from "./definitions/bd-pipeline.js";
+import { orchestratorAgent } from "./definitions/orchestrator.js";
+import { selfReflectionAgent } from "./definitions/self-reflection.js";
+import { regulatoryWatchAgent } from "./definitions/regulatory-watch.js";
+import { knowledgeCuratorAgent } from "./definitions/knowledge-curator.js";
 import { proposalEngineAgent } from "./definitions/proposal-engine.js";
 import { evidenceAuditorAgent } from "./definitions/evidence-auditor.js";
 import { contractReviewerAgent } from "./definitions/contract-reviewer.js";
 import { staffingMonitorAgent } from "./definitions/staffing-monitor.js";
-import { contentEngineAgent } from "./definitions/content-engine.js";
-import { portfolioMonitorAgent } from "./definitions/portfolio-monitor.js";
-import { gardenCalendarAgent } from "./definitions/garden-calendar.js";
-import { socialEngagementAgent } from "./definitions/social-engagement.js";
-import { securityMonitorAgent } from "./definitions/security-monitor.js";
-import { invoiceGeneratorAgent } from "./definitions/invoice-generator.js";
-import { emailCampaignAgent } from "./definitions/email-campaign.js";
-import { meetingTranscriberAgent } from "./definitions/meeting-transcriber.js";
-import { driveWatcherAgent } from "./definitions/drive-watcher.js";
-import { selfReflectionAgent } from "./definitions/self-reflection.js";
 
+/**
+ * Active production agent roster — rebuilt 2026-04-08.
+ *
+ * 8 agents, each owning a real business loop:
+ * - orchestrator: top-level workflow coordination
+ * - self-reflection: system health and improvement proposals
+ * - regulatory-watch: standards and regulatory intelligence
+ * - knowledge-curator: knowledge store maintenance
+ * - proposal-engine: RFQ analysis, quoting, invoicing
+ * - evidence-auditor: ISO 26262 / ASPICE compliance
+ * - contract-reviewer: NDA/MSA clause analysis
+ * - staffing-monitor: team utilization and gap forecasting
+ *
+ * The previous 15-agent roster is preserved in legacy/.
+ */
 export const ALL_AGENTS: AgentDefinition[] = [
-  bdPipelineAgent,
+  orchestratorAgent,
+  selfReflectionAgent,
+  regulatoryWatchAgent,
+  knowledgeCuratorAgent,
   proposalEngineAgent,
   evidenceAuditorAgent,
   contractReviewerAgent,
   staffingMonitorAgent,
-  contentEngineAgent,
-  portfolioMonitorAgent,
-  gardenCalendarAgent,
-  socialEngagementAgent,
-  securityMonitorAgent,
-  invoiceGeneratorAgent,
-  emailCampaignAgent,
-  meetingTranscriberAgent,
-  driveWatcherAgent,
-  selfReflectionAgent,
 ];
 
 export function getAgent(agentId: string): AgentDefinition | undefined {

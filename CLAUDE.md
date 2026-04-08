@@ -1,8 +1,8 @@
 # Jarvis -- Autonomous Agent System
 
-Jarvis is an autonomous agent system for **Thinking in Code**, Daniel's automotive safety consulting firm (ISO 26262, ASPICE, AUTOSAR, cybersecurity). It runs 14 domain agents that handle BD pipeline intelligence, proposal generation, compliance auditing, contract review, staffing monitoring, LinkedIn content, crypto portfolio, garden management, email campaigns, social engagement, security monitoring, drive watching, invoice generation, and meeting transcription.
+Jarvis is an autonomous agent system for **Thinking in Code**, Daniel's automotive safety consulting firm (ISO 26262, ASPICE, AUTOSAR, cybersecurity). It runs 8 production agents: orchestrator, self-reflection, regulatory-watch, knowledge-curator, proposal-engine, evidence-auditor, contract-reviewer, and staffing-monitor.
 
-The system runs on **OpenClaw** (`^2026.4.5`) as a plugin pack. OpenClaw provides the chat OS layer (session routing, plugin lifecycle, tool execution, model abstraction, Telegram channel). Jarvis provides 19 domain plugins, 14 agent definitions, and a contract-validated job queue.
+The system runs on **OpenClaw** (`^2026.4.5`) as a plugin pack. OpenClaw provides the chat OS layer (session routing, plugin lifecycle, tool execution, model abstraction, Telegram channel). Jarvis provides 19 domain plugins, 8 agent definitions (15 legacy archived), and a contract-validated job queue.
 
 ## Quick Start
 
@@ -16,22 +16,16 @@ npm run check                     # Validate contracts + run tests + build
 
 Each agent is a Claude Code skill invocable via slash command:
 
-| Command | Tier | What it does |
+| Command | Maturity | What it does |
 |---|---|---|
-| `/bd-pipeline` | core | Scan for BD signals, enrich leads, draft outreach, update CRM |
-| `/proposal-engine` | core | Analyze RFQ/SOW, build quote structure, draft proposal |
-| `/evidence-auditor` | core | Scan project for ISO 26262 work products, produce gap matrix |
-| `/contract-reviewer` | core | Analyze NDA/MSA clauses, produce sign/negotiate/escalate recommendation |
-| `/staffing-monitor` | core | Calculate team utilization, forecast gaps, match skills to pipeline |
-| `/content-engine` | extended | Draft LinkedIn post for today's content pillar |
-| `/email-campaign` | extended | Manage drip campaigns, follow-up sequences, outreach automation |
-| `/invoice-generator` | extended | Generate and track invoices for client engagements |
-| `/meeting-transcriber` | extended | Transcribe and summarize meeting recordings |
-| `/portfolio-monitor` | personal | Check crypto prices, calculate drift, recommend rebalance |
-| `/garden-calendar` | personal | Generate weekly garden brief based on date + weather |
-| `/social-engagement` | experimental | Monitor and respond to social media interactions |
-| `/security-monitor` | experimental | Track security advisories, vulnerability alerts, compliance updates |
-| `/drive-watcher` | experimental | Watch shared drives for new/changed documents, trigger workflows |
+| `/orchestrator` | high_stakes | Decompose goals into agent DAGs, coordinate multi-agent workflows |
+| `/self-reflection` | gated | Weekly system health analysis, ranked improvement proposals |
+| `/regulatory-watch` | trusted | Track ISO 26262, ISO 21434, ASPICE, EU regulatory changes |
+| `/knowledge-curator` | trusted | Ingest documents/meetings, maintain knowledge store, resolve entities |
+| `/proposal-engine` | high_stakes | Analyze RFQs, build quotes, generate proposals, handle invoicing |
+| `/evidence-auditor` | gated | Audit ISO 26262 / ASPICE evidence, produce gap matrices |
+| `/contract-reviewer` | high_stakes | Analyze NDA/MSA clauses, produce sign/negotiate/escalate |
+| `/staffing-monitor` | trusted | Track utilization, forecast gaps, match skills to pipeline |
 
 Agents with schedules run automatically via scheduled tasks. Manual agents run on demand.
 
@@ -114,8 +108,10 @@ OpenClaw Gateway (WebSocket + HTTP, plugin host)
 
 ## Key Directories
 
-- `packages/jarvis-agents/src/definitions/` -- 14 agent definition files (TypeScript)
-- `packages/jarvis-agents/src/prompts/` -- 14 system prompt files (Markdown)
+- `packages/jarvis-agents/src/definitions/` -- 8 active agent definitions (TypeScript)
+- `packages/jarvis-agents/src/legacy/definitions/` -- 15 archived agent definitions
+- `packages/jarvis-agents/src/prompts/` -- 8 system prompt files (Markdown)
+- `packages/jarvis-agents/src/legacy/prompts/` -- 14 archived prompt files
 - `packages/jarvis-agents/src/data/` -- Garden beds + planting calendar (JSON)
 - `packages/jarvis-agent-framework/src/` -- Runtime, memory, knowledge, entity graph, lesson capture
 - `contracts/jarvis/v1/` -- JSON schemas (23 families), 144 examples, job catalog (143 types), plugin surface

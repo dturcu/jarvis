@@ -32,11 +32,18 @@ export type WorkflowDefinition = {
   preview_available: boolean;
   output_fields?: WorkflowOutputField[];
   safety_rules?: WorkflowSafetyRules;
-  /** Pack classification. All V1 workflows are core. */
   pack?: "core" | "experimental" | "personal";
 };
 
+/**
+ * V1 Workflows — rebuilt for the 8-agent production roster (2026-04-08).
+ *
+ * Each workflow maps to one or more active agents.
+ * Removed responsibilities absorbed as noted in AGENT-MIGRATION-MAP.md.
+ */
 export const V1_WORKFLOWS: WorkflowDefinition[] = [
+  // ── Core business workflows ──────────────────────────────────────
+
   {
     workflow_id: "contract-review",
     name: "Review Contract",
@@ -89,30 +96,6 @@ export const V1_WORKFLOWS: WorkflowDefinition[] = [
     },
   },
   {
-    workflow_id: "bd-pipeline",
-    name: "Monitor BD Pipeline",
-    description: "Scan for business development signals, enrich leads, draft outreach, update CRM.",
-    agent_ids: ["bd-pipeline"],
-    expected_output: "Enriched leads, CRM updates, outreach drafts",
-    inputs: [
-      { name: "focus", label: "Focus area", type: "text", required: false, placeholder: "e.g., automotive OEMs in Germany" },
-    ],
-    approval_summary: "Emails and CRM stage changes require approval",
-    preview_available: true,
-    pack: "core",
-    output_fields: [
-      { name: "leads", label: "Enriched leads", type: "list", required: true },
-      { name: "crm_updates", label: "CRM updates made", type: "list", required: false },
-      { name: "outreach_drafts", label: "Outreach drafts", type: "list", required: false },
-    ],
-    safety_rules: {
-      outbound_default: "draft",
-      preview_recommended: false,
-      retry_safe: false,
-      retry_requires_approval: true,
-    },
-  },
-  {
     workflow_id: "staffing-check",
     name: "Check Staffing",
     description: "Calculate team utilization, forecast gaps, match skills to pipeline.",
@@ -138,8 +121,8 @@ export const V1_WORKFLOWS: WorkflowDefinition[] = [
   {
     workflow_id: "weekly-report",
     name: "Create Weekly Report",
-    description: "Run scheduled monitoring agents and compile a weekly summary.",
-    agent_ids: ["evidence-auditor", "staffing-monitor", "bd-pipeline"],
+    description: "Run monitoring agents and compile a weekly summary.",
+    agent_ids: ["evidence-auditor", "staffing-monitor", "regulatory-watch"],
     expected_output: "Weekly summary report with action items",
     inputs: [
       { name: "week", label: "Report week", type: "date", required: false, placeholder: "Defaults to current week" },
@@ -153,6 +136,105 @@ export const V1_WORKFLOWS: WorkflowDefinition[] = [
     ],
     safety_rules: {
       outbound_default: "draft",
+      preview_recommended: false,
+      retry_safe: true,
+      retry_requires_approval: false,
+    },
+  },
+
+  // ── Replacement workflows (absorbed from retired agents) ─────────
+
+  {
+    workflow_id: "meeting-ingestion",
+    name: "Ingest Meeting Recording",
+    description: "Transcribe meeting, extract minutes, link to CRM contacts. Owned by knowledge-curator.",
+    agent_ids: ["knowledge-curator"],
+    expected_output: "Structured meeting minutes with action items",
+    inputs: [
+      { name: "recording", label: "Meeting recording or transcript", type: "file", required: true },
+      { name: "engagement", label: "Related engagement", type: "text", required: false, placeholder: "e.g., Volvo-Alpha" },
+    ],
+    approval_summary: "No approval needed (read-only ingestion)",
+    preview_available: false,
+    pack: "core",
+    output_fields: [
+      { name: "minutes", label: "Structured minutes", type: "document", required: true },
+      { name: "action_items", label: "Action items", type: "list", required: true },
+      { name: "attendees", label: "Attendees linked", type: "list", required: true },
+    ],
+    safety_rules: {
+      outbound_default: "blocked",
+      preview_recommended: false,
+      retry_safe: true,
+      retry_requires_approval: false,
+    },
+  },
+  {
+    workflow_id: "invoice-generation",
+    name: "Generate Invoice",
+    description: "Generate milestone invoice from CRM engagement data. Owned by proposal-engine.",
+    agent_ids: ["proposal-engine"],
+    expected_output: "Invoice document with cover email draft",
+    inputs: [
+      { name: "engagement", label: "Engagement ID", type: "text", required: true, placeholder: "e.g., garrett-2026" },
+      { name: "milestone", label: "Milestone", type: "text", required: false, placeholder: "e.g., Phase 1 complete" },
+    ],
+    approval_summary: "Email with invoice requires approval",
+    preview_available: true,
+    pack: "core",
+    output_fields: [
+      { name: "invoice", label: "Invoice document", type: "document", required: true },
+      { name: "cover_email", label: "Cover email draft", type: "text", required: true },
+    ],
+    safety_rules: {
+      outbound_default: "draft",
+      preview_recommended: true,
+      retry_safe: true,
+      retry_requires_approval: false,
+    },
+  },
+  {
+    workflow_id: "document-ingestion",
+    name: "Ingest Document",
+    description: "Parse, classify, and store a document in the knowledge store. Owned by knowledge-curator.",
+    agent_ids: ["knowledge-curator"],
+    expected_output: "Document ingested with metadata and entity links",
+    inputs: [
+      { name: "document", label: "Document to ingest", type: "file", required: true },
+      { name: "collection", label: "Target collection", type: "select", required: false, options: ["proposals", "case-studies", "contracts", "playbooks", "iso26262", "regulatory", "meetings"] },
+    ],
+    approval_summary: "No approval needed",
+    preview_available: false,
+    pack: "core",
+    output_fields: [
+      { name: "ingestion_log", label: "Ingestion result", type: "text", required: true },
+      { name: "entities", label: "Entities linked", type: "list", required: false },
+    ],
+    safety_rules: {
+      outbound_default: "blocked",
+      preview_recommended: false,
+      retry_safe: true,
+      retry_requires_approval: false,
+    },
+  },
+  {
+    workflow_id: "regulatory-scan",
+    name: "Scan Regulatory Changes",
+    description: "Check for standards and regulatory changes affecting TIC engagements.",
+    agent_ids: ["regulatory-watch"],
+    expected_output: "New regulatory findings or weekly digest",
+    inputs: [
+      { name: "standards", label: "Standards to check", type: "text", required: false, placeholder: "e.g., ISO 26262, ISO 21434 (defaults to all)" },
+    ],
+    approval_summary: "No approval needed (intelligence gathering)",
+    preview_available: false,
+    pack: "core",
+    output_fields: [
+      { name: "findings", label: "New findings", type: "list", required: true },
+      { name: "digest", label: "Weekly digest", type: "document", required: false },
+    ],
+    safety_rules: {
+      outbound_default: "blocked",
       preview_recommended: false,
       retry_safe: true,
       retry_requires_approval: false,

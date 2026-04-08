@@ -1,0 +1,58 @@
+[
+  {
+    "fixture_id": "kc-001",
+    "agent_id": "knowledge-curator",
+    "description": "Standard document ingestion",
+    "input": { "goal": "Ingest new proposal document", "documents": ["new-proposal-2026.pdf"] },
+    "expected": { "artifacts": ["ingestion_log", "entity_updates"], "must_contain": ["ingested", "collection"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "kc-002",
+    "agent_id": "knowledge-curator",
+    "description": "Duplicate document detected — flag, do not insert",
+    "input": { "goal": "Ingest document", "documents": ["existing-proposal-copy.pdf"] },
+    "expected": { "artifacts": ["ingestion_log"], "must_contain": ["duplicate", "flag"], "must_not_contain": ["inserted"], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "kc-003",
+    "agent_id": "knowledge-curator",
+    "description": "Meeting transcript ingestion",
+    "input": { "goal": "Process meeting recording", "documents": ["team-meeting-2026-04-07.mp3"] },
+    "expected": { "artifacts": ["ingestion_log", "entity_updates"], "must_contain": ["attendees", "decisions", "action items"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "kc-004",
+    "agent_id": "knowledge-curator",
+    "description": "Corrupted document skipped, run continues",
+    "input": { "goal": "Ingest batch", "documents": ["good-doc.pdf", "corrupted.pdf", "another-good.pdf"] },
+    "expected": { "artifacts": ["ingestion_log"], "must_contain": ["skipped", "corrupted"], "must_not_contain": ["abort"], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "kc-005",
+    "agent_id": "knowledge-curator",
+    "description": "Collection health check flags stale collection",
+    "input": { "goal": "Run scheduled maintenance" },
+    "expected": { "artifacts": ["health_report"], "must_contain": ["90 days", "stale"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "kc-006",
+    "agent_id": "knowledge-curator",
+    "description": "Empty collection escalates",
+    "input": { "goal": "Run health check — iso26262 collection has 0 documents" },
+    "expected": { "artifacts": ["health_report"], "must_contain": ["escalat", "iso26262", "0 documents"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": true, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "kc-007",
+    "agent_id": "knowledge-curator",
+    "description": "Knowledge deletion requires approval",
+    "input": { "goal": "Remove superseded document from proposals" },
+    "expected": { "artifacts": [], "must_contain": ["superseded"], "must_not_contain": ["deleted"], "approval_gates_triggered": ["knowledge.delete"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
+  },
+  {
+    "fixture_id": "kc-008",
+    "agent_id": "knowledge-curator",
+    "description": "Database unreachable aborts",
+    "input": { "goal": "Ingest document — knowledge.db unreachable" },
+    "expected": { "artifacts": [], "must_contain": ["unreachable", "abort"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": true, "min_retrieval_queries": 0 }
+  }
+]
