@@ -105,32 +105,32 @@ The dashboard also provides two read-only copilot surfaces (`/api/chat/telegram`
 
 ### Core (production workflows)
 
-| Agent | What it does | Schedule | Maturity |
-|---|---|---|---|
-| **bd-pipeline** | Scan for BD signals, enrich leads, draft outreach, update CRM | Weekdays 8:00 AM | Trusted |
-| **proposal-engine** | Analyze RFQ/SOW, build quote structure, draft proposal | Manual | High-stakes |
-| **evidence-auditor** | Scan project for ISO 26262 work products, produce gap matrix | Mondays 9:00 AM | Trusted |
-| **contract-reviewer** | Analyze NDA/MSA clauses, produce sign/negotiate/escalate recommendation | Manual | High-stakes |
-| **staffing-monitor** | Calculate team utilization, forecast gaps, match skills to pipeline | Mondays 9:00 AM | Operational |
+| Agent | What it does | Schedule | Tier | Maturity |
+|---|---|---|---|---|
+| **bd-pipeline** | Scan for BD signals, enrich leads, draft outreach, update CRM | Weekdays 8:00 AM | Core | Trusted |
+| **proposal-engine** | Analyze RFQ/SOW, build quote structure, draft proposal | Manual | Core | High-stakes |
+| **evidence-auditor** | Scan project for ISO 26262 work products, produce gap matrix | Mondays 9:00 AM | Core | Trusted |
+| **contract-reviewer** | Analyze NDA/MSA clauses, produce sign/negotiate/escalate recommendation | Manual | Core | High-stakes |
+| **staffing-monitor** | Calculate team utilization, forecast gaps, match skills to pipeline | Mondays 9:00 AM | Core | Operational |
 
 ### Extended
 
-| Agent | What it does | Schedule | Maturity |
-|---|---|---|---|
-| **content-engine** | Draft LinkedIn post for today's content pillar | Mon/Wed/Thu 7:00 AM | Operational |
-| **email-campaign** | Manage drip campaigns, follow-up sequences | Manual | Trusted |
-| **invoice-generator** | Generate and track invoices for client engagements | Manual | Trusted |
-| **meeting-transcriber** | Transcribe and summarize meeting recordings | Manual | Operational |
+| Agent | What it does | Schedule | Tier | Maturity |
+|---|---|---|---|---|
+| **content-engine** | Draft LinkedIn post for today's content pillar | Mon/Wed/Thu 7:00 AM | Extended | Operational |
+| **email-campaign** | Manage drip campaigns, follow-up sequences | Manual | Extended | Trusted |
+| **invoice-generator** | Generate and track invoices for client engagements | Manual | Extended | Trusted |
+| **meeting-transcriber** | Transcribe and summarize meeting recordings | Manual | Extended | Operational |
 
 ### Personal / Experimental
 
-| Agent | What it does | Schedule | Tier |
-|---|---|---|---|
-| **portfolio-monitor** | Check crypto prices, calculate drift, recommend rebalance | Daily 8 AM + 8 PM | Personal |
-| **garden-calendar** | Generate weekly garden brief based on date + weather | Mondays 7:00 AM | Personal |
-| **social-engagement** | Monitor and respond to social media interactions | Weekdays 8:30 AM + 6 PM | Experimental |
-| **security-monitor** | Track security advisories, vulnerability alerts | Daily 3:00 AM | Experimental |
-| **drive-watcher** | Watch shared drives for new/changed documents | Every 5 minutes | Experimental |
+| Agent | What it does | Schedule | Tier | Maturity |
+|---|---|---|---|---|
+| **portfolio-monitor** | Check crypto prices, calculate drift, recommend rebalance | Daily 8 AM + 8 PM | Personal | Operational |
+| **garden-calendar** | Generate weekly garden brief based on date + weather | Mondays 7:00 AM | Personal | Operational |
+| **social-engagement** | Monitor and respond to social media interactions | Weekdays 8:30 AM + 6 PM | Experimental | Experimental |
+| **security-monitor** | Track security advisories, vulnerability alerts | Daily 3:00 AM | Experimental | Experimental |
+| **drive-watcher** | Watch shared drives for new/changed documents | Every 5 minutes | Experimental | Experimental |
 
 **Maturity levels:**
 - **High-stakes**: Every mutating action requires human approval
@@ -383,6 +383,10 @@ For more help: `npm run jarvis -- doctor`
 | [KNOWN-TRUST-GAPS.md](docs/KNOWN-TRUST-GAPS.md) | Honest list of what's not yet enforced |
 | [ADR-CHAT-SURFACES.md](docs/ADR-CHAT-SURFACES.md) | Why chat/godmode have separate LLM loops |
 | [OPERATOR-RUNBOOK.md](docs/OPERATOR-RUNBOOK.md) | Secure installation, daily ops, failure recovery |
+| [GLOSSARY.md](docs/GLOSSARY.md) | Canonical vocabulary (agent, plugin, worker, job, run, etc.) |
+| [WHAT-JARVIS-IS-NOT.md](docs/WHAT-JARVIS-IS-NOT.md) | Explicit non-goals and boundaries |
+| [LIFECYCLE-DIAGRAMS.md](docs/LIFECYCLE-DIAGRAMS.md) | Mermaid state machines for runs, approvals, jobs |
+| [ARCHITECTURE-STATUS.md](docs/ARCHITECTURE-STATUS.md) | Target design vs shipped implementation comparison |
 | [alpha-operating-guide.md](docs/alpha-operating-guide.md) | Daily workflow, failure taxonomy, metrics |
 
 ### Specs

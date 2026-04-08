@@ -18,6 +18,50 @@ import os from 'os'
 import fs, { realpathSync } from 'fs'
 import { join, resolve, relative } from 'path'
 
+// ─── Read-Only Tool Registry ──────────────────────────────────────────────────
+
+/** Single source of truth for read-only tools available to copilot surfaces. */
+export const READONLY_TOOL_NAMES = [
+  "web_search", "web_fetch", "crm_search", "knowledge_search",
+  "system_info", "list_files", "file_read", "file_list",
+  "gmail_search", "gmail_read", "agent_status", "browse_page",
+] as const;
+
+export type ReadOnlyToolName = (typeof READONLY_TOOL_NAMES)[number];
+
+/** Check if a tool name is in the read-only registry. */
+export function isReadOnlyTool(name: string): name is ReadOnlyToolName {
+  return (READONLY_TOOL_NAMES as readonly string[]).includes(name);
+}
+
+// ─── Tool Sensitivity Classification ──────────────────────────────────────────
+
+/** Tools that access potentially sensitive content (email, files). */
+export const SENSITIVE_READ_TOOLS = new Set(["gmail_search", "gmail_read", "file_read", "browse_page"]);
+/** Tools that only access public or system data. */
+export const SAFE_READ_TOOLS = new Set(["web_search", "web_fetch", "crm_search", "knowledge_search", "system_info", "list_files", "file_list", "agent_status"]);
+
+// ─── Prompt Sanitization ──────────────────────────────────────────────────────
+
+/** Strip content that could be interpreted as instructions by the LLM. */
+export function sanitizeForPrompt(text: string): string {
+  return text
+    // Remove script/style content
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    // Remove HTML tags
+    .replace(/<[^>]+>/g, ' ')
+    // Decode entities
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    // Remove common prompt injection patterns
+    .replace(/\[SYSTEM\][\s\S]*?\[\/SYSTEM\]/gi, '[content removed]')
+    .replace(/\[INST\][\s\S]*?\[\/INST\]/gi, '[content removed]')
+    .replace(/<\|im_start\|>[\s\S]*?<\|im_end\|>/gi, '[content removed]')
+    // Collapse whitespace
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 // ─── Project Root ──────────────────────────────────────────────────────────────
 
 /** Project root for file_read/file_list tools. Configurable via env or config. */
@@ -181,7 +225,7 @@ export async function executeTool(
           }
         }
         if (results.length === 0) {
-          const textContent = html.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+          const textContent = sanitizeForPrompt(html)
           return `Search results for "${query}":\n${textContent.slice(0, 2000)}`
         }
         return `Search results for "${query}":\n\n${results.join('\n\n')}`
@@ -195,14 +239,11 @@ export async function executeTool(
       if (!url) return 'Error: url is required'
       try {
         const html = await fetch(url)
-        const text = html
-          .replace(/<script[\s\S]*?<\/script>/gi, '')
-          .replace(/<style[\s\S]*?<\/style>/gi, '')
+        // Strip nav/footer before general sanitization
+        const stripped = html
           .replace(/<nav[\s\S]*?<\/nav>/gi, '')
           .replace(/<footer[\s\S]*?<\/footer>/gi, '')
-          .replace(/<[^>]+>/g, ' ')
-          .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-          .replace(/\s+/g, ' ').trim()
+        const text = sanitizeForPrompt(stripped)
         return `Content from ${url}:\n\n${text.slice(0, 4000)}`
       } catch (e) {
         return `Fetch failed: ${e instanceof Error ? e.message : String(e)}`
@@ -336,4 +377,55 @@ export async function executeTool(
     default:
       return `Unknown tool: ${name}`
   }
+}
+
+// ─── Gmail Helpers ────────────────────────────────────────────────────────────
+
+export function loadGmailConfig(): { client_id: string; client_secret: string; refresh_token: string } | null {
+  try {
+    const raw = JSON.parse(fs.readFileSync(join(os.homedir(), '.jarvis', 'config.json'), 'utf8'))
+    return raw.gmail ?? null
+  } catch { return null }
+}
+
+export function httpsPost(url: string, body: string, headers: Record<string, string> = {}): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url)
+    const req = https.request({
+      hostname: parsed.hostname, port: 443, path: parsed.pathname + parsed.search,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(body), ...headers }
+    }, (res) => {
+      let data = ''
+      res.on('data', (c: Buffer) => data += c.toString())
+      res.on('end', () => resolve(data))
+      res.on('error', reject)
+    })
+    req.on('error', reject)
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error('timeout')) })
+    req.write(body)
+    req.end()
+  })
+}
+
+export function httpsGet(url: string, headers: Record<string, string> = {}): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url)
+    const req = https.get({ hostname: parsed.hostname, port: 443, path: parsed.pathname + parsed.search, headers }, (res) => {
+      let data = ''
+      res.on('data', (c: Buffer) => data += c.toString())
+      res.on('end', () => resolve(data))
+      res.on('error', reject)
+    })
+    req.on('error', reject)
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error('timeout')) })
+  })
+}
+
+export async function getGmailAccessToken(): Promise<string | null> {
+  const cfg = loadGmailConfig()
+  if (!cfg) return null
+  const body = `client_id=${cfg.client_id}&client_secret=${cfg.client_secret}&refresh_token=${cfg.refresh_token}&grant_type=refresh_token`
+  const resp = JSON.parse(await httpsPost('https://oauth2.googleapis.com/token', body))
+  return resp.access_token ?? null
 }

@@ -86,4 +86,6 @@ export const contractReviewerAgent: AgentDefinition = {
   maturity: "high_stakes_manual_gate",
   pack: "core",
   product_tier: "core",
+  turnaround_target_hours: 1,
+  review_required: true,
 };

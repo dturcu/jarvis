@@ -41,10 +41,17 @@ import {
   executeTool,
   extractToolCalls,
   buildContext,
+  isReadOnlyTool,
 } from './tool-infra.js'
 
 const LMS_URL = process.env.LMS_URL ?? 'http://localhost:1234'
 const DEFAULT_MODEL = process.env.LMS_MODEL ?? 'qwen/qwen3.5-35b-a3b'
+
+// Verify godmode tools are a subset of the shared registry
+const GODMODE_TOOLS = ["web_search", "web_fetch", "crm_search", "knowledge_search", "system_info", "file_read", "file_list"];
+for (const t of GODMODE_TOOLS) {
+  if (!isReadOnlyTool(t)) throw new Error(`Godmode tool "${t}" is not in the read-only registry`);
+}
 
 // ─── Intent Classification ───────────────────────────────────────────────────
 

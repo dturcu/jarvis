@@ -37,19 +37,18 @@ const VALID_TRANSITIONS: Record<RunStatus, RunStatus[]> = {
  * Current status is always read from DB, never from an in-memory cache.
  *
  * ── Retention Policy (#70) ──────────────────────────────────────────────────
- * Intended data-lifecycle rules (not yet implemented — document intent now,
- * build compaction job later):
+ * Data-lifecycle rules enforced by the daemon's daily maintenance job:
  *
- *  - run_events older than 90 days: compact into per-run summary rows, then
- *    delete the individual step-level events. The summary preserves final
- *    status, duration, step count, and error (if any).
+ *  - run_events older than 90 days: step-level events are deleted via
+ *    compactOldEvents(). Run lifecycle events (run_started, run_completed,
+ *    run_failed, run_cancelled) are preserved for auditing.
  *
- *  - channel_messages previews older than 30 days: archive preview_json to
- *    cold storage (or drop if full content is retained in full_content_json),
- *    keeping the message row for thread-continuity queries.
+ *  - channel_messages older than 30 days: content_full is NULLed via
+ *    ChannelStore.archiveOldContent(), keeping message rows for
+ *    thread-continuity queries.
  *
- * Until the compaction job ships, these tables grow unbounded. Monitor
- * runtime.db size via the dashboard health endpoint.
+ * The daemon runs maintenance every 24h with incremental vacuum to reclaim
+ * space. Monitor runtime.db size via the dashboard health endpoint.
  * ────────────────────────────────────────────────────────────────────────────
  */
 export class RunStore {
@@ -265,6 +264,19 @@ export class RunStore {
     return this.db.prepare(
       "SELECT run_id, agent_id, status, started_at, completed_at FROM runs ORDER BY started_at DESC LIMIT ?",
     ).all(limit) as any[];
+  }
+
+  /**
+   * Delete step-level events older than maxAgeDays, preserving run lifecycle
+   * events (run_started, run_completed, run_failed, run_cancelled) for auditing.
+   * Returns the number of events deleted.
+   */
+  compactOldEvents(maxAgeDays = 90): number {
+    const cutoff = new Date(Date.now() - maxAgeDays * 86400000).toISOString();
+    const result = this.db.prepare(
+      "DELETE FROM run_events WHERE created_at < ? AND event_type NOT IN ('run_started', 'run_completed', 'run_failed', 'run_cancelled')"
+    ).run(cutoff);
+    return (result as { changes: number }).changes;
   }
 
   /** Mark a run's associated command as completed, failed, or cancelled. */

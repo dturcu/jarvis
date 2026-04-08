@@ -22,6 +22,22 @@ import type { StatusWriter } from "./status-writer.js";
  *  since that's typically the main deliverable and should still execute in preview. */
 const OUTBOUND_ACTIONS = new Set(['email.send', 'social.post', 'crm.move_stage']);
 
+// ─── Failure classification (#70) ──────────────────────────────────────────
+// Classify step failures so the daemon can decide retry strategy and operators
+// can filter by failure class in the dashboard.
+// ────────────────────────────────────────────────────────────────────────────
+
+type FailureClass = "transient" | "permanent" | "timeout" | "permission" | "unknown";
+
+function classifyFailure(error: unknown, jobResult?: { error?: { code?: string; retryable?: boolean } }): FailureClass {
+  if (jobResult?.error?.code === "EXECUTION_TIMEOUT") return "timeout";
+  if (jobResult?.error?.code === "FILESYSTEM_POLICY_VIOLATION") return "permission";
+  if (jobResult?.error?.retryable) return "transient";
+  if (jobResult?.error?.code === "INVALID_INPUT") return "permanent";
+  if (error instanceof Error && error.message.includes("ECONNREFUSED")) return "transient";
+  return "unknown";
+}
+
 export type OrchestratorDeps = {
   runtime: AgentRuntime;
   registry: WorkerRegistry;
@@ -425,9 +441,10 @@ export async function runAgent(
         });
 
         if (result.status === "failed") {
+          const failureClass = classifyFailure(null, result);
           runStore?.emitEvent(run.run_id, agentId, "step_failed", {
             step_no: step.step, action: step.action,
-            details: { error: result.error?.message, error_code: result.error?.code, retryable: result.error?.retryable },
+            details: { error: result.error?.message, error_code: result.error?.code, retryable: result.error?.retryable, failure_class: failureClass },
           });
 
           // Retry once if retryable
@@ -436,6 +453,7 @@ export async function runAgent(
             const retry = await registry.executeJob({ ...envelope, attempt: 2 });
             if (retry.status === "failed") {
               stepLog.warn("Retry also failed");
+              const retryFailureClass = classifyFailure(null, retry);
               runStore?.emitEvent(run.run_id, agentId, "step_failed", {
                 step_no: step.step, action: step.action,
                 details: {
@@ -443,6 +461,7 @@ export async function runAgent(
                   error_code: retry.error?.code,
                   attempt: 2,
                   retryable: false,
+                  failure_class: retryFailureClass,
                 },
               });
             } else {
@@ -465,10 +484,11 @@ export async function runAgent(
         run.updated_at = new Date().toISOString();
       } catch (e) {
         const errMsg = e instanceof Error ? e.message : String(e);
+        const caughtFailureClass = classifyFailure(e);
         stepLog.error(`Threw: ${errMsg}`);
         runStore?.emitEvent(run.run_id, agentId, "step_failed", {
           step_no: step.step, action: step.action,
-          details: { error: errMsg },
+          details: { error: errMsg, failure_class: caughtFailureClass },
         });
         decisionLog.logDecision({
           agent_id: agentId, run_id: run.run_id, step: step.step,

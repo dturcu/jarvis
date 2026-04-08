@@ -65,6 +65,18 @@ If no backup exists, re-initialize with `npx tsx scripts/init-jarvis.ts` (this r
 
 **Recovery**: Worker crashes do not kill the daemon. Check logs for the failing worker. Child-process workers (browser, interpreter, files, device, voice, security, social) restart automatically. In-process workers require a daemon restart if they corrupt shared state.
 
+## Why Each Surface Exists
+
+Jarvis exposes four operator-facing surfaces. Each exists for a specific reason and has distinct capabilities.
+
+**Dashboard** (http://localhost:4242) -- Primary operator interface with full visibility. Shows agent run history, pending approvals, CRM pipeline, knowledge base, decision audit trail, and scheduled tasks. Supports all read and write operations (approve, reject, trigger runs). This is the canonical interface for daily operation.
+
+**Telegram** -- Mobile-friendly surface for approval handling and quick status checks. Operators receive approval requests as push notifications and can resolve them with `/approve <id>` or `/reject <id>` without opening a browser. Also supports status queries (`/status`, `/crm`, `/portfolio`, `/garden`, `/bd`, `/content`). Telegram is a channel, not a control plane -- it forwards commands to the runtime kernel.
+
+**Chat** (`/api/chat`) -- Read-only copilot surface for interactive data queries. Has its own LLM loop (not routed through the runtime kernel's model router) so it can answer ad-hoc questions about CRM state, run history, and knowledge base content. Cannot mutate state or trigger agent runs. The architectural decision to give it a separate LLM loop is documented in [ADR-CHAT-SURFACES.md](ADR-CHAT-SURFACES.md).
+
+**Godmode** (`/api/godmode`) -- Read-only research surface for deep investigation. Like Chat, it has its own LLM loop and cannot mutate state. Designed for complex multi-step analysis queries (e.g., cross-referencing CRM pipeline with evidence audit gaps). The separate LLM loop allows it to use different model parameters optimized for long-context reasoning. Documented in [ADR-CHAT-SURFACES.md](ADR-CHAT-SURFACES.md).
+
 ## Key Endpoints
 
 | Endpoint | Auth | Purpose |

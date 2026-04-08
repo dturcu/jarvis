@@ -550,6 +550,74 @@ async function setupDrive(): Promise<void> {
   }
 }
 
+// ─── Security Summary ──────────────────────────────────────────────────────
+
+function printSecuritySummary(config: Record<string, unknown>): void {
+  console.log("──── Security Summary ─────────────────────────");
+  const ok = (label: string) => console.log(`  [OK] ${label}`);
+  const missing = (label: string) => console.log(`  [--] ${label}`);
+
+  if (config.api_token || config.api_tokens) ok("API authentication configured");
+  else missing("API authentication — not configured");
+
+  if (config.api_tokens) ok("Role-based tokens (admin/operator/viewer)");
+  else missing("Role-based tokens — not configured (single token or none)");
+
+  if (config.bind_host === "127.0.0.1") ok("Dashboard bound to localhost");
+  else missing("Dashboard bound to " + (config.bind_host ?? "default") + " — consider 127.0.0.1");
+
+  if (config.appliance_mode) ok("Appliance mode enabled");
+  else missing("Appliance mode — disabled");
+
+  if (config.webhook_secret) ok("Webhook secret configured");
+  else missing("Webhook secret — not configured");
+
+  console.log();
+}
+
+// ─── Appliance Preset ──────────────────────────────────────────────────────
+
+async function setupAppliancePreset(): Promise<void> {
+  console.log("\n╔═══════════════════════════════════════╗");
+  console.log("║     Jarvis Appliance Mode Setup       ║");
+  console.log("╚═══════════════════════════════════════╝\n");
+  console.log("Auto-configuring strict security defaults...\n");
+
+  const { randomBytes } = await import("node:crypto");
+  const config = loadConfig();
+
+  // Generate role-based tokens
+  const tokens: Record<string, string> = {
+    admin: randomBytes(32).toString("hex"),
+    operator: randomBytes(32).toString("hex"),
+    viewer: randomBytes(32).toString("hex"),
+  };
+  config.api_tokens = tokens;
+
+  // Localhost binding
+  config.bind_host = "127.0.0.1";
+
+  // Appliance mode
+  config.appliance_mode = true;
+
+  // Webhook secret
+  const webhookSecret = randomBytes(32).toString("hex");
+  config.webhook_secret = webhookSecret;
+
+  saveConfig(config);
+
+  console.log("Configuration saved to ~/.jarvis/config.json\n");
+  console.log("──── Generated Credentials ────────────────────");
+  for (const [role, token] of Object.entries(tokens)) {
+    console.log(`  ${role} token: ${(token as string).slice(0, 8)}...${(token as string).slice(-4)}`);
+  }
+  console.log(`  webhook secret: ${webhookSecret.slice(0, 8)}...${webhookSecret.slice(-4)}`);
+  console.log();
+
+  printSecuritySummary(config);
+  console.log("Appliance setup complete. Start with: npm start\n");
+}
+
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
@@ -567,6 +635,11 @@ async function main(): Promise<void> {
   if (arg === "lmstudio") { await setupLmStudio(); return; }
   if (arg === "toggl") { await setupToggl(); return; }
   if (arg === "drive") { await setupDrive(); return; }
+
+  if (arg === "appliance") {
+    await setupAppliancePreset();
+    return;
+  }
 
   // Full interactive setup
   console.log("\n╔═══════════════════════════════════════╗");
@@ -589,16 +662,75 @@ async function main(): Promise<void> {
     const doToken = await prompt("Generate API token now? [Y/n]: ");
     if (doToken.toLowerCase() !== "n") {
       const { randomBytes } = await import("node:crypto");
-      const token = randomBytes(32).toString("hex");
-      config.api_token = token;
-      saveConfig(config);
-      console.log(`\nAPI token generated and saved to ~/.jarvis/config.json`);
-      console.log(`Token: ${token.slice(0, 8)}...${token.slice(-4)}`);
-      console.log(`\nSet this as Authorization header: Bearer ${token}`);
-      console.log(`Or set env: JARVIS_API_TOKEN=${token}\n`);
+
+      const doRoleBased = await prompt("Generate role-based tokens (admin/operator/viewer)? [y/N]: ");
+      if (doRoleBased.toLowerCase() === "y") {
+        const tokens: Record<string, string> = {
+          admin: randomBytes(32).toString("hex"),
+          operator: randomBytes(32).toString("hex"),
+          viewer: randomBytes(32).toString("hex"),
+        };
+        config.api_tokens = tokens;
+        saveConfig(config);
+        console.log(`\nRole-based API tokens generated and saved to ~/.jarvis/config.json`);
+        for (const [role, token] of Object.entries(tokens)) {
+          console.log(`  ${role}: ${(token as string).slice(0, 8)}...${(token as string).slice(-4)}`);
+        }
+        console.log();
+      } else {
+        const token = randomBytes(32).toString("hex");
+        config.api_token = token;
+        saveConfig(config);
+        console.log(`\nAPI token generated and saved to ~/.jarvis/config.json`);
+        console.log(`Token: ${token.slice(0, 8)}...${token.slice(-4)}`);
+        console.log(`\nSet this as Authorization header: Bearer ${token}`);
+        console.log(`Or set env: JARVIS_API_TOKEN=${token}\n`);
+      }
     }
   } else {
     console.log("API token: already configured\n");
+  }
+
+  // 2b. Bind host
+  console.log("──── Network Binding ──────────────────────────");
+  const doLocalhost = await prompt("Bind dashboard to localhost only? [Y/n]: ");
+  if (doLocalhost.toLowerCase() === "n") {
+    config.bind_host = "0.0.0.0";
+    console.log("Dashboard will listen on all interfaces (0.0.0.0)\n");
+  } else {
+    config.bind_host = "127.0.0.1";
+    console.log("Dashboard will listen on localhost only (127.0.0.1)\n");
+  }
+  saveConfig(config);
+
+  // 2c. Appliance mode
+  console.log("──── Appliance Mode ───────────────────────────");
+  const doAppliance = await prompt("Enable appliance mode (strict security)? [y/N]: ");
+  if (doAppliance.toLowerCase() === "y") {
+    config.appliance_mode = true;
+    console.log("Appliance mode enabled\n");
+  } else {
+    config.appliance_mode = false;
+  }
+  saveConfig(config);
+
+  // 2d. Webhook secret
+  if (config.appliance_mode) {
+    const { randomBytes } = await import("node:crypto");
+    const secret = randomBytes(32).toString("hex");
+    config.webhook_secret = secret;
+    saveConfig(config);
+    console.log("Webhook secret auto-generated for appliance mode");
+    console.log(`Secret: ${secret.slice(0, 8)}...${secret.slice(-4)}\n`);
+  } else if (!config.webhook_secret) {
+    const doWebhook = await prompt("Generate webhook secret? [y/N]: ");
+    if (doWebhook.toLowerCase() === "y") {
+      const { randomBytes } = await import("node:crypto");
+      const secret = randomBytes(32).toString("hex");
+      config.webhook_secret = secret;
+      saveConfig(config);
+      console.log(`Webhook secret generated: ${secret.slice(0, 8)}...${secret.slice(-4)}\n`);
+    }
   }
 
   // 3. LM Studio
@@ -630,6 +762,7 @@ async function main(): Promise<void> {
   if (doDrive.toLowerCase() !== "n") await setupDrive();
 
   console.log("\n=== Setup Complete ===\n");
+  printSecuritySummary(config);
   showStatus();
 }
 

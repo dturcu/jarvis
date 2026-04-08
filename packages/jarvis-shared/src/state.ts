@@ -51,6 +51,7 @@ type SubmitJobParams = {
   notifyOnCompletion?: boolean;
   runGroup?: string;
   attempt?: number;
+  idempotencyKey?: string;
 };
 
 type DispatchParams = {
@@ -335,6 +336,19 @@ class JarvisState {
   }
 
   submitJob(params: SubmitJobParams): ToolResponse {
+    // Idempotency guard: if a key is provided, reject duplicate submissions
+    if (params.idempotencyKey) {
+      const existing = this.findJobByIdempotencyKey(params.idempotencyKey);
+      if (existing) {
+        return createToolResponse({
+          status: "accepted",
+          summary: "Job already submitted with this idempotency key.",
+          job_id: existing,
+          structured_output: { duplicate: true, idempotency_key: params.idempotencyKey },
+        });
+      }
+    }
+
     const approvalRequirement = JOB_APPROVAL_REQUIREMENT[params.type];
     const approvalGranted = this.isApprovalGranted(params.approvalId);
 
@@ -1104,6 +1118,25 @@ class JarvisState {
     return this.getApproval(approvalId)?.state === "approved";
   }
 
+  /**
+   * Find a job by its idempotency key stored in envelope metadata.
+   * Returns the job_id if found, null otherwise.
+   */
+  private findJobByIdempotencyKey(key: string): string | null {
+    const rows = this.db
+      .prepare("SELECT job_id, record_json FROM jobs")
+      .all() as Array<{ job_id: string; record_json: string }>;
+    for (const row of rows) {
+      try {
+        const record = deserializeJson<JobRecord>(row.record_json);
+        if (record.envelope.metadata.idempotency_key === key) {
+          return row.job_id;
+        }
+      } catch { /* skip malformed records */ }
+    }
+    return null;
+  }
+
   private buildEnvelope(
     params: SubmitJobParams,
     approvalGranted: boolean,
@@ -1137,6 +1170,7 @@ class JarvisState {
         capability_route: params.capabilityRoute,
         notify_on_completion: params.notifyOnCompletion ?? false,
         run_group: params.runGroup,
+        idempotency_key: params.idempotencyKey,
         queued_at: queuedAt
       }
     };

@@ -207,6 +207,25 @@ export function loadFilesystemPolicy(config: {
   return base;
 }
 
+// ─── Readable File-Type Allowlist ──────────────────────────────────────────
+
+/**
+ * File extensions that copilot surfaces are allowed to read.
+ * Prevents accidental exposure of binary, credential, or database files.
+ */
+export const READABLE_FILE_EXTENSIONS = new Set([
+  ".ts", ".js", ".tsx", ".jsx", ".json", ".md", ".txt", ".yaml", ".yml",
+  ".toml", ".csv", ".xml", ".html", ".css", ".sql", ".sh", ".bat", ".ps1",
+  ".py", ".go", ".rs", ".java", ".c", ".cpp", ".h", ".hpp",
+  ".env.example", ".gitignore", ".editorconfig",
+]);
+
+/** Check whether a file path has a readable (text-based) extension. */
+export function isReadableFileType(filePath: string): boolean {
+  const ext = filePath.slice(filePath.lastIndexOf(".")).toLowerCase();
+  return READABLE_FILE_EXTENSIONS.has(ext);
+}
+
 /** Normalize path separators for consistent comparison. */
 function normalizePath(p: string): string {
   return normalize(p);
