@@ -23,6 +23,7 @@ import {
 } from "./config.js";
 import { JARVIS_PLATFORM_VERSION } from "./plugin-loader.js";
 import { RUNTIME_MIGRATIONS, CRM_MIGRATIONS, KNOWLEDGE_MIGRATIONS } from "./migrations/runner.js";
+import { runConvergenceChecks } from "./convergence-checks.js";
 
 type CheckResult = {
   name: string;
@@ -505,6 +506,22 @@ function checkDbGrowth() {
   }
 }
 
+// ─── Convergence Program ──────────────────────────────────────────────────
+
+function checkConvergence() {
+  const checks = runConvergenceChecks(process.cwd());
+  for (const c of checks) {
+    if (c.status === "pass") {
+      pass(c.name, c.message);
+    } else if (c.status === "warn") {
+      warn(c.name, c.message);
+    } else {
+      // "info" — map to warn since doctor.ts has no info level
+      warn(c.name, `[info] ${c.message}`);
+    }
+  }
+}
+
 // ─── Run ───────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -526,6 +543,7 @@ async function main() {
   checkConfigPermissions();
   checkDeadLetterJobs();
   checkDbGrowth();
+  checkConvergence();
   await checkModelRuntime();
   await checkChrome();
   checkDashboard();
