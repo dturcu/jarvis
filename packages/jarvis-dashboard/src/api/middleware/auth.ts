@@ -78,8 +78,8 @@ const ROUTE_PERMISSIONS: Record<string, Record<string, UserRole>> = {
   // Approvals: viewing is operator, resolving is operator
   "/api/approvals": { GET: "operator", POST: "operator", PATCH: "operator" },
 
-  // Agent triggers and webhooks require operator
-  "/api/webhooks": { POST: "operator" },
+  // Webhooks use HMAC verification, not bearer auth — exempted below in middleware
+  // "/api/webhooks": exempted
 
   // CRM mutations require operator
   "/api/crm": { GET: "viewer", POST: "operator", PATCH: "operator", DELETE: "admin" },
@@ -111,10 +111,9 @@ const ROUTE_PERMISSIONS: Record<string, Record<string, UserRole>> = {
   "/api/runs": { GET: "viewer" },
   "/api/entities": { GET: "viewer" },
   "/api/analytics": { GET: "viewer" },
-  // Chat POST is viewer-level so it works in tokenless dev mode.
-  // All dangerous tools (shell, email send, file write) have been removed
-  // from chat — it's read-only queries + agent triggers via the runtime kernel.
-  "/api/chat": { GET: "viewer", POST: "viewer" },
+  // Chat requires operator — it can read files, Gmail, and URLs via Telegram
+  // relay, which is far more powerful than a typical read-only viewer role.
+  "/api/chat": { GET: "viewer", POST: "operator" },
 };
 
 const ROLE_HIERARCHY: Record<UserRole, number> = {
@@ -229,6 +228,13 @@ export function createAuthMiddleware() {
 
     // Non-API routes (SPA, static assets) don't need auth
     if (!req.path.startsWith("/api/")) {
+      next();
+      return;
+    }
+
+    // Webhooks use HMAC verification (handled in the route), not bearer auth.
+    // Let them through to the webhook router which verifies the signature.
+    if (req.path.startsWith("/api/webhooks")) {
       next();
       return;
     }

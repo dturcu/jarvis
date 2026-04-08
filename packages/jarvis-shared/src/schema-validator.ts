@@ -402,6 +402,10 @@ const JOB_INPUT_SCHEMAS: Partial<Record<JarvisJobType, InputSpec>> = {
     required: ["messages"],
     fields: { messages: "array", model: "string", temperature: "number", max_tokens: "integer" }
   },
+  "inference.vision_chat": {
+    required: ["messages"],
+    fields: { messages: "array", model: "string", temperature: "number", max_tokens: "integer" }
+  },
   "inference.embed": {
     required: ["texts"],
     fields: { texts: "string[]", model: "string" }

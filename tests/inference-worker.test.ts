@@ -76,9 +76,10 @@ describe("classifyModelSize", () => {
 // ── INFERENCE_JOB_TYPES ───────────────────────────────────────────────────────
 
 describe("INFERENCE_JOB_TYPES", () => {
-  it("contains all 7 inference job types", () => {
-    expect(INFERENCE_JOB_TYPES).toHaveLength(7);
+  it("contains all 8 inference job types", () => {
+    expect(INFERENCE_JOB_TYPES).toHaveLength(8);
     expect(INFERENCE_JOB_TYPES).toContain("inference.chat");
+    expect(INFERENCE_JOB_TYPES).toContain("inference.vision_chat");
     expect(INFERENCE_JOB_TYPES).toContain("inference.embed");
     expect(INFERENCE_JOB_TYPES).toContain("inference.list_models");
     expect(INFERENCE_JOB_TYPES).toContain("inference.rag_index");

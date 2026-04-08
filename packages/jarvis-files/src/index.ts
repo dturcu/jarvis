@@ -149,8 +149,35 @@ function createFilesTool(
   };
 }
 
+/** Allowed root directories for the files broker.  Caller-supplied roots must
+ *  fall under one of these prefixes.  JARVIS_FILES_ALLOWED_ROOTS accepts a
+ *  semicolon-separated list; JARVIS_FILES_ROOT is a single directory.
+ *  Falls back to cwd when neither is set.  Lazy-evaluated so tests can set
+ *  the env var before first call. */
+let _allowedRoots: string[] | null = null;
+function getAllowedRoots(): string[] {
+  if (!_allowedRoots) {
+    const multi = process.env.JARVIS_FILES_ALLOWED_ROOTS;
+    _allowedRoots = multi
+      ? multi.split(";").map((p) => resolve(p.trim())).filter(Boolean)
+      : [resolve(process.env.JARVIS_FILES_ROOT ?? process.cwd())];
+  }
+  return _allowedRoots;
+}
+
 function normalizeRoot(rootPath?: string): string {
-  return resolve(rootPath?.trim() || process.cwd());
+  const resolved = resolve(rootPath?.trim() || process.cwd());
+
+  // Reject roots that escape allowed directories
+  const allowed = getAllowedRoots();
+  const permitted = allowed.some(
+    (a) => resolved === a || resolved.startsWith(a + "/") || resolved.startsWith(a + "\\"),
+  );
+  if (!permitted) {
+    throw new Error(`Root path is outside allowed directories: ${resolved}`);
+  }
+
+  return resolved;
 }
 
 function assertPathWithinRoot(rootPath: string, candidatePath: string): string {

@@ -29,22 +29,31 @@ backupRouter.post('/', (req, res) => {
     fs.mkdirSync(backupDir, { recursive: true })
 
     const files: Array<{ name: string; size: number }> = []
-    // Copy main files
+    // Use VACUUM INTO for SQLite databases — creates a consistent snapshot
+    // even while the daemon is writing. Falls back to file copy for non-DB files.
+    const DB_FILES = ['crm.db', 'knowledge.db', 'runtime.db']
     for (const name of BACKUP_FILES) {
       const src = join(JARVIS_DIR, name)
-      if (fs.existsSync(src)) {
+      if (!fs.existsSync(src)) continue
+
+      if (DB_FILES.includes(name)) {
+        // Atomic snapshot via VACUUM INTO — reads a consistent state without
+        // requiring the daemon to quiesce writes.
+        try {
+          const db = new DatabaseSync(src)
+          db.exec(`VACUUM INTO '${join(backupDir, name).replace(/'/g, "''")}'`)
+          db.close()
+        } catch {
+          // Fallback to file copy if VACUUM INTO is unavailable
+          fs.copyFileSync(src, join(backupDir, name))
+        }
+      } else {
         fs.copyFileSync(src, join(backupDir, name))
-        files.push({ name, size: fs.statSync(join(backupDir, name)).size })
       }
+      files.push({ name, size: fs.statSync(join(backupDir, name)).size })
     }
-    // Copy WAL/SHM sidecars (optional — only exist when DB is in WAL mode)
-    for (const name of WAL_SIDECARS) {
-      const src = join(JARVIS_DIR, name)
-      if (fs.existsSync(src)) {
-        fs.copyFileSync(src, join(backupDir, name))
-        files.push({ name, size: fs.statSync(join(backupDir, name)).size })
-      }
-    }
+    // WAL/SHM sidecars are NOT needed when using VACUUM INTO (it produces
+    // a standalone DB file). Skip them to avoid inconsistency.
 
     if (files.length === 0) {
       res.status(400).json({ ok: false, error: 'No files found to back up' })

@@ -1,6 +1,10 @@
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+
+// Allow temp directory for tests — must be set before module import
+process.env.JARVIS_FILES_ALLOWED_ROOTS = `${process.cwd()};${tmpdir()}`;
+
 import { describe, expect, it } from "vitest";
 import {
   createFilesCommand,

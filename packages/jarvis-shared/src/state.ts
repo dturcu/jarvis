@@ -215,8 +215,12 @@ function isJobClaimable(record: JobRecord, routes: string[], runGroup?: string):
       ? record.envelope.metadata.run_group
       : undefined;
 
-  if (requiredRunGroup && runGroup && requiredRunGroup !== runGroup) {
-    return false;
+  // If the job requires a specific run_group, the worker MUST supply a
+  // matching one.  Previously, omitting run_group bypassed the check.
+  if (requiredRunGroup) {
+    if (!runGroup || requiredRunGroup !== runGroup) {
+      return false;
+    }
   }
 
   return true;
@@ -729,6 +733,20 @@ class JarvisState {
 
     if (TERMINAL_STATES.has(job.result.status)) {
       return job.result;
+    }
+
+    // Validate the callback matches the active claim
+    if (job.claim) {
+      if (callback.worker_id && job.claim.claimed_by !== callback.worker_id) {
+        throw new Error(
+          `Worker ${callback.worker_id} cannot finalize job ${callback.job_id} claimed by ${job.claim.claimed_by}`,
+        );
+      }
+      if (callback.attempt !== undefined && callback.attempt !== job.result.metrics?.attempt) {
+        throw new Error(
+          `Callback attempt ${callback.attempt} does not match job attempt ${job.result.metrics?.attempt}`,
+        );
+      }
     }
 
     job.claim = null;

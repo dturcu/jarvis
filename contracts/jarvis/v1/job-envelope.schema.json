@@ -84,6 +84,7 @@
         "system.kill_process",
         "system.hardware_info",
         "inference.chat",
+        "inference.vision_chat",
         "inference.embed",
         "inference.list_models",
         "inference.rag_index",
@@ -739,6 +740,12 @@
     {
       "properties": {
         "type": { "const": "inference.chat" },
+        "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_chat_input" }
+      }
+    },
+    {
+      "properties": {
+        "type": { "const": "inference.vision_chat" },
         "input": { "$ref": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_chat_input" }
       }
     },

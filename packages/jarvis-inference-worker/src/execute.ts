@@ -14,13 +14,15 @@ import type {
   InferenceEmbedInput,
   InferenceListModelsInput,
   InferenceRagIndexInput,
-  InferenceRagQueryInput
+  InferenceRagQueryInput,
+  InferenceVisionChatInput
 } from "./types.js";
 
 export const INFERENCE_WORKER_ID = "inference-worker";
 
 export const INFERENCE_JOB_TYPES = [
   "inference.chat",
+  "inference.vision_chat",
   "inference.embed",
   "inference.list_models",
   "inference.rag_index",
@@ -114,6 +116,8 @@ async function routeEnvelope(
     switch (envelope.type) {
       case "inference.chat":
         return await adapter.chat(envelope.input as InferenceChatInput);
+      case "inference.vision_chat":
+        return await adapter.visionChat(envelope.input as InferenceVisionChatInput);
       case "inference.embed":
         return await adapter.embed(envelope.input as InferenceEmbedInput);
       case "inference.list_models":

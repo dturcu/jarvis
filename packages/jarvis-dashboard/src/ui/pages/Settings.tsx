@@ -905,7 +905,7 @@ export default function Settings() {
                       try {
                         await apiFetch('/api/backup/restore', {
                           method: 'POST',
-                          body: { path: restorePath },
+                          body: { backup_path: restorePath },
                         })
                         setRestorePath('')
                         fetchData()

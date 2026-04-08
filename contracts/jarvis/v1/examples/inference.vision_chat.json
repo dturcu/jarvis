@@ -1,0 +1,45 @@
+{
+  "job_envelope": {
+    "contract_version": "jarvis.v1",
+    "job_id": "f2a3b4c5-d6e7-8901-bcde-f01234567890",
+    "type": "inference.vision_chat",
+    "session_key": "agent:evidence-auditor:api:local:desktop",
+    "requested_by": {
+      "channel": "api",
+      "user_id": "system"
+    },
+    "priority": "normal",
+    "approval_state": "not_required",
+    "timeout_seconds": 300,
+    "attempt": 1,
+    "input": {
+      "messages": [
+        { "role": "user", "content": "Describe what this diagram shows." }
+      ],
+      "temperature": 0.3
+    },
+    "artifacts_in": [],
+    "metadata": {
+      "agent_id": "evidence-auditor",
+      "thread_key": null
+    }
+  },
+  "job_result": {
+    "contract_version": "jarvis.v1",
+    "job_id": "f2a3b4c5-d6e7-8901-bcde-f01234567890",
+    "job_type": "inference.vision_chat",
+    "status": "completed",
+    "summary": "Vision chat completed: 120 tokens used.",
+    "attempt": 1,
+    "structured_output": {
+      "content": "The diagram shows an ISO 26262 safety lifecycle flow from concept phase through product development.",
+      "model": "llava:7b",
+      "runtime": "ollama",
+      "usage": {
+        "prompt_tokens": 100,
+        "completion_tokens": 20,
+        "total_tokens": 120
+      }
+    }
+  }
+}

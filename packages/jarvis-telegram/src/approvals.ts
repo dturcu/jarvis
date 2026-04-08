@@ -73,6 +73,49 @@ export function markNotified(db: DatabaseSync, approvalId: string): void {
 }
 
 /**
+ * Atomically claim unnotified pending approvals by selecting them and inserting
+ * notification records in a single transaction. Prevents duplicate notifications
+ * when multiple consumers (bot polling + relay interval) race.
+ */
+export function claimUnnotifiedPending(db: DatabaseSync): ApprovalEntry[] {
+  try {
+    db.exec("BEGIN IMMEDIATE")
+  } catch {
+    return []
+  }
+
+  try {
+    const entries = db.prepare(`
+      SELECT a.approval_id as id, a.agent_id as agent, a.action, a.payload_json as payload,
+             a.requested_at as created_at, a.status, a.run_id, a.severity
+      FROM approvals a
+      WHERE a.status = 'pending'
+        AND NOT EXISTS (
+          SELECT 1 FROM notifications n
+          WHERE n.kind = 'approval_prompt'
+            AND json_extract(n.payload_json, '$.approval_id') = a.approval_id
+        )
+      ORDER BY a.requested_at ASC
+    `).all() as ApprovalEntry[]
+
+    const now = new Date().toISOString()
+    const stmt = db.prepare(`
+      INSERT INTO notifications (notification_id, channel, kind, payload_json, status, created_at, delivered_at)
+      VALUES (?, 'telegram', 'approval_prompt', ?, 'delivered', ?, ?)
+    `)
+    for (const entry of entries) {
+      stmt.run(randomUUID(), JSON.stringify({ approval_id: entry.id }), now, now)
+    }
+
+    db.exec("COMMIT")
+    return entries
+  } catch (e) {
+    try { db.exec("ROLLBACK") } catch {}
+    return []
+  }
+}
+
+/**
  * Resolve an approval (approve or reject) via the runtime database.
  */
 export function resolveApproval(

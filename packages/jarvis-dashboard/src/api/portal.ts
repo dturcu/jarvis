@@ -146,21 +146,24 @@ portalRouter.get('/documents', (req, res) => {
     const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'knowledge.db'))
 
     // Search documents tagged with client company or ID
+    // Use parameterized LIKE to prevent SQL injection from company names
+    const safeCompany = client.company.replace(/[%_]/g, "")
     const docs = db.prepare(
-      `SELECT id, title, doc_type as type, source_path as file_path, indexed_at as created_at, chunk_count
+      `SELECT id, title, doc_type as type, indexed_at as created_at, chunk_count
        FROM documents
-       WHERE title LIKE ? OR source_path LIKE ?
+       WHERE title LIKE ?
        ORDER BY indexed_at DESC
        LIMIT 50`
-    ).all(`%${client.company}%`, `%${client.company}%`) as Array<Record<string, unknown>>
+    ).all(`%${safeCompany}%`) as Array<Record<string, unknown>>
 
     db.close()
 
+    // Never expose source_path (filesystem paths) to portal clients
     const documents: PortalDocument[] = docs.map(d => ({
       id: d.id as string,
       title: d.title as string,
       type: d.type as string,
-      file_path: d.file_path as string,
+      file_path: `documents/${d.id as string}`,
       created_at: d.created_at as string,
       size_bytes: ((d.chunk_count as number) ?? 1) * 1024, // approximate
     }))

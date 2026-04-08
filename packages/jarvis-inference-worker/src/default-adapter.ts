@@ -37,6 +37,8 @@ import type {
   InferenceRagIndexInput,
   InferenceRagIndexOutput,
   InferenceRagQueryInput,
+  InferenceVisionChatInput,
+  InferenceVisionChatOutput,
   InferenceRagQueryOutput
 } from "./types.js";
 
@@ -196,6 +198,70 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
 
     return {
       summary: `Chat completed via ${output.runtime} (${modelId}): ${output.usage.total_tokens} tokens.`,
+      structured_output: output,
+    };
+  }
+
+  async visionChat(input: InferenceVisionChatInput): Promise<ExecutionOutcome<InferenceVisionChatOutput>> {
+    // Select a vision-capable model via the "vision_local" policy
+    const profile: TaskProfile = { objective: "answer", constraints: { require_vision: true } };
+    let modelId: string;
+    let runtimeUrl: string;
+
+    const fromRegistry = this.selectFromRegistry(profile, input.model);
+    if (fromRegistry) {
+      modelId = fromRegistry.model.id;
+      runtimeUrl = await this.resolveRuntimeUrl(fromRegistry.model.runtime);
+    } else {
+      const discovered = await this.discoverAndSelect(profile, input.model);
+      modelId = discovered.model.id;
+      runtimeUrl = discovered.runtimeUrl;
+    }
+
+    // Convert multimodal messages to the format expected by Ollama/LM Studio.
+    // Both support OpenAI-compatible multimodal message format.
+    const messages = input.messages.map((msg) => {
+      if (typeof msg.content === "string") {
+        return { role: msg.role, content: msg.content };
+      }
+      // Concatenate text parts, extract image URLs for the images field
+      const textParts = msg.content
+        .filter((p): p is { type: "text"; text: string } => p.type === "text")
+        .map((p) => p.text)
+        .join("\n");
+      const images = msg.content
+        .filter((p): p is { type: "image_url"; image_url: { url: string } } => p.type === "image_url")
+        .map((p) => {
+          // Strip data:image/...;base64, prefix if present
+          const url = p.image_url.url;
+          const base64Match = url.match(/^data:[^;]+;base64,(.+)$/);
+          return base64Match ? base64Match[1] : url;
+        });
+      return { role: msg.role, content: textParts, ...(images.length > 0 ? { images } : {}) };
+    });
+
+    const result = await chatCompletion({
+      baseUrl: runtimeUrl,
+      model: modelId,
+      messages: messages as Array<{ role: string; content: string }>,
+      temperature: input.temperature,
+      maxTokens: input.max_tokens,
+    });
+
+    const runtimeName: "ollama" | "lmstudio" = runtimeUrl.includes("11434") ? "ollama" : "lmstudio";
+    const output: InferenceVisionChatOutput = {
+      content: result.content,
+      model: result.model,
+      runtime: runtimeName,
+      usage: {
+        prompt_tokens: result.usage.prompt_tokens,
+        completion_tokens: result.usage.completion_tokens,
+        total_tokens: result.usage.prompt_tokens + result.usage.completion_tokens,
+      },
+    };
+
+    return {
+      summary: `Vision chat completed via ${runtimeName} (${modelId}): ${output.usage.total_tokens} tokens.`,
       structured_output: output,
     };
   }

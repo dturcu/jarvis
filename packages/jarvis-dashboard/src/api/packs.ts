@@ -26,7 +26,14 @@ packsRouter.get('/', (_req, res) => {
 })
 
 // POST /:packId/apply — apply a starter pack
+// Requires admin role because packs can mutate approval_policy and enabled_agents
 packsRouter.post('/:packId/apply', (req, res) => {
+  const authed = req as AuthenticatedRequest
+  if (authed.user?.role !== 'admin') {
+    res.status(403).json({ error: 'Applying starter packs requires admin role (modifies approval policy).' })
+    return
+  }
+
   const { packId } = req.params
   const pack = STARTER_PACKS.find(p => p.pack_id === packId)
 

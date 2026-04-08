@@ -120,6 +120,9 @@
     },
     {
       "path": "./packages/jarvis-drive-worker"
+    },
+    {
+      "path": "./packages/jarvis-observability"
     }
   ]
 }

@@ -22,6 +22,38 @@ import type {
   BrowserDownloadOutput
 } from "./types.js";
 
+// ── Script sanitization ───────────────────────────────────────────────────────
+
+const BLOCKED_PATTERNS = [
+  /\bfetch\s*\(/,
+  /\bXMLHttpRequest\b/,
+  /\bWebSocket\b/,
+  /\bnavigator\s*\.\s*sendBeacon\b/,
+  /\bnew\s+Worker\s*\(/,
+  /\bimport\s*\(/,
+  /\bdocument\s*\.\s*cookie\b/,
+  /\blocalStorage\b/,
+  /\bsessionStorage\b/,
+  /\bindexedDB\b/,
+  /\bcaches\s*\.\s*(open|match|keys)\b/,
+] as const;
+
+/** @internal Exported for testing only. */
+export function sanitizeScript(script: string): void {
+  for (const pattern of BLOCKED_PATTERNS) {
+    if (pattern.test(script)) {
+      throw new BrowserWorkerError(
+        "SCRIPT_BLOCKED",
+        `Script contains blocked pattern: ${pattern.source}`,
+        false,
+        { pattern: pattern.source },
+      );
+    }
+  }
+}
+
+const DEFAULT_EVAL_TIMEOUT_MS = 30_000;
+
 export type ChromeAdapterConfig = {
   debugging_url?: string;
 };
@@ -54,7 +86,12 @@ export class ChromeAdapter implements BrowserAdapter {
   private async getPage(): Promise<Page> {
     const browser = await this.ensureConnected();
     const pages = await browser.pages();
-    return pages[0] ?? await browser.newPage();
+    const page = pages[0] ?? await browser.newPage();
+    // Defence-in-depth: block outgoing network from evaluated scripts
+    await page.setExtraHTTPHeaders({
+      "Content-Security-Policy": "default-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'none'",
+    });
+    return page;
   }
 
   // ── navigate ───────────────────────────────────────────────────────────────
@@ -155,14 +192,23 @@ export class ChromeAdapter implements BrowserAdapter {
     if (input.script.length > 50_000) {
       throw new BrowserWorkerError("EVALUATE_FAILED", `Script too large (${input.script.length} chars). Maximum is 50000.`, false);
     }
+    if (!input.trusted) {
+      sanitizeScript(input.script);
+    }
 
     const page = await this.getPage();
+    const timeoutMs = input.timeout_ms ?? DEFAULT_EVAL_TIMEOUT_MS;
 
     try {
       const args = input.args ?? [];
       // eslint-disable-next-line @typescript-eslint/no-implied-eval
       const fn = new Function(...args.map((_, i) => `arg${i}`), input.script) as (...a: unknown[]) => unknown;
-      const result = await page.evaluate(fn, ...args);
+      const result = await Promise.race([
+        page.evaluate(fn, ...args),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Script timed out after ${timeoutMs}ms`)), timeoutMs),
+        ),
+      ]);
       return {
         summary: "Script evaluated successfully.",
         structured_output: { result }
@@ -361,8 +407,16 @@ export class ChromeAdapter implements BrowserAdapter {
               if (step.script.length > 50_000) {
                 throw new BrowserWorkerError("TASK_FAILED", `Step script too large (${step.script.length} chars). Maximum is 50000.`, false);
               }
+              if (!input.trusted_steps) {
+                sanitizeScript(step.script);
+              }
               // eslint-disable-next-line @typescript-eslint/no-implied-eval
-              lastResult = await page.evaluate(new Function(step.script) as () => unknown);
+              lastResult = await Promise.race([
+                page.evaluate(new Function(step.script) as () => unknown),
+                new Promise((_, reject) =>
+                  setTimeout(() => reject(new Error("Step script timed out after 30s")), DEFAULT_EVAL_TIMEOUT_MS),
+                ),
+              ]);
             }
             break;
           case "screenshot":

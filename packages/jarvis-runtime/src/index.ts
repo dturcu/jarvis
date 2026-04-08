@@ -46,3 +46,7 @@ export {
   DEFAULT_DISAGREEMENT_POLICY, MODERATE_DISAGREEMENT_POLICY, MINOR_DISAGREEMENT_POLICY,
   type DisagreementSeverity, type DisagreementPolicy,
 } from "./disagreement-policy.js";
+export { JobGraph } from "./job-graph.js";
+export { GoalDecomposer, type AgentSummary } from "./goal-decomposer.js";
+export { MetaPlanner, type MetaPlannerResult, type SubGoalRunResult, type RunAgentFn } from "./meta-planner.js";
+export type { SubGoal, JobGraphData, SubGoalStatus, JobGraphStatus } from "./orchestration-types.js";

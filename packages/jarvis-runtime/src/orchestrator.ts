@@ -635,8 +635,13 @@ function loadPluginPermissions(agentId: string, runtimeDb?: DatabaseSync): Plugi
       "SELECT manifest_json FROM plugin_installs WHERE plugin_id = ? AND status = 'active'",
     ).get(pluginId) as { manifest_json: string } | undefined;
 
-    // No plugin install record → not a plugin agent → no restrictions
-    if (!row?.manifest_json) return null;
+    // No plugin install record found. Only core agents (not prefixed with
+    // "plugin-") are allowed unrestricted access. Plugin-prefixed agents
+    // without a DB row fail closed — the row may have been deleted or never
+    // recorded, and granting unrestricted access would bypass sandboxing.
+    if (!row?.manifest_json) {
+      return agentId.startsWith("plugin-") ? [] : null;
+    }
 
     const manifest = JSON.parse(row.manifest_json) as { permissions?: string[] };
     // Plugin found but no permissions declared → deny all (fail closed)

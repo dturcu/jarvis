@@ -15,7 +15,9 @@ import type {
   InferenceRagIndexInput,
   InferenceRagIndexOutput,
   InferenceRagQueryInput,
-  InferenceRagQueryOutput
+  InferenceRagQueryOutput,
+  InferenceVisionChatInput,
+  InferenceVisionChatOutput
 } from "./types.js";
 
 const MOCK_MODELS = [
@@ -42,6 +44,12 @@ const MOCK_MODELS = [
     runtime: "ollama" as const,
     size_class: "small" as const,
     capabilities: ["embedding"] as string[]
+  },
+  {
+    id: "llava:7b",
+    runtime: "ollama" as const,
+    size_class: "medium" as const,
+    capabilities: ["chat", "vision"] as string[]
   }
 ];
 
@@ -97,6 +105,27 @@ export class MockInferenceAdapter implements InferenceAdapter {
           total_tokens: promptTokens + completionTokens
         }
       }
+    };
+  }
+
+  async visionChat(input: InferenceVisionChatInput): Promise<ExecutionOutcome<InferenceVisionChatOutput>> {
+    const model = input.model ?? MOCK_MODELS.find((m) => m.capabilities.includes("vision"))?.id ?? "llava:7b";
+    const lastMsg = input.messages[input.messages.length - 1];
+    const textPart = typeof lastMsg?.content === "string"
+      ? lastMsg.content
+      : Array.isArray(lastMsg?.content)
+        ? lastMsg.content.find((p) => p.type === "text")?.text ?? ""
+        : "";
+    const content = `Mock vision response to: ${textPart.slice(0, 50)}`;
+
+    return {
+      summary: `Vision chat completed via ollama (${model}).`,
+      structured_output: {
+        content,
+        model,
+        runtime: "ollama",
+        usage: { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 },
+      },
     };
   }
 

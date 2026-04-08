@@ -23,6 +23,26 @@ export type InferenceChatOutput = {
   };
 };
 
+// ── inference.vision_chat ─────────────────────────────────────────────────────
+
+export type VisionContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+export type InferenceVisionChatMessage = {
+  role: string;
+  content: string | VisionContentPart[];
+};
+
+export type InferenceVisionChatInput = {
+  messages: InferenceVisionChatMessage[];
+  model?: string;
+  temperature?: number;
+  max_tokens?: number;
+};
+
+export type InferenceVisionChatOutput = InferenceChatOutput;
+
 // ── inference.embed ───────────────────────────────────────────────────────────
 
 export type InferenceEmbedInput = {

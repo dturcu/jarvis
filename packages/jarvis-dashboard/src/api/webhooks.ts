@@ -70,8 +70,14 @@ webhookRouter.post('/github', (req, res) => {
   const secret = loadWebhookSecret()
 
   if (secret && signature) {
+    // Use the raw request body bytes for HMAC, not re-serialized JSON.
+    // Providers sign the exact payload — JSON.stringify(req.body) can
+    // differ in whitespace/key ordering and fail verification.
+    const rawBody = typeof (req as any).rawBody === "string"
+      ? (req as any).rawBody
+      : JSON.stringify(req.body); // fallback if rawBody middleware not configured
     const hmac = crypto.createHmac('sha256', secret)
-    hmac.update(JSON.stringify(req.body))
+    hmac.update(rawBody)
     const expected = 'sha256=' + hmac.digest('hex')
 
     const sigBuf = Buffer.from(signature)

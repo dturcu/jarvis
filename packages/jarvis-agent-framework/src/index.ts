@@ -10,3 +10,5 @@ export * from "./sqlite-decision-log.js";
 export * from "./sqlite-memory.js";
 export * from "./lesson-capture.js";
 export * from "./vector-store.js";
+export * from "./sparse-store.js";
+export * from "./lesson-injector.js";

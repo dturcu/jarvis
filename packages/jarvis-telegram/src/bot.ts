@@ -1,5 +1,5 @@
 import { handleCommand, type CommandContext } from './commands.js'
-import { getUnnotifiedPending, markNotified, formatApprovalMessage } from './approvals.js'
+import { claimUnnotifiedPending, formatApprovalMessage } from './approvals.js'
 import { openRuntimeDb } from './config.js'
 import { ChannelStore } from '@jarvis/runtime'
 import type { JarvisConfig } from './config.js'
@@ -109,11 +109,11 @@ export class JarvisBot {
     }
 
     try {
-      const unnotified = getUnnotifiedPending(db)
-      for (const entry of unnotified) {
+      // Atomically claim entries so concurrent relay/bot won't duplicate
+      const claimed = claimUnnotifiedPending(db)
+      for (const entry of claimed) {
         try {
           await this.send(formatApprovalMessage(entry))
-          markNotified(db, entry.id)
 
           // Record the outbound approval notification as a channel message
           if (this.channelStore && this.threadId) {
@@ -129,7 +129,9 @@ export class JarvisBot {
             } catch { /* best-effort */ }
           }
         } catch {
-          // retry next cycle
+          // Notification row already inserted by claimUnnotifiedPending,
+          // so this entry won't be re-sent. Send failure is acceptable
+          // since the approval still appears in the dashboard.
         }
       }
     } finally {

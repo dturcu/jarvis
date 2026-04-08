@@ -12,7 +12,9 @@ import type {
   InferenceRagIndexInput,
   InferenceRagIndexOutput,
   InferenceRagQueryInput,
-  InferenceRagQueryOutput
+  InferenceRagQueryOutput,
+  InferenceVisionChatInput,
+  InferenceVisionChatOutput
 } from "./types.js";
 
 export type ExecutionOutcome<T> = {
@@ -41,6 +43,7 @@ export class InferenceWorkerError extends Error {
 
 export interface InferenceAdapter {
   chat(input: InferenceChatInput): Promise<ExecutionOutcome<InferenceChatOutput>>;
+  visionChat(input: InferenceVisionChatInput): Promise<ExecutionOutcome<InferenceVisionChatOutput>>;
   embed(input: InferenceEmbedInput): Promise<ExecutionOutcome<InferenceEmbedOutput>>;
   listModels(input: InferenceListModelsInput): Promise<ExecutionOutcome<InferenceListModelsOutput>>;
   ragIndex(input: InferenceRagIndexInput): Promise<ExecutionOutcome<InferenceRagIndexOutput>>;

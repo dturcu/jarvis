@@ -93,25 +93,33 @@ export class RunStore {
     eventType: RunEventType,
     payload?: { step_no?: number; action?: string; details?: Record<string, unknown> },
   ): void {
-    // Read current status from DB (outside transaction — read-only)
-    const currentStatus = this.getStatus(runId);
-    if (currentStatus) {
-      const allowed = VALID_TRANSITIONS[currentStatus];
-      if (allowed && !allowed.includes(newStatus)) {
-        throw new Error(
-          `Invalid run transition: ${currentStatus} -> ${newStatus} (run ${runId})`,
-        );
-      }
-    }
-
     const completedAt = (newStatus === "completed" || newStatus === "failed" || newStatus === "cancelled")
       ? new Date().toISOString()
       : null;
     const error = payload?.details?.error ?? payload?.details?.reason ?? null;
 
-    // Atomic: status update + event emission
+    // Atomic: read status + validate transition + update + emit event
+    // All inside BEGIN IMMEDIATE to prevent TOCTOU race conditions
     this.db.exec("BEGIN IMMEDIATE");
+    let committed = false;
     try {
+      // Re-read status inside the transaction to avoid race conditions
+      const row = this.db.prepare(
+        "SELECT status FROM runs WHERE run_id = ?",
+      ).get(runId) as { status: string } | undefined;
+      const currentStatus = row?.status as RunStatus | undefined;
+
+      if (currentStatus) {
+        const allowed = VALID_TRANSITIONS[currentStatus];
+        if (allowed && !allowed.includes(newStatus)) {
+          this.db.exec("ROLLBACK");
+          committed = true;
+          throw new Error(
+            `Invalid run transition: ${currentStatus} -> ${newStatus} (run ${runId})`,
+          );
+        }
+      }
+
       this.db.prepare(`
         UPDATE runs SET status = ?, completed_at = COALESCE(?, completed_at),
           error = COALESCE(?, error), current_step = COALESCE(?, current_step)
@@ -139,8 +147,11 @@ export class RunStore {
       );
 
       this.db.exec("COMMIT");
+      committed = true;
     } catch (e) {
-      this.db.exec("ROLLBACK");
+      if (!committed) {
+        try { this.db.exec("ROLLBACK"); } catch { /* already rolled back */ }
+      }
       throw e;
     }
   }

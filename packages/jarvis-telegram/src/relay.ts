@@ -19,12 +19,31 @@ export async function processTelegramQueue(
   }
 
   try {
-    const pending = db.prepare(`
-      SELECT notification_id, payload_json FROM notifications
-      WHERE channel = 'telegram' AND status = 'pending' AND kind = 'agent_notification'
-      ORDER BY created_at ASC LIMIT 20
-    `).all() as Array<{ notification_id: string; payload_json: string }>
+    // Claim pending notifications inside a transaction to prevent
+    // concurrent relay/bot calls from selecting the same rows.
+    db.exec("BEGIN IMMEDIATE")
+    let pending: Array<{ notification_id: string; payload_json: string }>
+    try {
+      pending = db.prepare(`
+        SELECT notification_id, payload_json FROM notifications
+        WHERE channel = 'telegram' AND status = 'pending' AND kind = 'agent_notification'
+        ORDER BY created_at ASC LIMIT 20
+      `).all() as Array<{ notification_id: string; payload_json: string }>
 
+      // Mark all selected rows as 'sending' to prevent re-selection
+      const claimStmt = db.prepare(
+        "UPDATE notifications SET status = 'sending' WHERE notification_id = ?"
+      )
+      for (const entry of pending) {
+        claimStmt.run(entry.notification_id)
+      }
+      db.exec("COMMIT")
+    } catch (e) {
+      try { db.exec("ROLLBACK") } catch {}
+      return 0
+    }
+
+    // Deliver outside the transaction — network I/O shouldn't hold a lock
     let sent = 0
     for (const entry of pending) {
       try {
@@ -35,9 +54,6 @@ export async function processTelegramQueue(
           "UPDATE notifications SET status = 'sent', delivered_at = ? WHERE notification_id = ?"
         ).run(new Date().toISOString(), entry.notification_id)
 
-        // Record outbound message in channel store (no delivery record —
-        // notification_id is not a run_id, so delivery tracking belongs
-        // in the orchestrator where real run_id is known)
         if (channelStore && threadId) {
           try {
             channelStore.recordMessage({
@@ -52,7 +68,12 @@ export async function processTelegramQueue(
 
         sent++
       } catch {
-        // Leave as pending, retry next cycle
+        // Revert to pending so it retries next cycle
+        try {
+          db.prepare(
+            "UPDATE notifications SET status = 'pending' WHERE notification_id = ?"
+          ).run(entry.notification_id)
+        } catch { /* best-effort */ }
       }
     }
     return sent

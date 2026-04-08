@@ -39,7 +39,7 @@ export type CasestudyFragment = {
 
 // ─── AGENT → COLLECTION MAPPING ──────────────────────────────────────────────
 
-const AGENT_DEFAULT_COLLECTION: Record<string, KnowledgeCollection> = {
+export const AGENT_DEFAULT_COLLECTION: Record<string, KnowledgeCollection> = {
   "bd-pipeline": "lessons",
   "proposal-engine": "proposals",
   "evidence-auditor": "iso26262",

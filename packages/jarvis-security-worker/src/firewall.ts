@@ -1,8 +1,23 @@
 import type { FirewallRuleEntry, SecurityFirewallRuleInput } from "./types.js";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 
 export type CommandRunner = {
   exec(cmd: string): Promise<{ stdout: string; stderr: string }>;
+  /** Preferred: pass arguments as an array to avoid shell injection. */
+  execFile?(program: string, args: string[]): Promise<{ stdout: string; stderr: string }>;
 };
+
+/** Validate a rule name or program path contains no shell metacharacters. */
+function sanitizeNetshArg(value: string, label: string): string {
+  // Allow alphanumeric, spaces, dashes, underscores, dots, colons, backslashes, forward slashes
+  if (!/^[\w\s.\-:\\\/()]+$/.test(value)) {
+    throw new Error(`Invalid ${label}: contains disallowed characters`);
+  }
+  return value;
+}
 
 /**
  * Adds a Windows Firewall rule via netsh.
@@ -11,21 +26,32 @@ export async function addFirewallRule(
   runner: CommandRunner,
   input: SecurityFirewallRuleInput,
 ): Promise<{ success: boolean; message: string }> {
-  const ruleName = input.rule_name ?? `Jarvis-Security-${Date.now()}`;
+  const ruleName = sanitizeNetshArg(
+    input.rule_name ?? `Jarvis-Security-${Date.now()}`,
+    "rule_name",
+  );
   const dir = input.direction ?? "inbound";
   const proto = input.protocol ?? "tcp";
 
-  let cmd = `netsh advfirewall firewall add rule name="${ruleName}" dir=${dir} action=block protocol=${proto}`;
+  // Build args array to avoid shell interpolation
+  const args = [
+    "advfirewall", "firewall", "add", "rule",
+    `name=${ruleName}`, `dir=${dir}`, "action=block", `protocol=${proto}`,
+  ];
   if (input.port !== undefined) {
-    cmd += ` localport=${input.port}`;
+    args.push(`localport=${String(input.port)}`);
   }
   if (input.program) {
-    cmd += ` program="${input.program}"`;
+    const safeProgram = sanitizeNetshArg(input.program, "program");
+    args.push(`program=${safeProgram}`);
   }
-  cmd += " enable=yes";
+  args.push("enable=yes");
 
   try {
-    const { stdout, stderr } = await runner.exec(cmd);
+    // Prefer execFile (array args, no shell) over exec (string, shell)
+    const { stdout, stderr } = runner.execFile
+      ? await runner.execFile("netsh", args)
+      : await runner.exec(["netsh", ...args].join(" "));
     const success = stdout.toLowerCase().includes("ok") || !stderr.trim();
     return {
       success,
@@ -46,9 +72,12 @@ export async function removeFirewallRule(
   runner: CommandRunner,
   ruleName: string,
 ): Promise<{ success: boolean; message: string }> {
-  const cmd = `netsh advfirewall firewall delete rule name="${ruleName}"`;
+  const safeName = sanitizeNetshArg(ruleName, "rule_name");
+  const args = ["advfirewall", "firewall", "delete", "rule", `name=${safeName}`];
   try {
-    const { stdout, stderr } = await runner.exec(cmd);
+    const { stdout, stderr } = runner.execFile
+      ? await runner.execFile("netsh", args)
+      : await runner.exec(["netsh", ...args].join(" "));
     const success = stdout.toLowerCase().includes("deleted") || stdout.toLowerCase().includes("ok") || !stderr.trim();
     return {
       success,

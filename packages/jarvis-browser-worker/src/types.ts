@@ -43,6 +43,10 @@ export type BrowserTypeOutput = {
 export type BrowserEvaluateInput = {
   script: string;
   args?: unknown[];
+  /** When true, bypass script sanitization. Only set by trusted internal callers. */
+  trusted?: boolean;
+  /** Per-evaluation timeout in milliseconds (default 30 000). */
+  timeout_ms?: number;
 };
 
 export type BrowserEvaluateOutput = {
@@ -99,6 +103,8 @@ export type BrowserRunTaskInput = {
   url?: string;
   steps?: BrowserTaskStep[];
   timeout_ms?: number;
+  /** When true, bypass script sanitization for evaluate steps. Only set by trusted internal callers. */
+  trusted_steps?: boolean;
 };
 
 export type BrowserTaskStep = {

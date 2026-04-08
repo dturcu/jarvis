@@ -1097,6 +1097,26 @@
       "example_file": "./examples/inference.chat.json"
     },
     {
+      "job_type": "inference.vision_chat",
+      "family": "inference",
+      "owner_plugin": "@jarvis/inference",
+      "input_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_chat_input",
+      "output_schema": "https://jarvis.contracts.local/jarvis/v1/inference-job-types.schema.json#/$defs/inference_chat_output",
+      "default_timeout_seconds": 300,
+      "approval_requirement": "not_required",
+      "artifact_behavior": "Sends multimodal messages (text + images) to a vision-capable local LLM and returns the generated text response.",
+      "error_codes": [
+        "INVALID_INPUT",
+        "RUNTIME_UNAVAILABLE",
+        "MODEL_NOT_FOUND",
+        "NO_SUITABLE_MODEL",
+        "CHAT_FAILED",
+        "TIMEOUT",
+        "WORKER_UNAVAILABLE"
+      ],
+      "example_file": "./examples/inference.vision_chat.json"
+    },
+    {
       "job_type": "inference.embed",
       "family": "inference",
       "owner_plugin": "@jarvis/inference",
