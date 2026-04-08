@@ -52,3 +52,4 @@ export { JobGraph } from "./job-graph.js";
 export { GoalDecomposer, type AgentSummary } from "./goal-decomposer.js";
 export { MetaPlanner, type MetaPlannerResult, type SubGoalRunResult, type RunAgentFn } from "./meta-planner.js";
 export type { SubGoal, JobGraphData, SubGoalStatus, JobGraphStatus } from "./orchestration-types.js";
+export { executeOrchestratedGoal, isMultiAgentGoal, type OrchestratedResult, type OrchestratedExecutionDeps } from "./orchestrated-execution.js";
