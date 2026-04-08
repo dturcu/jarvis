@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { createCommand, ChannelStore } from '@jarvis/runtime'
 import { CRM_DB, openRuntimeDb } from './config.js'
 import { loadApprovals, resolveApproval } from './approvals.js'
-import { handleFreeText } from './chat-handler.js'
+import { handleFreeText, type ChatContext } from './chat-handler.js'
 
 const AGENTS = [
   'bd-pipeline', 'proposal-engine', 'evidence-auditor', 'contract-reviewer',
@@ -40,9 +40,13 @@ export async function handleCommand(text: string, ctx?: CommandContext): Promise
     }
   }
 
-  // Free-text — relay through Jarvis API (pure pass-through, no action parsing).
+  // Free-text — relay through Jarvis API with thread-scoped durable history.
   // All agent triggers must come via explicit /slash commands, not from LLM output.
-  const { text: reply } = await handleFreeText(text)
+  const chatCtx: ChatContext = {
+    channelStore: ctx?.channelStore,
+    threadId: ctx?.threadId,
+  }
+  const { text: reply } = await handleFreeText(text, chatCtx)
   return reply
 }
 
