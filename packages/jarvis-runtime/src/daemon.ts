@@ -390,8 +390,14 @@ async function main() {
       : undefined,
   });
 
-  // Orchestrator deps
-  const deps = { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, runtimeDb, channelStore, ragPipeline, notifier };
+  // ─── Memory boundary checker + Wiki bridge (Epics 7, 9) ────────────────────
+  const { MemoryBoundaryChecker, GatewayWikiBridge } = await import("@jarvis/agent-framework");
+  const boundaryChecker = new MemoryBoundaryChecker("warn");
+  const wikiBridge = new GatewayWikiBridge();
+  logger.info("Memory boundary: warn mode active");
+
+  // Orchestrator deps — includes boundary checker and wiki bridge for lesson capture integration
+  const deps = { runtime, registry, knowledgeStore, entityGraph, decisionLog, lessonCapture, logger, statusWriter, runtimeDb, channelStore, ragPipeline, notifier, boundaryChecker, wikiBridge };
 
   // Agent Queue
   const agentQueue = new AgentQueue(config.max_concurrent, deps, logger);

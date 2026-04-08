@@ -94,6 +94,34 @@ function inferSource(row: Record<string, unknown>): TaskSource {
   return 'command'
 }
 
+// ---- TaskFlow correlation ---------------------------------------------------
+
+/**
+ * Ensure the taskflow_correlations table exists.
+ * Maps OpenClaw TaskFlow run IDs to Jarvis run IDs.
+ */
+function ensureCorrelationTable(db: DatabaseSync): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS taskflow_correlations (
+      flow_id TEXT PRIMARY KEY,
+      run_id TEXT NOT NULL,
+      workflow_name TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `)
+}
+
+function lookupFlowId(db: DatabaseSync, runId: string): string | undefined {
+  try {
+    const row = db.prepare(
+      'SELECT flow_id FROM taskflow_correlations WHERE run_id = ?',
+    ).get(runId) as { flow_id: string } | undefined
+    return row?.flow_id
+  } catch {
+    return undefined
+  }
+}
+
 // ---- Router ----------------------------------------------------------------
 
 export const tasksRouter = Router()
@@ -147,6 +175,8 @@ tasksRouter.get('/', (_req: Request, res: Response) => {
       LIMIT ?
     `).all(...params, pageLimit) as Array<Record<string, unknown>>
 
+    ensureCorrelationTable(db)
+
     const tasks: UnifiedTask[] = rows.map((row) => ({
       task_id: String(row.run_id),
       agent_id: String(row.agent_id ?? ''),
@@ -157,6 +187,7 @@ tasksRouter.get('/', (_req: Request, res: Response) => {
       jobs_total: Number(row.jobs_total ?? 0),
       jobs_completed: Number(row.jobs_completed ?? 0),
       pending_approvals: Number(row.pending_approvals ?? 0),
+      flow_id: lookupFlowId(db, String(row.run_id)),
       provenance: row.source || row.trigger_type || row.owner ? {
         channel: String(row.owner ?? 'daemon'),
         trigger_type: String(row.trigger_type ?? row.source ?? 'unknown'),
@@ -270,4 +301,78 @@ tasksRouter.get('/:id', (req: Request, res: Response) => {
   } finally {
     try { db.close() } catch { /* ignore */ }
   }
+})
+
+// POST /api/tasks/correlate — Register a TaskFlow-to-Jarvis run correlation.
+// Called by OpenClaw TaskFlow when a managed workflow creates or drives a Jarvis run.
+tasksRouter.post('/correlate', (req: Request, res: Response) => {
+  const db = openDb()
+  if (!db) {
+    res.status(503).json({ error: 'runtime.db not found' })
+    return
+  }
+
+  try {
+    const { flow_id, run_id, workflow_name } = req.body as {
+      flow_id?: string
+      run_id?: string
+      workflow_name?: string
+    }
+
+    if (!flow_id || !run_id) {
+      res.status(400).json({ error: 'flow_id and run_id are required' })
+      return
+    }
+
+    ensureCorrelationTable(db)
+    db.prepare(
+      'INSERT OR REPLACE INTO taskflow_correlations (flow_id, run_id, workflow_name, created_at) VALUES (?, ?, ?, ?)',
+    ).run(flow_id, run_id, workflow_name ?? null, new Date().toISOString())
+
+    res.json({ status: 'correlated', flow_id, run_id })
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
+  } finally {
+    try { db.close() } catch { /* ignore */ }
+  }
+})
+
+// GET /api/tasks/adoption — Adoption metrics dashboard for release gates.
+tasksRouter.get('/adoption', (_req: Request, res: Response) => {
+  const db = openDb()
+
+  const metrics: Record<string, unknown> = {
+    timestamp: new Date().toISOString(),
+    webhook_ingress: {
+      default: process.env.JARVIS_WEBHOOK_LEGACY === 'true' ? 'dashboard (legacy)' : 'openclaw (converged)',
+      legacy_active: process.env.JARVIS_WEBHOOK_LEGACY === 'true',
+    },
+    schedule_source: {
+      mode: process.env.JARVIS_SCHEDULE_SOURCE ?? 'db',
+      taskflow_active: (process.env.JARVIS_SCHEDULE_SOURCE ?? '').toLowerCase() === 'taskflow',
+    },
+    browser_mode: {
+      mode: process.env.JARVIS_BROWSER_MODE ?? 'openclaw',
+      openclaw_active: (process.env.JARVIS_BROWSER_MODE ?? 'openclaw').toLowerCase() !== 'legacy',
+    },
+    telegram_mode: {
+      mode: process.env.JARVIS_TELEGRAM_MODE ?? 'session',
+      session_active: (process.env.JARVIS_TELEGRAM_MODE ?? 'session').toLowerCase() !== 'legacy',
+    },
+    dreaming: { enabled: process.env.JARVIS_DREAMING_ENABLED === 'true' },
+    memory_boundary: { mode: 'warn' },
+  }
+
+  if (db) {
+    try {
+      ensureCorrelationTable(db)
+      const correlationCount = (db.prepare('SELECT COUNT(*) as n FROM taskflow_correlations').get() as { n: number }).n
+      metrics.taskflow_correlations = correlationCount
+      metrics.total_runs = (db.prepare('SELECT COUNT(*) as n FROM runs').get() as { n: number }).n
+    } catch { /* ignore */ } finally {
+      try { db.close() } catch { /* ignore */ }
+    }
+  }
+
+  res.json(metrics)
 })

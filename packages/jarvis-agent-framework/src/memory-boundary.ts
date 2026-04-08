@@ -144,4 +144,16 @@ export class MemoryBoundaryChecker {
   clearViolations(): void {
     this.violations.length = 0
   }
+
+  /**
+   * Graduate from "warn" to "enforce" mode.
+   *
+   * After a pilot period with zero compliance violations, call this to
+   * make boundary violations hard errors instead of warnings. In enforce
+   * mode, validate() and validateComplianceBoundary() throw on violation
+   * instead of logging.
+   */
+  graduate(): MemoryBoundaryChecker {
+    return new MemoryBoundaryChecker('enforce')
+  }
 }

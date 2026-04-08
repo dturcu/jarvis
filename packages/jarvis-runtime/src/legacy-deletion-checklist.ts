@@ -21,6 +21,10 @@ export interface DeletionCandidate {
   description: string
   /** Which epic this deletion belongs to. */
   epic: string
+  /** Owner responsible for migration before deletion. */
+  owner: string
+  /** Target retirement date (ISO format). */
+  retirement_date: string
   /** Whether the file currently exists. */
   exists?: boolean
   /** Whether the file has @deprecated marker. */
@@ -46,31 +50,43 @@ export const FILE_DELETIONS: DeletionCandidate[] = [
     path: "packages/jarvis-dashboard/src/api/godmode.ts",
     description: "Legacy LLM loop (direct LM Studio orchestration)",
     epic: "Epic 12",
+    owner: "runtime",
+    retirement_date: "2026-07-01",
   },
   {
     path: "packages/jarvis-dashboard/src/api/chat.ts",
     description: "Legacy direct chat surface",
     epic: "Epic 12",
+    owner: "runtime",
+    retirement_date: "2026-07-01",
   },
   {
     path: "packages/jarvis-telegram/src/chat-handler.ts",
     description: "Legacy Telegram chat handler",
     epic: "Epic 12",
+    owner: "runtime",
+    retirement_date: "2026-07-01",
   },
   {
     path: "packages/jarvis-telegram/src/bot.ts",
     description: "Legacy Telegram bot (direct API)",
     epic: "Epic 12",
+    owner: "runtime",
+    retirement_date: "2026-07-01",
   },
   {
     path: "packages/jarvis-telegram/src/relay.ts",
     description: "Legacy Telegram relay queue",
     epic: "Epic 12",
+    owner: "runtime",
+    retirement_date: "2026-07-01",
   },
   {
     path: "packages/jarvis-browser-worker/src/chrome-adapter.ts",
     description: "Legacy browser adapter (direct Puppeteer/CDP)",
     epic: "Epic 12",
+    owner: "browser",
+    retirement_date: "2027-01-01",
   },
 ]
 

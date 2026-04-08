@@ -18,6 +18,16 @@ export type ChatFn = (params: {
   maxTokens?: number;
 }) => Promise<{ content: string; model: string; usage: { prompt_tokens: number; completion_tokens: number } }>;
 
+/** Wiki retrieval source for curated synthesized knowledge (Epic 10). */
+export type WikiRetrievalSource = {
+  query(queryText: string, limit?: number): Promise<Array<{
+    page_id: string;
+    title: string;
+    snippet: string;
+    relevance_score: number;
+  }>>;
+};
+
 export type HybridRetrieverConfig = {
   vectorStore: VectorStore;
   sparseStore: SparseStore;
@@ -37,6 +47,10 @@ export type HybridRetrieverConfig = {
   rrfK?: number;
   /** Optional entity graph for graph-augmented retrieval */
   entityGraph?: EntityGraph;
+  /** Optional wiki retrieval source for curated knowledge (Epic 10). */
+  wikiSource?: WikiRetrievalSource;
+  /** Weight for wiki results in fusion (0-1, default 0). 0 = disabled. */
+  wikiWeight?: number;
 };
 
 export type RetrievalResult = {
@@ -73,6 +87,8 @@ export class HybridRetriever {
   private rerankerModel?: string;
   private rrfK: number;
   private entityGraph?: EntityGraph;
+  private wikiSource?: WikiRetrievalSource;
+  private wikiWeight: number;
 
   constructor(config: HybridRetrieverConfig) {
     this.vectorStore = config.vectorStore;
@@ -85,6 +101,8 @@ export class HybridRetriever {
     this.rerankerModel = config.rerankerModel;
     this.rrfK = config.rrfK ?? 60;
     this.entityGraph = config.entityGraph;
+    this.wikiSource = config.wikiSource;
+    this.wikiWeight = config.wikiWeight ?? 0;
   }
 
   /**
@@ -140,6 +158,26 @@ export class HybridRetriever {
     // Step 5: Optional entity graph boost
     if (this.entityGraph) {
       fused = this.applyGraphBoost(fused, query);
+    }
+
+    // Step 5b: Optional wiki retrieval (Epic 10)
+    if (this.wikiSource && this.wikiWeight > 0) {
+      try {
+        const wikiResults = await this.wikiSource.query(query, topK);
+        if (wikiResults.length > 0) {
+          const wikiAsRetrieval = wikiResults.map((w) => ({
+            text: `[Wiki: ${w.title}] ${w.snippet}`,
+            score: w.relevance_score * this.wikiWeight,
+            docId: w.page_id,
+          }));
+          // Merge wiki results with fused results, re-sort by score
+          fused = [...fused, ...wikiAsRetrieval]
+            .sort((a, b) => b.score - a.score)
+            .slice(0, fusedTopK);
+        }
+      } catch {
+        // Wiki unavailable — continue with local results only
+      }
     }
 
     // Step 6: Optional cross-encoder re-ranking
