@@ -173,9 +173,16 @@ setInterval(() => {
   }
 }, PRUNE_INTERVAL_MS).unref();
 
+/**
+ * Get client IP for rate limiting. Only trusts X-Forwarded-For when
+ * JARVIS_TRUST_PROXY is set (i.e. behind a known reverse proxy).
+ * Otherwise uses the socket address directly to prevent spoofing.
+ */
 function getClientIp(req: Request): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
+  if (process.env.JARVIS_TRUST_PROXY === "true") {
+    const forwarded = req.headers["x-forwarded-for"];
+    if (typeof forwarded === "string") return forwarded.split(",")[0]!.trim();
+  }
   return req.socket.remoteAddress ?? "unknown";
 }
 
