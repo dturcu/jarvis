@@ -6,8 +6,26 @@ import { migration0004 } from "./0004_channel_fixes.js";
 import { migration0005 } from "./0005_knowledge_links.js";
 import { migration0006 } from "./0006_team_mode.js";
 import { migration0007 } from "./0007_channel_full_content.js";
+import { migration0008 } from "./0008_channel_model.js";
 import { crmMigration0001 } from "./crm_0001_core.js";
 import { knowledgeMigration0001 } from "./knowledge_0001_core.js";
+
+// ─── Schema Ownership (#56) ─────────────────────────────────────────────────
+// Tables are split across three SQLite databases, each owning a distinct plane.
+//
+// Control plane — runtime.db
+//   runs, run_events, agent_commands, approvals, notifications,
+//   daemon_heartbeats, schedules, settings, model_registry, model_benchmarks,
+//   plugin_installs, audit_log, schema_migrations, channel_threads,
+//   channel_messages, artifact_deliveries, delivery_attempts
+//
+// Knowledge plane — knowledge.db
+//   documents, playbooks, entities, relations, decisions,
+//   entity_provenance, memory, embedding_chunks
+//
+// CRM plane — crm.db
+//   contacts, notes, pipeline_stages, campaigns
+// ─────────────────────────────────────────────────────────────────────────────
 
 export type Migration = {
   id: string;        // e.g. "0001"
@@ -24,6 +42,7 @@ export const RUNTIME_MIGRATIONS: Migration[] = [
   migration0005,
   migration0006,
   migration0007,
+  migration0008,
 ];
 
 /** CRM DB migrations — contacts, notes, stages, campaigns. */

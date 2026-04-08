@@ -282,14 +282,15 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
       }
 
       // ── Execute with error boundary + hard timeout ──
-      const timeoutMs = (policy?.timeout_seconds ?? envelope.timeout_seconds ?? 120) * 1000;
+      // Priority: execution-policy timeout > job catalog timeout (on envelope) > 60s fallback
+      const timeoutMs = (policy?.timeout_seconds ?? envelope.timeout_seconds ?? 60) * 1000;
       const startTime = Date.now();
 
       logger.debug(`Executing ${envelope.type}`, { job_id: envelope.job_id, timeout_ms: timeoutMs });
 
       try {
         const timeoutPromise = new Promise<JobResult>((_, reject) => {
-          setTimeout(() => reject(new Error(`Worker timeout after ${timeoutMs}ms`)), timeoutMs);
+          setTimeout(() => reject(new Error(`EXECUTION_TIMEOUT after ${timeoutMs}ms`)), timeoutMs);
         });
 
         const result = await Promise.race([worker(envelope), timeoutPromise]);
@@ -303,12 +304,12 @@ export function createWorkerRegistry(config: JarvisRuntimeConfig, logger: Logger
       } catch (e) {
         const durationMs = Date.now() - startTime;
         const errMsg = e instanceof Error ? e.message : String(e);
-        const isTimeout = errMsg.includes("Worker timeout");
+        const isTimeout = errMsg.includes("EXECUTION_TIMEOUT");
 
         if (isTimeout) {
           healthMonitor?.recordTimeout(prefix!);
-          logger.warn(`Worker timeout: ${envelope.type} after ${timeoutMs}ms`, { job_id: envelope.job_id });
-          return failedResult("WORKER_TIMEOUT", `${envelope.type} timed out after ${Math.round(timeoutMs / 1000)}s`);
+          logger.warn(`Execution timeout: ${envelope.type} after ${timeoutMs}ms`, { job_id: envelope.job_id });
+          return failedResult("EXECUTION_TIMEOUT", `${envelope.type} timed out after ${Math.round(timeoutMs / 1000)}s`);
         }
 
         // Error boundary: catch worker crashes without killing the daemon

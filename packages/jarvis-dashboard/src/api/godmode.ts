@@ -1,3 +1,35 @@
+/**
+ * godmode.ts -- READ-ONLY interactive research surface for the Jarvis dashboard.
+ *
+ * ┌──────────────────────────────────────────────────────────────────────┐
+ * │  ARCHITECTURAL DECISION: Godmode owns its own LLM orchestration     │
+ * │  loop (intent classification, streaming, tool-call-then-synthesize) │
+ * │  but it is STRICTLY READ-ONLY. It does NOT execute mutations.       │
+ * │                                                                     │
+ * │  All tools available here come from tool-infra.ts:                  │
+ * │    web_search, web_fetch, crm_search, knowledge_search,            │
+ * │    system_info, file_read, file_list                                │
+ * │                                                                     │
+ * │  None of these tools write data, send emails, publish content,      │
+ * │  execute trades, or modify CRM state. Any action that mutates       │
+ * │  system state MUST go through the runtime kernel's job pipeline     │
+ * │  (submit -> approve -> execute), which enforces the approval        │
+ * │  policy defined in @jarvis/core.                                    │
+ * │                                                                     │
+ * │  Why a separate LLM loop instead of routing through /api/chat?      │
+ * │  Godmode provides multi-surface UX (artifact panel, research        │
+ * │  phases, cowork steps, thinking tokens) that require fine-grained   │
+ * │  SSE control over the streaming response. The /api/chat endpoint    │
+ * │  serves a simpler single-surface chat widget. Unifying them would   │
+ * │  add complexity without benefit -- both are read-only ingress.      │
+ * │                                                                     │
+ * │  DO NOT add mutation tools to TOOL_DESCRIPTIONS or tool-infra.ts.   │
+ * │  If a user request requires mutations (email, CRM update, publish), │
+ * │  godmode should advise the user to trigger the appropriate agent    │
+ * │  or job through the runtime kernel.                                 │
+ * └──────────────────────────────────────────────────────────────────────┘
+ */
+
 import { Router } from 'express'
 import { DatabaseSync } from 'node:sqlite'
 import http from 'http'
@@ -124,7 +156,10 @@ Then execute the step using available tools. After each step completes, output t
 Be systematic. Complete all steps before summarizing results.`
 }
 
-// ─── Tool Descriptions (godmode-specific: includes file_read/file_list) ──────
+// ─── Tool Descriptions ──────────────────────────────────────────────────────
+// READ-ONLY tools only. All tool implementations live in tool-infra.ts.
+// DO NOT add mutation tools here (email.send, crm.move_stage, publish_post,
+// trade_execute, etc.). Mutations must go through the runtime kernel.
 
 const TOOL_DESCRIPTIONS = `
 You have these tools available. To use one, output EXACTLY this format on its own line:
@@ -177,6 +212,9 @@ function extractArtifacts(text: string): Array<{ kind: string; title: string; co
 }
 
 // ─── LLM Communication ──────────────────────────────────────────────────────
+// Godmode maintains its own LLM calls to LM Studio / Ollama for interactive
+// streaming. This is separate from the runtime kernel's inference pipeline.
+// These calls power read-only research and generation only -- no tool mutations.
 
 function llmChat(messages: Array<{ role: string; content: string }>, model: string, temperature = 0.3, maxTokens = 2048): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -324,7 +362,10 @@ Today is ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long
 
     fullTextForArtifacts = fullResponse
 
-    // Step 4: Check for tool calls — execute ONCE, cache results
+    // Step 4: Check for tool calls — execute ONCE, cache results.
+    // All tools dispatched here are READ-ONLY (via tool-infra.ts).
+    // This is a single-pass loop: execute tools, then synthesize.
+    // It is NOT a multi-step agentic loop that plans and mutates.
     const toolCalls = extractToolCalls(fullResponse)
     if (toolCalls.length > 0) {
       // Execute each tool once and cache the result

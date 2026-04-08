@@ -30,7 +30,7 @@ export type UpgradeCheckResult = {
 export const CURRENT_RELEASE: ReleaseInfo = {
   version: JARVIS_PLATFORM_VERSION,
   released_at: new Date().toISOString(),
-  migrations: ["0001", "0002", "0003", "0004", "0005", "0006", "0007"],
+  migrations: ["0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008"],
   changelog_summary: "Year 1-2: Channel ingress, execution hardening, core workflows, appliance reliability, provenance, multi-viewpoint, knowledge loop, team mode",
   rollback_safe: true,
 };

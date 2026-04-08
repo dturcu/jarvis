@@ -33,7 +33,7 @@ describe("Runtime DB and Migration Framework", () => {
     it("records applied migrations", () => {
       runMigrations(db);
       const rows = db.prepare("SELECT id, name FROM schema_migrations ORDER BY id").all() as Array<{ id: string; name: string }>;
-      expect(rows).toHaveLength(7);
+      expect(rows).toHaveLength(8);
       expect(rows[0]!.id).toBe("0001");
       expect(rows[0]!.name).toBe("runtime_core");
       expect(rows[1]!.id).toBe("0002");
@@ -48,13 +48,15 @@ describe("Runtime DB and Migration Framework", () => {
       expect(rows[5]!.name).toBe("team_mode");
       expect(rows[6]!.id).toBe("0007");
       expect(rows[6]!.name).toBe("channel_full_content");
+      expect(rows[7]!.id).toBe("0008");
+      expect(rows[7]!.name).toBe("channel_model");
     });
 
     it("is idempotent — repeated runs do not fail", () => {
       runMigrations(db);
       runMigrations(db);
       const rows = db.prepare("SELECT id FROM schema_migrations").all();
-      expect(rows).toHaveLength(7);
+      expect(rows).toHaveLength(8);
     });
   });
 
@@ -78,6 +80,7 @@ describe("Runtime DB and Migration Framework", () => {
       "artifact_deliveries",
       "decision_entity_links",
       "canonical_aliases",
+      "delivery_attempts",
     ];
 
     beforeEach(() => {

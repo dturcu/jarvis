@@ -11,6 +11,8 @@
  */
 
 import type { Request, Response, NextFunction } from "express";
+import { Router } from "express";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import { join } from "node:path";
@@ -85,6 +87,9 @@ const ROUTE_PERMISSIONS: Record<string, Record<string, UserRole>> = {
   // Knowledge mutations require operator
   "/api/knowledge": { GET: "viewer", POST: "operator", PATCH: "operator", DELETE: "admin" },
 
+  // Auth management — admin only
+  "/api/auth": { POST: "admin" },
+
   // Support bundle contains sensitive diagnostics — admin only
   "/api/support": { GET: "admin" },
 
@@ -139,11 +144,73 @@ function getRequiredRole(path: string, method: string): UserRole {
   return method.toUpperCase() === "GET" ? "viewer" : "operator";
 }
 
+// ─── Secret Redaction ────────────────────────────────────────────────────
+
+/** Replace any 32+ character hex strings with [REDACTED]. Useful for logs and error output. */
+export function redactSecrets(text: string): string {
+  return text.replace(/[0-9a-fA-F]{32,}/g, "[REDACTED]");
+}
+
+// ─── Rate Limiting ───────────────────────────────────────────────────────
+
+type FailureRecord = { timestamps: number[]; blockedUntil: number };
+
+const failureMap = new Map<string, FailureRecord>();
+
+const RATE_LIMIT_WINDOW_MS = 5 * 60 * 1000;   // 5 minutes
+const RATE_LIMIT_MAX_FAILURES = 10;
+const RATE_LIMIT_BLOCK_MS = 15 * 60 * 1000;    // 15 minutes
+const PRUNE_INTERVAL_MS = 5 * 60 * 1000;       // prune every 5 minutes
+
+/** Remove stale entries periodically to prevent unbounded memory growth. */
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, rec] of failureMap) {
+    if (rec.blockedUntil < now) {
+      rec.timestamps = rec.timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+      if (rec.timestamps.length === 0) failureMap.delete(ip);
+    }
+  }
+}, PRUNE_INTERVAL_MS).unref();
+
+function getClientIp(req: Request): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
+  return req.socket.remoteAddress ?? "unknown";
+}
+
+/** Record an auth failure for rate-limiting purposes. */
+function recordFailure(ip: string): void {
+  const now = Date.now();
+  let rec = failureMap.get(ip);
+  if (!rec) {
+    rec = { timestamps: [], blockedUntil: 0 };
+    failureMap.set(ip, rec);
+  }
+  rec.timestamps.push(now);
+  // Trim old timestamps outside the window
+  rec.timestamps = rec.timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+  if (rec.timestamps.length >= RATE_LIMIT_MAX_FAILURES) {
+    rec.blockedUntil = now + RATE_LIMIT_BLOCK_MS;
+  }
+}
+
+/** Check if an IP is currently blocked. */
+function isBlocked(ip: string): boolean {
+  const rec = failureMap.get(ip);
+  if (!rec) return false;
+  if (rec.blockedUntil > Date.now()) return true;
+  return false;
+}
+
+// ─── Auth Middleware ─────────────────────────────────────────────────────
+
 /**
  * Auth middleware factory. Returns middleware that:
  * - Skips auth for /api/health and /api/ready (always public)
  * - If no tokens configured, allows all requests (dev mode)
  * - Otherwise requires Bearer token and checks role permissions
+ * - Rate-limits IPs with repeated auth failures
  */
 export function createAuthMiddleware() {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
@@ -156,6 +223,13 @@ export function createAuthMiddleware() {
     // Non-API routes (SPA, static assets) don't need auth
     if (!req.path.startsWith("/api/")) {
       next();
+      return;
+    }
+
+    // Rate-limit check: block IPs with too many failed auth attempts
+    const clientIp = getClientIp(req);
+    if (isBlocked(clientIp)) {
+      res.status(429).json({ error: "Too many failed authentication attempts. Try again later." });
       return;
     }
 
@@ -188,6 +262,7 @@ export function createAuthMiddleware() {
     // Extract Bearer token
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      recordFailure(clientIp);
       res.status(401).json({ error: "Missing or invalid Authorization header. Use: Bearer <token>" });
       return;
     }
@@ -196,6 +271,7 @@ export function createAuthMiddleware() {
     const match = tokens.find(t => t.token === providedToken);
 
     if (!match) {
+      recordFailure(clientIp);
       res.status(401).json({ error: "Invalid API token" });
       return;
     }
@@ -213,3 +289,47 @@ export function createAuthMiddleware() {
     next();
   };
 }
+
+// ─── Auth Router (token rotation) ────────────────────────────────────────
+
+export const authRouter = Router();
+
+/** POST /api/auth/rotate — Generate a new admin API token. Requires admin role. */
+authRouter.post("/rotate", (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user || req.user.role !== "admin") {
+    res.status(403).json({ error: "Token rotation requires admin role" });
+    return;
+  }
+
+  const configPath = join(os.homedir(), ".jarvis", "config.json");
+  let config: Record<string, unknown> = {};
+
+  try {
+    if (fs.existsSync(configPath)) {
+      config = JSON.parse(fs.readFileSync(configPath, "utf8")) as Record<string, unknown>;
+    }
+  } catch {
+    res.status(500).json({ error: "Failed to read config file" });
+    return;
+  }
+
+  const newToken = crypto.randomBytes(32).toString("hex");
+
+  // Replace the simple api_token. If using role-based tokens, replace the admin token.
+  if (config.api_tokens && typeof config.api_tokens === "object") {
+    (config.api_tokens as Record<string, string>).admin = newToken;
+  } else {
+    config.api_token = newToken;
+  }
+
+  try {
+    const configDir = join(os.homedir(), ".jarvis");
+    if (!fs.existsSync(configDir)) fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf8");
+  } catch {
+    res.status(500).json({ error: "Failed to write config file" });
+    return;
+  }
+
+  res.json({ token_prefix: newToken.slice(0, 4) });
+});

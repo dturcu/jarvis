@@ -28,6 +28,53 @@ import { WORKER_EXECUTION_POLICIES } from "./execution-policy.js";
 import { setWorkerHealthProvider } from "./health.js";
 import { resolveApproval } from "./approval-bridge.js";
 
+// ─── DB Integrity (#65) ─────────────────────────────────────────────────────
+// Verify SQLite pragmas that the runtime depends on. Log warnings instead of
+// aborting — the daemon can still operate, but data-safety is reduced.
+// ─────────────────────────────────────────────────────────────────────────────
+function verifyDbIntegrity(db: DatabaseSync, name: string, logger: Logger): void {
+  try {
+    const journalMode = (db.prepare("PRAGMA journal_mode").get() as { journal_mode: string })?.journal_mode;
+    if (journalMode !== "wal") {
+      logger.warn(`DB integrity [${name}]: journal_mode is '${journalMode}', expected 'wal'`);
+    }
+  } catch (e) {
+    logger.warn(`DB integrity [${name}]: failed to check journal_mode: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  try {
+    const fk = (db.prepare("PRAGMA foreign_keys").get() as { foreign_keys: number })?.foreign_keys;
+    if (fk !== 1) {
+      logger.warn(`DB integrity [${name}]: foreign_keys is ${fk}, expected 1`);
+    }
+  } catch (e) {
+    logger.warn(`DB integrity [${name}]: failed to check foreign_keys: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  try {
+    const timeout = (db.prepare("PRAGMA busy_timeout").get() as { busy_timeout: number })?.busy_timeout;
+    if (!timeout || timeout <= 0) {
+      logger.warn(`DB integrity [${name}]: busy_timeout is ${timeout}, expected > 0`);
+    }
+  } catch (e) {
+    logger.warn(`DB integrity [${name}]: failed to check busy_timeout: ${e instanceof Error ? e.message : String(e)}`);
+  }
+}
+
+// ─── Dead-letter helpers (#67) ───────────────────────────────────────────────
+// Commands stuck in 'queued' longer than a threshold are likely dead-letters.
+// The polling loop emits warnings; operators can investigate via the dashboard.
+// ─────────────────────────────────────────────────────────────────────────────
+function getStaleCommands(
+  db: DatabaseSync,
+  maxAgeMs: number,
+): Array<{ command_id: string; target_agent_id: string; created_at: string }> {
+  const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
+  return db.prepare(
+    "SELECT command_id, target_agent_id, created_at FROM agent_commands WHERE status = 'queued' AND created_at < ? ORDER BY created_at ASC LIMIT 50",
+  ).all(cutoff) as Array<{ command_id: string; target_agent_id: string; created_at: string }>;
+}
+
 // ─── Restart Policy ──────────────────────────────────────────────────────────
 // On daemon shutdown (SIGINT/SIGTERM), active runs are transitioned as follows:
 //   queued            → cancelled   (never started, safe to discard)
@@ -61,6 +108,9 @@ async function main() {
     logger.error(`Failed to open runtime database: ${e instanceof Error ? e.message : String(e)}`);
     process.exit(1);
   }
+
+  // Verify DB pragmas (#65)
+  verifyDbIntegrity(runtimeDb, "runtime.db", logger);
 
   // Initialize stores
   const knowledgeStore = new SqliteKnowledgeStore(KNOWLEDGE_DB_PATH);
@@ -316,6 +366,16 @@ async function main() {
         }
       } catch (e) {
         logger.error(`Command poll error: ${e instanceof Error ? e.message : String(e)}`);
+      }
+
+      // Dead-letter check (#67): warn about commands stuck in 'queued' > 1 hour
+      try {
+        const staleCommands = getStaleCommands(runtimeDb, 60 * 60 * 1000);
+        for (const cmd of staleCommands) {
+          logger.warn(`Dead-letter: command ${cmd.command_id} for agent ${cmd.target_agent_id} has been queued since ${cmd.created_at}`);
+        }
+      } catch (e) {
+        logger.warn(`Dead-letter check error: ${e instanceof Error ? e.message : String(e)}`);
       }
 
       // Process any enqueued agents

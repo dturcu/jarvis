@@ -82,4 +82,5 @@ export const evidenceAuditorAgent: AgentDefinition = {
   planner_mode: "critic",
   maturity: "trusted_with_review",
   pack: "core",
+  product_tier: "core",
 };

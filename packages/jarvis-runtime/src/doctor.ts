@@ -134,7 +134,7 @@ function checkDaemon() {
 
 function checkMigrations() {
   for (const [name, dbPath, expected] of [
-    ["Runtime", RUNTIME_DB_PATH, "0007"],
+    ["Runtime", RUNTIME_DB_PATH, "0008"],
     ["CRM", CRM_DB_PATH, "crm_0001"],
     ["Knowledge", KNOWLEDGE_DB_PATH, "knowledge_0001"],
   ] as const) {
@@ -297,6 +297,17 @@ function checkSecurityPosture() {
   const mode = process.env.JARVIS_MODE ?? "dev";
   const bindHost = process.env.JARVIS_BIND_HOST ?? "127.0.0.1";
 
+  // Detect appliance mode
+  let applianceMode = false;
+  try {
+    const cfg = loadConfig();
+    applianceMode = cfg.appliance_mode;
+  } catch { /* no config */ }
+
+  if (applianceMode) {
+    pass("Appliance Mode", "Enabled — strict security defaults enforced");
+  }
+
   // API token check
   const envToken = process.env.JARVIS_API_TOKEN;
   let configToken = false;
@@ -308,8 +319,8 @@ function checkSecurityPosture() {
 
   if (envToken || configToken) {
     pass("API Auth", "API tokens configured");
-  } else if (mode === "production") {
-    fail("API Auth", "Production mode requires API tokens",
+  } else if (mode === "production" || applianceMode) {
+    fail("API Auth", `${applianceMode ? "Appliance mode" : "Production mode"} requires API tokens`,
       "Set JARVIS_API_TOKEN env var or add api_token to ~/.jarvis/config.json",
       undefined);
   } else {
@@ -331,6 +342,9 @@ function checkSecurityPosture() {
   // Webhook secret check
   if (process.env.JARVIS_WEBHOOK_SECRET) {
     pass("Webhook Secret", "Webhook secret configured");
+  } else if (applianceMode) {
+    fail("Webhook Secret", "Appliance mode requires a webhook secret",
+      "Set JARVIS_WEBHOOK_SECRET env var for signed webhooks");
   } else {
     warn("Webhook Secret", "No webhook secret — webhook endpoints are unprotected",
       "Set JARVIS_WEBHOOK_SECRET env var for signed webhooks");

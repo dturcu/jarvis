@@ -44,6 +44,7 @@ const ConfigSchema = Type.Object({
   drive: Type.Optional(OAuthCredentials),
   webhook_secret: Type.Optional(Type.String()),
   anthropic_api_key: Type.Optional(Type.String()),
+  appliance_mode: Type.Boolean(),
 });
 
 export type JarvisRuntimeConfig = Static<typeof ConfigSchema>;
@@ -114,6 +115,7 @@ export function loadConfig(): JarvisRuntimeConfig {
     trigger_poll_ms: 10_000,
     max_concurrent: 2,
     log_level: "info",
+    appliance_mode: false,
   };
 
   const configPath = join(JARVIS_DIR, "config.json");
@@ -146,6 +148,7 @@ export function loadConfig(): JarvisRuntimeConfig {
     drive: raw.drive as JarvisRuntimeConfig["drive"],
     webhook_secret: typeof raw.webhook_secret === "string" ? raw.webhook_secret : undefined,
     anthropic_api_key: typeof raw.anthropic_api_key === "string" ? raw.anthropic_api_key : undefined,
+    appliance_mode: typeof raw.appliance_mode === "boolean" ? raw.appliance_mode : defaults.appliance_mode,
   };
 
   // Environment overrides
@@ -164,6 +167,9 @@ export function loadConfig(): JarvisRuntimeConfig {
       chat_id: process.env.JARVIS_TELEGRAM_CHAT_ID,
     };
   }
+  if (process.env.JARVIS_APPLIANCE_MODE === "true") {
+    config.appliance_mode = true;
+  }
 
   // Validate
   const result = validateConfig(config);
@@ -174,6 +180,58 @@ export function loadConfig(): JarvisRuntimeConfig {
   }
 
   return config;
+}
+
+// ─── Credential Scoping ────────────────────────────────────────────────────
+
+/**
+ * Scoped credential subset returned by getCredentialsForWorker().
+ * Each field is optional — workers only receive credentials they need.
+ */
+export type WorkerCredentials = {
+  gmail?: JarvisRuntimeConfig["gmail"];
+  calendar?: JarvisRuntimeConfig["calendar"];
+  chrome?: JarvisRuntimeConfig["chrome"];
+  toggl?: JarvisRuntimeConfig["toggl"];
+  drive?: JarvisRuntimeConfig["drive"];
+};
+
+/**
+ * Worker-to-credential mapping. Each entry lists the config keys
+ * that worker is permitted to access. Workers not listed here
+ * receive an empty object (no external credentials).
+ */
+const WORKER_CREDENTIAL_SCOPE: Record<string, ReadonlyArray<keyof WorkerCredentials>> = {
+  email:    ["gmail"],
+  calendar: ["calendar"],
+  browser:  ["chrome"],
+  social:   ["chrome"],   // social worker uses browser adapter under the hood
+  time:     ["toggl"],
+  drive:    ["drive"],
+};
+
+/**
+ * Return only the credentials a specific worker needs.
+ *
+ * Workers not in WORKER_CREDENTIAL_SCOPE (inference, document, crm, web,
+ * office, interpreter, voice, security, system, device, files) receive
+ * an empty object — they either use no external credentials or manage
+ * their own connections (e.g. inference uses lmstudio_url directly).
+ */
+export function getCredentialsForWorker(
+  workerId: string,
+  config: JarvisRuntimeConfig,
+): WorkerCredentials {
+  const allowedKeys = WORKER_CREDENTIAL_SCOPE[workerId];
+  if (!allowedKeys || allowedKeys.length === 0) return {};
+
+  const scoped: WorkerCredentials = {};
+  for (const key of allowedKeys) {
+    if (config[key] !== undefined) {
+      (scoped as Record<string, unknown>)[key] = config[key];
+    }
+  }
+  return scoped;
 }
 
 function isLogLevel(v: unknown): v is JarvisRuntimeConfig["log_level"] {

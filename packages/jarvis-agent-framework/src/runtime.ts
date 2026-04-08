@@ -30,9 +30,6 @@ export type AgentStepResult = {
 };
 
 export class AgentRuntime {
-  private static readonly MAX_COMPLETED_RUNS = 1000;
-
-  private runs = new Map<string, AgentRun>();
   private definitions = new Map<string, AgentDefinition>();
   private readonly memory: AgentMemoryStore;
 
@@ -48,11 +45,15 @@ export class AgentRuntime {
     return this.definitions.get(agentId);
   }
 
+  /**
+   * Create a new run object. The caller (orchestrator) owns the run lifecycle
+   * and persists it via RunStore — AgentRuntime no longer caches run state.
+   */
   startRun(agentId: string, trigger: AgentTrigger, goal?: string): AgentRun {
     const def = this.definitions.get(agentId);
     if (!def) throw new Error(`Agent not registered: ${agentId}`);
     const now = new Date().toISOString();
-    const run: AgentRun = {
+    return {
       run_id: randomUUID(),
       agent_id: agentId,
       trigger,
@@ -63,68 +64,17 @@ export class AgentRuntime {
       started_at: now,
       updated_at: now,
     };
-    this.runs.set(run.run_id, run);
-    return run;
   }
 
-  pauseRun(runId: string): AgentRun {
-    const run = this.runs.get(runId);
-    if (!run) throw new Error(`Run not found: ${runId}`);
-    const updated = { ...run, status: "paused" as AgentRunStatus, updated_at: new Date().toISOString() };
-    this.runs.set(runId, updated);
-    return updated;
+  /**
+   * Clear short-term memory for a completed run. Called by the orchestrator
+   * after a successful run so ephemeral memory is freed.
+   */
+  clearRunMemory(runId: string): void {
+    this.memory.clearShortTerm(runId);
   }
 
-  resumeRun(runId: string): AgentRun {
-    const run = this.runs.get(runId);
-    if (!run) throw new Error(`Run not found: ${runId}`);
-    const updated = { ...run, status: "executing" as AgentRunStatus, updated_at: new Date().toISOString() };
-    this.runs.set(runId, updated);
-    return updated;
-  }
-
-  completeRun(runId: string, error?: string): AgentRun {
-    const run = this.runs.get(runId);
-    if (!run) throw new Error(`Run not found: ${runId}`);
-    const now = new Date().toISOString();
-    const updated = {
-      ...run,
-      status: (error ? "failed" : "completed") as AgentRunStatus,
-      error,
-      updated_at: now,
-      completed_at: now,
-    };
-    this.runs.set(runId, updated);
-    if (!error) this.memory.clearShortTerm(runId);
-    this.pruneCompletedRuns();
-    return updated;
-  }
-
-  private pruneCompletedRuns(): void {
-    const completed = [...this.runs.entries()]
-      .filter(([, r]) => r.status === "completed" || r.status === "failed")
-      .sort((a, b) => (a[1].completed_at ?? "").localeCompare(b[1].completed_at ?? ""));
-
-    const excess = completed.length - AgentRuntime.MAX_COMPLETED_RUNS;
-    if (excess > 0) {
-      for (let i = 0; i < excess; i++) {
-        this.runs.delete(completed[i]![0]);
-      }
-    }
-  }
-
-  getRun(runId: string): AgentRun | undefined {
-    return this.runs.get(runId);
-  }
-
-  listRuns(agentId?: string): AgentRun[] {
-    const all = [...this.runs.values()];
-    return agentId ? all.filter(r => r.agent_id === agentId) : all;
-  }
-
-  getStatus(agentId: string): { definition: AgentDefinition | undefined; runs: AgentRun[]; active_runs: number } {
-    const runs = this.listRuns(agentId);
-    const active = runs.filter(r => r.status === "planning" || r.status === "executing" || r.status === "awaiting_approval");
-    return { definition: this.definitions.get(agentId), runs, active_runs: active.length };
+  getStatus(agentId: string): { definition: AgentDefinition | undefined } {
+    return { definition: this.definitions.get(agentId) };
   }
 }

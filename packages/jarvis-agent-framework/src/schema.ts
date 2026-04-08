@@ -75,6 +75,15 @@ export type AgentMaturity = "experimental" | "operational" | "trusted_with_revie
  */
 export type AgentPack = "core" | "experimental" | "personal";
 
+/**
+ * Product tier declares whether a workflow is a defensible core offering or ancillary.
+ * - "core": the five defensible consulting workflows (BD, proposals, evidence, contracts, staffing)
+ * - "extended": business-useful but not core product (content, email campaigns, invoicing, transcription)
+ * - "personal": Daniel's personal agents, not part of the consulting product (portfolio, garden)
+ * - "experimental": not production-ready, under active development or evaluation
+ */
+export type ProductTier = "core" | "extended" | "personal" | "experimental";
+
 export type AgentDefinition = {
   agent_id: string;
   label: string;
@@ -94,4 +103,6 @@ export type AgentDefinition = {
   pack?: AgentPack;
   /** When true, the agent is not part of the V1 production set and may be unstable. */
   experimental?: boolean;
+  /** Product tier: core, extended, personal, or experimental. See {@link ProductTier}. */
+  product_tier?: ProductTier;
 };

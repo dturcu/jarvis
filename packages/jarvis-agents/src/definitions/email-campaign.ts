@@ -75,4 +75,5 @@ export const emailCampaignAgent: AgentDefinition = {
   maturity: "trusted_with_review",
   pack: "experimental",
   experimental: true,
+  product_tier: "extended",
 };

@@ -291,124 +291,54 @@ describe("AgentRuntime", () => {
     });
   });
 
-  describe("pauseRun / resumeRun", () => {
-    it("pauses an active run", () => {
-      runtime.registerAgent(makeDefinition());
-      const run = runtime.startRun("test-agent", { kind: "manual" });
-      const paused = runtime.pauseRun(run.run_id);
-      expect(paused.status).toBe("paused");
-    });
-
-    it("resumes a paused run to executing", () => {
-      runtime.registerAgent(makeDefinition());
-      const run = runtime.startRun("test-agent", { kind: "manual" });
-      runtime.pauseRun(run.run_id);
-      const resumed = runtime.resumeRun(run.run_id);
-      expect(resumed.status).toBe("executing");
-    });
-
-    it("throws when pausing a non-existent run", () => {
-      expect(() => runtime.pauseRun("bad-run-id")).toThrow();
-    });
-
-    it("throws when resuming a non-existent run", () => {
-      expect(() => runtime.resumeRun("bad-run-id")).toThrow();
-    });
-  });
-
-  describe("completeRun", () => {
-    it("marks a run as completed", () => {
-      runtime.registerAgent(makeDefinition());
-      const run = runtime.startRun("test-agent", { kind: "manual" });
-      const completed = runtime.completeRun(run.run_id);
-
-      expect(completed.status).toBe("completed");
-      expect(completed.completed_at).toBeTruthy();
-    });
-
-    it("marks a run as failed when error is provided", () => {
-      runtime.registerAgent(makeDefinition());
-      const run = runtime.startRun("test-agent", { kind: "manual" });
-      const failed = runtime.completeRun(run.run_id, "Something went wrong");
-
-      expect(failed.status).toBe("failed");
-      expect(failed.error).toBe("Something went wrong");
-    });
-
-    it("clears short-term memory on successful completion", () => {
+  describe("clearRunMemory", () => {
+    it("clears short-term memory for a given run", () => {
       runtime.registerAgent(makeDefinition());
       const run = runtime.startRun("test-agent", { kind: "manual" });
       memory.addShortTerm("test-agent", run.run_id, "intermediate note");
 
-      runtime.completeRun(run.run_id);
+      runtime.clearRunMemory(run.run_id);
 
       expect(memory.getStats().short_term_count).toBe(0);
     });
 
-    it("throws when completing a non-existent run", () => {
-      expect(() => runtime.completeRun("bad-run-id")).toThrow();
-    });
-  });
-
-  describe("getRun / listRuns", () => {
-    it("getRun returns the run by id", () => {
+    it("does not affect long-term memory", () => {
       runtime.registerAgent(makeDefinition());
       const run = runtime.startRun("test-agent", { kind: "manual" });
-      expect(runtime.getRun(run.run_id)).toEqual(run);
+      memory.addShortTerm("test-agent", run.run_id, "short");
+      memory.addLongTerm("test-agent", run.run_id, "long");
+
+      runtime.clearRunMemory(run.run_id);
+
+      expect(memory.getStats().short_term_count).toBe(0);
+      expect(memory.getStats().long_term_count).toBe(1);
     });
 
-    it("getRun returns undefined for unknown id", () => {
-      expect(runtime.getRun("no-such-run")).toBeUndefined();
-    });
+    it("does not affect other runs' short-term memory", () => {
+      runtime.registerAgent(makeDefinition());
+      const run1 = runtime.startRun("test-agent", { kind: "manual" });
+      const run2 = runtime.startRun("test-agent", { kind: "manual" });
+      memory.addShortTerm("test-agent", run1.run_id, "run1 note");
+      memory.addShortTerm("test-agent", run2.run_id, "run2 note");
 
-    it("listRuns returns all runs when no agentId provided", () => {
-      runtime.registerAgent(makeDefinition({ agent_id: "a1" }));
-      runtime.registerAgent(makeDefinition({ agent_id: "a2" }));
-      runtime.startRun("a1", { kind: "manual" });
-      runtime.startRun("a2", { kind: "schedule", cron: "0 9 * * *" });
+      runtime.clearRunMemory(run1.run_id);
 
-      expect(runtime.listRuns()).toHaveLength(2);
-    });
-
-    it("listRuns filters by agentId", () => {
-      runtime.registerAgent(makeDefinition({ agent_id: "a1" }));
-      runtime.registerAgent(makeDefinition({ agent_id: "a2" }));
-      runtime.startRun("a1", { kind: "manual" });
-      runtime.startRun("a1", { kind: "manual" });
-      runtime.startRun("a2", { kind: "manual" });
-
-      expect(runtime.listRuns("a1")).toHaveLength(2);
-      expect(runtime.listRuns("a2")).toHaveLength(1);
+      expect(memory.getStats().short_term_count).toBe(1);
     });
   });
 
   describe("getStatus", () => {
-    it("returns definition, runs, and active_runs count", () => {
+    it("returns the definition for a registered agent", () => {
       const def = makeDefinition();
       runtime.registerAgent(def);
-      runtime.startRun("test-agent", { kind: "manual" });
 
       const status = runtime.getStatus("test-agent");
       expect(status.definition).toEqual(def);
-      expect(status.runs).toHaveLength(1);
-      expect(status.active_runs).toBe(1);
-    });
-
-    it("active_runs excludes completed runs", () => {
-      runtime.registerAgent(makeDefinition());
-      const run = runtime.startRun("test-agent", { kind: "manual" });
-      runtime.completeRun(run.run_id);
-
-      const status = runtime.getStatus("test-agent");
-      expect(status.active_runs).toBe(0);
-      expect(status.runs).toHaveLength(1);
     });
 
     it("returns undefined definition for unknown agent", () => {
       const status = runtime.getStatus("unknown-agent");
       expect(status.definition).toBeUndefined();
-      expect(status.runs).toHaveLength(0);
-      expect(status.active_runs).toBe(0);
     });
   });
 });

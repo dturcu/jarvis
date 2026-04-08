@@ -16,22 +16,22 @@ npm run check                     # Validate contracts + run tests + build
 
 Each agent is a Claude Code skill invocable via slash command:
 
-| Command | What it does |
-|---|---|
-| `/bd-pipeline` | Scan for BD signals, enrich leads, draft outreach, update CRM |
-| `/proposal-engine` | Analyze RFQ/SOW, build quote structure, draft proposal |
-| `/evidence-auditor` | Scan project for ISO 26262 work products, produce gap matrix |
-| `/contract-reviewer` | Analyze NDA/MSA clauses, produce sign/negotiate/escalate recommendation |
-| `/staffing-monitor` | Calculate team utilization, forecast gaps, match skills to pipeline |
-| `/content-engine` | Draft LinkedIn post for today's content pillar |
-| `/portfolio-monitor` | Check crypto prices, calculate drift, recommend rebalance |
-| `/garden-calendar` | Generate weekly garden brief based on date + weather |
-| `/email-campaign` | Manage drip campaigns, follow-up sequences, outreach automation |
-| `/social-engagement` | Monitor and respond to social media interactions |
-| `/security-monitor` | Track security advisories, vulnerability alerts, compliance updates |
-| `/drive-watcher` | Watch shared drives for new/changed documents, trigger workflows |
-| `/invoice-generator` | Generate and track invoices for client engagements |
-| `/meeting-transcriber` | Transcribe and summarize meeting recordings |
+| Command | Tier | What it does |
+|---|---|---|
+| `/bd-pipeline` | core | Scan for BD signals, enrich leads, draft outreach, update CRM |
+| `/proposal-engine` | core | Analyze RFQ/SOW, build quote structure, draft proposal |
+| `/evidence-auditor` | core | Scan project for ISO 26262 work products, produce gap matrix |
+| `/contract-reviewer` | core | Analyze NDA/MSA clauses, produce sign/negotiate/escalate recommendation |
+| `/staffing-monitor` | core | Calculate team utilization, forecast gaps, match skills to pipeline |
+| `/content-engine` | extended | Draft LinkedIn post for today's content pillar |
+| `/email-campaign` | extended | Manage drip campaigns, follow-up sequences, outreach automation |
+| `/invoice-generator` | extended | Generate and track invoices for client engagements |
+| `/meeting-transcriber` | extended | Transcribe and summarize meeting recordings |
+| `/portfolio-monitor` | personal | Check crypto prices, calculate drift, recommend rebalance |
+| `/garden-calendar` | personal | Generate weekly garden brief based on date + weather |
+| `/social-engagement` | experimental | Monitor and respond to social media interactions |
+| `/security-monitor` | experimental | Track security advisories, vulnerability alerts, compliance updates |
+| `/drive-watcher` | experimental | Watch shared drives for new/changed documents, trigger workflows |
 
 Agents with schedules run automatically via scheduled tasks. Manual agents run on demand.
 

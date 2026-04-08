@@ -28,14 +28,41 @@ import { supportRouter } from './support.js'
 import { repairRouter } from './repair.js'
 import { modeRouter } from './settings.js'
 import fs from 'fs'
-import { getHealthReport, getReadinessReport } from '@jarvis/runtime'
-import { createAuthMiddleware } from './middleware/auth.js'
+import { getHealthReport, getReadinessReport, loadConfig } from '@jarvis/runtime'
+import { createAuthMiddleware, authRouter } from './middleware/auth.js'
 
 const app = express()
 const PORT = Number(process.env.PORT ?? 4242)
 const ALLOWED_ORIGIN = process.env.JARVIS_CORS_ORIGIN ?? `http://localhost:${PORT}`
 const distPath = join(process.cwd(), 'packages', 'jarvis-dashboard', 'dist')
 const indexHtml = join(distPath, 'index.html')
+
+// ─── Appliance Mode Checks ───────────────────────────────────────────────
+{
+  let applianceMode = false
+  try {
+    const cfg = loadConfig()
+    applianceMode = cfg.appliance_mode
+  } catch { /* config may not exist yet */ }
+
+  if (applianceMode) {
+    console.log('  Appliance mode: enforcing secure defaults')
+
+    // Verify API tokens exist
+    const hasToken = !!process.env.JARVIS_API_TOKEN
+    if (!hasToken) {
+      console.error('  FATAL: appliance_mode is enabled but no API token is configured.')
+      console.error('  Set JARVIS_API_TOKEN env var or add api_token to ~/.jarvis/config.json.')
+      process.exit(1)
+    }
+
+    // Verify bind host is localhost
+    const bindHost = process.env.JARVIS_BIND_HOST ?? '127.0.0.1'
+    if (bindHost === '0.0.0.0') {
+      console.warn('  WARNING: appliance_mode is enabled but JARVIS_BIND_HOST=0.0.0.0 — server is exposed on all interfaces')
+    }
+  }
+}
 
 // Request size limit
 app.use(express.json({ limit: '1mb' }))
@@ -61,6 +88,7 @@ app.options('/{*splat}', (_req, res) => {
 // Auth middleware — protects all /api/* except /api/health and /api/ready
 app.use(createAuthMiddleware())
 
+app.use('/api/auth', authRouter)
 app.use('/api/crm', crmRouter)
 app.use('/api/knowledge', knowledgeRouter)
 app.use('/api/agents', agentsRouter)

@@ -259,7 +259,7 @@ describe("Migration completeness", () => {
     const migCount = (
       db.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number }
     ).n;
-    expect(migCount).toBe(7);
+    expect(migCount).toBe(8);
 
     db.close();
   });
@@ -272,7 +272,7 @@ describe("Migration completeness", () => {
       .all() as Array<{ id: string }>;
     const ids = rows.map((r) => r.id);
 
-    expect(ids).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007"]);
+    expect(ids).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008"]);
     db.close();
   });
 
@@ -280,7 +280,7 @@ describe("Migration completeness", () => {
     const db = freshDb();
     const tables = tableNames(db);
 
-    expect(tables).toHaveLength(19);
+    expect(tables).toHaveLength(20);
 
     // Verify every expected table is present
     const expected = [
@@ -294,6 +294,7 @@ describe("Migration completeness", () => {
       "channel_threads",
       "daemon_heartbeats",
       "decision_entity_links",
+      "delivery_attempts",
       "model_benchmarks",
       "model_registry",
       "notifications",

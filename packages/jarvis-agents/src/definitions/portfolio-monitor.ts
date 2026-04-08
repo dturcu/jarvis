@@ -71,4 +71,5 @@ export const portfolioMonitorAgent: AgentDefinition = {
   maturity: "operational",
   pack: "personal",
   experimental: true,
+  product_tier: "personal",
 };

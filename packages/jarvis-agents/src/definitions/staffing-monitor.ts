@@ -72,4 +72,5 @@ export const staffingMonitorAgent: AgentDefinition = {
   planner_mode: "single",
   maturity: "operational",
   pack: "core",
+  product_tier: "core",
 };

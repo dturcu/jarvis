@@ -1,5 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
-import type { AgentDefinition, AgentTrigger, AgentRun } from "@jarvis/agent-framework";
+import type { AgentDefinition, AgentTrigger, AgentRun, AgentRunStatus } from "@jarvis/agent-framework";
 import { AgentRuntime, SqliteKnowledgeStore, LessonCapture } from "@jarvis/agent-framework";
 import { SqliteEntityGraph } from "@jarvis/agent-framework";
 import { SqliteDecisionLog } from "@jarvis/agent-framework";
@@ -35,6 +35,19 @@ export type OrchestratorDeps = {
   runtimeDb?: DatabaseSync;
   channelStore?: ChannelStore;
 };
+
+/**
+ * Stamp terminal status on the local run object.
+ * AgentRuntime no longer caches run state — the orchestrator owns the object
+ * and RunStore provides durable persistence.
+ */
+function finalizeRun(run: AgentRun, error?: string): void {
+  const now = new Date().toISOString();
+  run.status = (error ? "failed" : "completed") as AgentRunStatus;
+  run.error = error;
+  run.updated_at = now;
+  run.completed_at = now;
+}
 
 /**
  * Run a single agent: plan → execute steps → evaluate → learn.
@@ -190,7 +203,7 @@ export async function runAgent(
           });
           runStore?.completeCommand(run.run_id, "failed");
           statusWriter?.completeRun("disagreement_rejected");
-          runtime.completeRun(run.run_id, "Plan rejected due to planner disagreement");
+          finalizeRun(run, "Plan rejected due to planner disagreement");
           return run;
         }
 
@@ -202,7 +215,7 @@ export async function runAgent(
           runStore?.completeCommand(run.run_id, "failed");
           writeTelegramQueue(agentId, `\u23F0 Approval expired for plan_disagreement. Run ${run.run_id} failed due to timeout.`, runtimeDb);
           statusWriter?.completeRun("disagreement_timeout");
-          runtime.completeRun(run.run_id, "Disagreement approval timeout");
+          finalizeRun(run, "Disagreement approval timeout");
           return run;
         }
 
@@ -244,7 +257,7 @@ export async function runAgent(
       });
       runStore?.completeCommand(run.run_id, "completed");
       statusWriter?.completeRun("empty_plan");
-      runtime.completeRun(run.run_id, "Empty plan — no steps generated");
+      finalizeRun(run, "Empty plan — no steps generated");
       return run;
     }
 
@@ -264,8 +277,8 @@ export async function runAgent(
           log.info("Run cancelled externally — stopping execution");
           runStore.completeCommand(run.run_id, "cancelled");
           statusWriter?.completeRun("cancelled");
-          runtime.completeRun(run.run_id, "Cancelled by operator");
-          return runtime.getRun(run.run_id)!;
+          finalizeRun(run, "Cancelled by operator");
+          return run;
         }
       }
 
@@ -369,7 +382,7 @@ export async function runAgent(
           });
           writeTelegramQueue(agentId, `\u23F0 Approval expired for ${step.action} (step ${step.step}). Run ${run.run_id} failed due to timeout.`, runtimeDb);
           statusWriter?.completeRun("approval_timeout");
-          runtime.completeRun(run.run_id, "Approval timeout");
+          finalizeRun(run, "Approval timeout");
           return run;
         }
 
@@ -414,7 +427,7 @@ export async function runAgent(
         if (result.status === "failed") {
           runStore?.emitEvent(run.run_id, agentId, "step_failed", {
             step_no: step.step, action: step.action,
-            details: { error: result.error?.message, retryable: result.error?.retryable },
+            details: { error: result.error?.message, error_code: result.error?.code, retryable: result.error?.retryable },
           });
 
           // Retry once if retryable
@@ -423,6 +436,15 @@ export async function runAgent(
             const retry = await registry.executeJob({ ...envelope, attempt: 2 });
             if (retry.status === "failed") {
               stepLog.warn("Retry also failed");
+              runStore?.emitEvent(run.run_id, agentId, "step_failed", {
+                step_no: step.step, action: step.action,
+                details: {
+                  error: retry.error?.message,
+                  error_code: retry.error?.code,
+                  attempt: 2,
+                  retryable: false,
+                },
+              });
             } else {
               runStore?.emitEvent(run.run_id, agentId, "step_completed", {
                 step_no: step.step, action: step.action,
@@ -466,8 +488,8 @@ export async function runAgent(
           });
           runStore.completeCommand(run.run_id, "cancelled");
           statusWriter?.completeRun("cancelled");
-          runtime.completeRun(run.run_id, "Cancelled by operator after step " + step.step);
-          return runtime.getRun(run.run_id)!;
+          finalizeRun(run, "Cancelled by operator after step " + step.step);
+          return run;
         }
       }
     }
@@ -478,20 +500,21 @@ export async function runAgent(
       log.info("Run was cancelled externally during final step — respecting cancellation");
       runStore?.completeCommand(run.run_id, "cancelled");
       statusWriter?.completeRun("cancelled");
-      runtime.completeRun(run.run_id, "Cancelled by operator");
-      return runtime.getRun(run.run_id)!;
+      finalizeRun(run, "Cancelled by operator");
+      return run;
     }
     runStore?.transition(run.run_id, agentId, "completed", "run_completed", {
       details: { steps_completed: run.current_step, total_steps: plan.steps.length },
     });
     runStore?.completeCommand(run.run_id, "completed");
     statusWriter?.completeRun("completed");
-    runtime.completeRun(run.run_id);
+    finalizeRun(run);
+    runtime.clearRunMemory(run.run_id);
     log.info(`Completed (${run.current_step} steps)`);
 
     // 6. Capture lessons
     const decisions = decisionLog.getDecisions(agentId, run.run_id);
-    lessonCapture.captureFromRun(runtime.getRun(run.run_id)!, decisions);
+    lessonCapture.captureFromRun(run, decisions);
 
     // 7. Notify via Telegram queue
     const summary = `${def.label}: completed ${run.current_step}/${plan.steps.length} steps. Goal: ${run.goal}`;
@@ -519,7 +542,7 @@ export async function runAgent(
       writeTelegramQueue(agentId, `[REVIEW] ${def.label} completed autonomously. Run: ${run.run_id}. Review output and decisions.`, runtimeDb);
     }
 
-    return runtime.getRun(run.run_id)!;
+    return run;
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e);
     log.error(`Run failed: ${errMsg}`);
@@ -528,8 +551,8 @@ export async function runAgent(
     });
     runStore?.completeCommand(run.run_id, "failed");
     statusWriter?.completeRun(`error: ${errMsg}`);
-    runtime.completeRun(run.run_id, errMsg);
-    return runtime.getRun(run.run_id)!;
+    finalizeRun(run, errMsg);
+    return run;
   }
 }
 
