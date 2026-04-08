@@ -29,6 +29,16 @@ Each agent is a Claude Code skill invocable via slash command:
 
 Agents with schedules run automatically via scheduled tasks. Manual agents run on demand.
 
+## Platform/Kernel Boundary
+
+See `docs/ADR-PLATFORM-KERNEL-BOUNDARY.md` for the authoritative ownership split.
+
+**OpenClaw owns**: channels, sessions, browser lifecycle, webhook ingress, automation surfaces, operator chat loop
+**Jarvis owns**: domain policy, approvals, jarvis.v1 contracts, CRM/knowledge/runtime state, specialized workers
+
+Architecture boundary tests (`tests/architecture-boundary.test.ts`) enforce forbidden patterns in CI.
+Convergence roadmap: `docs/CONVERGENCE-ROADMAP.md` (12 epics, 3-year plan).
+
 ## Architecture
 
 Jarvis has two execution modes:
