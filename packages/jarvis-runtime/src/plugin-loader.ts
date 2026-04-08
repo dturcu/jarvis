@@ -248,15 +248,31 @@ export function isActionPermitted(action: string, grantedPermissions: PluginPerm
 // ── Checksum Verification ─────────────────────────────────────────────────
 
 /**
+ * Recursively sort all object keys for deterministic JSON serialization.
+ */
+function sortKeys(obj: unknown): unknown {
+  if (Array.isArray(obj)) return obj.map(sortKeys);
+  if (obj !== null && typeof obj === "object") {
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(obj as Record<string, unknown>).sort()) {
+      sorted[key] = sortKeys((obj as Record<string, unknown>)[key]);
+    }
+    return sorted;
+  }
+  return obj;
+}
+
+/**
  * Canonical JSON serialization for checksum computation.
- * Sorted keys, 2-space indent, excludes checksum_sha256 and installed_at.
- * This ensures checksums are stable regardless of key ordering in the source file.
+ * Recursively sorted keys, 2-space indent, excludes checksum_sha256 and installed_at at the top level.
+ * This ensures checksums are stable regardless of key ordering in the source file
+ * and preserves all nested object properties.
  */
 export function canonicalSerialize(manifest: Record<string, unknown>): string {
   const clone = { ...manifest };
   delete clone.checksum_sha256;
   delete clone.installed_at;
-  return JSON.stringify(clone, Object.keys(clone).sort(), 2);
+  return JSON.stringify(sortKeys(clone), null, 2);
 }
 
 /**
@@ -391,7 +407,7 @@ export function installPlugin(
     fs.mkdirSync(tempDir, { recursive: true });
     manifest.installed_at = new Date().toISOString();
     // Write with sorted keys to maintain canonical form for future verification
-    fs.writeFileSync(join(tempDir, "manifest.json"), JSON.stringify(manifest, Object.keys(manifest).sort(), 2));
+    fs.writeFileSync(join(tempDir, "manifest.json"), JSON.stringify(sortKeys(manifest), null, 2));
 
     // Copy prompt files
     const promptsDir = join(sourcePath, "prompts");

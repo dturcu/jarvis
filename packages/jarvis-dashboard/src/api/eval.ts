@@ -65,21 +65,23 @@ evalRouter.get('/:agentId', (req, res) => {
   let runStats: { total: number; completed: number; failed: number; success_rate: number } = {
     total: 0, completed: 0, failed: 0, success_rate: 0,
   }
+  let db: ReturnType<typeof getRuntimeDb> | undefined
   try {
-    const db = getRuntimeDb()
+    db = getRuntimeDb()
     const cutoff = new Date(Date.now() - 30 * 86400000).toISOString()
     const row = db.prepare(`
       SELECT COUNT(*) as total,
-             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-             SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
+             COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0) as completed,
+             COALESCE(SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END), 0) as failed
       FROM runs WHERE agent_id = ? AND started_at >= ?
     `).get(agentId, cutoff) as any
-    db.close()
     runStats = {
       ...row,
       success_rate: row.total > 0 ? Math.round((row.completed / row.total) * 1000) / 1000 : 0,
     }
-  } catch { /* runtime.db may not exist */ }
+  } catch { /* runtime.db may not exist */ } finally {
+    try { db?.close() } catch {}
+  }
 
   res.json({
     agent_id: agentId,

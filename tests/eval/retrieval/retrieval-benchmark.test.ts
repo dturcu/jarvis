@@ -64,7 +64,7 @@ describe("retrieval benchmark harness", () => {
 
 describe("sparse retrieval benchmarks", () => {
   let sparseStore: SparseStore;
-  const dbPath = join(os.tmpdir(), `jarvis-bench-sparse-${Date.now()}.db`);
+  const dbPath = join(os.tmpdir(), `jarvis-bench-sparse-${Date.now()}-${Math.random().toString(36).slice(2)}.db`);
 
   beforeAll(() => {
     sparseStore = new SparseStore(dbPath);
@@ -80,8 +80,10 @@ describe("sparse retrieval benchmarks", () => {
 
   afterAll(() => {
     sparseStore.close();
-    if (existsSync(dbPath)) {
-      try { unlinkSync(dbPath); } catch { /* best-effort */ }
+    for (const p of [dbPath, `${dbPath}-wal`, `${dbPath}-shm`]) {
+      if (existsSync(p)) {
+        try { unlinkSync(p); } catch { /* best-effort */ }
+      }
     }
   });
 

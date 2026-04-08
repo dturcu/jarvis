@@ -15,7 +15,8 @@ export const provenanceRouter = Router()
 
 // GET / — list recent provenance records
 provenanceRouter.get('/', (req, res) => {
-  const limit = Math.min(Number(req.query.limit ?? 50), 200)
+  const parsed = parseInt(req.query.limit as string, 10)
+  const limit = Number.isFinite(parsed) ? Math.min(parsed, 200) : 50
   const agentId = req.query.agent as string | undefined
   const db = getRuntimeDb()
   try {
@@ -70,7 +71,7 @@ provenanceRouter.post('/verify', (req, res) => {
   try {
     const rows = db.prepare(
       'SELECT * FROM provenance_traces WHERE run_id = ? ORDER BY sequence ASC'
-    ).all(req.params) as ProvenanceRecord[]
+    ).all(run_id) as ProvenanceRecord[]
 
     if (rows.length === 0) {
       res.json({ run_id, verified: false, reason: 'No provenance records found', records: 0 })

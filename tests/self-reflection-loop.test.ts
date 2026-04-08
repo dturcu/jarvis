@@ -216,7 +216,7 @@ describe("assembleReport", () => {
     const report = assembleReport({
       agentMetrics: [{ agent_id: "evidence-auditor", total: 10, completed: 8, failed: 2, success_rate: 0.8, avg_steps: 5 }],
       systemMetrics: { total_runs: 10, completed: 8, failed: 2, success_rate: 0.8, active_agents: 3 },
-      approvalMetrics: { total: 5, approved: 4, rejected: 1, rejection_rate: 0.2, avg_latency_ms: 5000, by_action: [] },
+      approvalMetrics: { total: 5, approved: 4, rejected: 1, rejection_rate: 0.2, avg_latency_ms: 5000, by_action: [], by_severity: [] },
       knowledgeMetrics: {
         total_documents: 50,
         collections: { lessons: 20, proposals: 15, contracts: 15 },
@@ -240,7 +240,7 @@ describe("assembleReport", () => {
     const report = assembleReport({
       agentMetrics: [],
       systemMetrics: { total_runs: 0, completed: 0, failed: 0, success_rate: 0, active_agents: 0 },
-      approvalMetrics: { total: 0, approved: 0, rejected: 0, rejection_rate: 0, avg_latency_ms: null, by_action: [] },
+      approvalMetrics: { total: 0, approved: 0, rejected: 0, rejection_rate: 0, avg_latency_ms: null, by_action: [], by_severity: [] },
       knowledgeMetrics: { total_documents: 0, collections: {}, stale_count: 0, thin_collections: [], freshness: [] },
       failureModes: [],
       healthScore: 50,

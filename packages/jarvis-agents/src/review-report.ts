@@ -9,8 +9,6 @@
  * It provides the data substrate the LLM reasons over.
  */
 
-import { randomUUID } from "node:crypto";
-
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export type ProposalCategory =
@@ -50,6 +48,7 @@ export type ApprovalMetricsSummary = {
   rejection_rate: number;
   avg_latency_ms: number | null;
   by_action: Array<{ action: string; total: number; rejected: number }>;
+  by_severity: Array<{ severity: string; total: number; rejected: number }>;
 };
 
 export type KnowledgeMetricsSummary = {
@@ -128,7 +127,7 @@ export function assembleReport(params: {
   const periodStart = new Date(now.getTime() - periodDays * 86400000);
 
   return {
-    report_id: randomUUID(),
+    report_id: `rr-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`,
     period_start: periodStart.toISOString(),
     period_end: now.toISOString(),
     health_score: params.healthScore,

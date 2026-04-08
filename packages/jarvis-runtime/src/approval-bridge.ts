@@ -210,10 +210,10 @@ export function getApprovalMetrics(db: DatabaseSync, days = 7): ApprovalMetrics 
   const totals = db.prepare(`
     SELECT
       COUNT(*) as total,
-      SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved,
-      SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected,
-      SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) as expired,
-      SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending
+      COALESCE(SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END), 0) as approved,
+      COALESCE(SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END), 0) as rejected,
+      COALESCE(SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END), 0) as expired,
+      COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) as pending
     FROM approvals
     WHERE requested_at >= ?
   `).get(cutoff) as any;
@@ -247,7 +247,7 @@ export function getApprovalMetrics(db: DatabaseSync, days = 7): ApprovalMetrics 
   return {
     ...totals,
     rejection_rate: totals.total > 0 ? Math.round((totals.rejected / totals.total) * 1000) / 1000 : 0,
-    avg_latency_ms: latency.avg_ms ? Math.round(latency.avg_ms) : null,
+    avg_latency_ms: latency.avg_ms !== null ? Math.round(latency.avg_ms) : null,
     by_action: byAction,
     by_severity: bySeverity,
   };
