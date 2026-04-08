@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import {
   chatCompletion,
   detectRuntimes,
@@ -21,6 +23,8 @@ import {
 import type { DatabaseSync } from "node:sqlite";
 import type { InferenceAdapter, ExecutionOutcome } from "./adapter.js";
 import { InferenceWorkerError } from "./adapter.js";
+import type { EmbeddingPipeline } from "@jarvis/agent-framework";
+import type { HybridRetriever, RetrievalResult } from "@jarvis/agent-framework";
 import type {
   InferenceBatchJobStatus,
   InferenceBatchStatusInput,
@@ -57,13 +61,22 @@ const DEFAULT_RUNTIME_URLS: Record<string, string> = {
 export class DefaultInferenceAdapter implements InferenceAdapter {
   private runtimeDb?: DatabaseSync;
   private runtimeUrls: Record<string, string>;
+  private embeddingPipeline?: EmbeddingPipeline;
+  private hybridRetriever?: HybridRetriever;
 
-  constructor(runtimeDb?: DatabaseSync, lmStudioUrl?: string) {
+  constructor(
+    runtimeDb?: DatabaseSync,
+    lmStudioUrl?: string,
+    embeddingPipeline?: EmbeddingPipeline,
+    hybridRetriever?: HybridRetriever,
+  ) {
     this.runtimeDb = runtimeDb;
     this.runtimeUrls = {
       ...DEFAULT_RUNTIME_URLS,
       ...(lmStudioUrl ? { lmstudio: lmStudioUrl } : {}),
     };
+    this.embeddingPipeline = embeddingPipeline;
+    this.hybridRetriever = hybridRetriever;
   }
 
   /**
@@ -361,6 +374,40 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
   }
 
   async ragIndex(input: InferenceRagIndexInput): Promise<ExecutionOutcome<InferenceRagIndexOutput>> {
+    // Use hybrid RAG pipeline when available
+    if (this.embeddingPipeline) {
+      let totalChunks = 0;
+      for (const filePath of input.paths) {
+        if (!existsSync(filePath)) {
+          throw new InferenceWorkerError(
+            "FILE_NOT_FOUND",
+            `File not found for RAG indexing: ${filePath}`,
+            false,
+          );
+        }
+        const content = await readFile(filePath, "utf-8");
+        const docId = `${input.collection}:${filePath}`;
+        const result = await this.embeddingPipeline.ingestDocument(
+          docId,
+          content,
+          input.collection,
+        );
+        totalChunks += result.chunkCount;
+      }
+
+      const output: InferenceRagIndexOutput = {
+        collection: input.collection,
+        document_count: input.paths.length,
+        chunk_count: totalChunks,
+        last_indexed_at: new Date().toISOString(),
+      };
+      return {
+        summary: `Indexed ${input.paths.length} document(s) into '${input.collection}' (${totalChunks} chunks, hybrid RAG).`,
+        structured_output: output,
+      };
+    }
+
+    // Fallback: in-memory TF-based RAG
     const collection = await indexDocuments(input.paths, input.collection);
 
     const output: InferenceRagIndexOutput = {
@@ -377,6 +424,33 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
   }
 
   async ragQuery(input: InferenceRagQueryInput): Promise<ExecutionOutcome<InferenceRagQueryOutput>> {
+    // Use hybrid retriever when available (dense + sparse + RRF)
+    if (this.hybridRetriever) {
+      const retrieved = await this.hybridRetriever.retrieve(
+        input.query,
+        input.top_k,
+        input.collection,
+      );
+
+      const results = retrieved.map((r) => ({
+        text: r.text,
+        score: r.rerankScore ?? r.score,
+        source: r.docId,
+      }));
+
+      const output: InferenceRagQueryOutput = {
+        results,
+        collection: input.collection,
+        query: input.query,
+        returned_count: results.length,
+      };
+      return {
+        summary: `Hybrid RAG query returned ${results.length} result(s) from '${input.collection}'.`,
+        structured_output: output,
+      };
+    }
+
+    // Fallback: in-memory TF-based RAG
     const results = await queryRag(input.query, input.collection, input.top_k);
 
     const output: InferenceRagQueryOutput = {

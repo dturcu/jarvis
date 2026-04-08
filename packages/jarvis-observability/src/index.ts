@@ -9,6 +9,16 @@ export {
   queueDepth,
   activeAgentRuns,
   modelLatencySeconds,
+  ragRetrievalSeconds,
+  embeddingChunksTotal,
+  knowledgeDocumentsTotal,
+  approvalFunnelTotal,
+  provenanceRecordsTotal,
 } from "./metrics.js";
 export { withJobSpan, withDbSpan, currentTraceId } from "./span-helpers.js";
 export { metricsEndpoint } from "./middleware.js";
+export {
+  ProvenanceSigner,
+  hashContent,
+  type ProvenanceRecord,
+} from "./provenance.js";

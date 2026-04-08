@@ -7,7 +7,8 @@
   "references": [
     { "path": "../jarvis-shared" },
     { "path": "../jarvis-supervisor" },
-    { "path": "../jarvis-inference" }
+    { "path": "../jarvis-inference" },
+    { "path": "../jarvis-agent-framework" }
   ],
   "include": ["src/**/*.ts"]
 }

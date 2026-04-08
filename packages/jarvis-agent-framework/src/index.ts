@@ -12,3 +12,6 @@ export * from "./lesson-capture.js";
 export * from "./vector-store.js";
 export * from "./sparse-store.js";
 export * from "./lesson-injector.js";
+export * from "./embedding-pipeline.js";
+export * from "./hybrid-retriever.js";
+export * from "./vision-processor.js";

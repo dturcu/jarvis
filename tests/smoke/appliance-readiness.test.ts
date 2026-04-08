@@ -259,12 +259,12 @@ describe("Migration completeness", () => {
     const migCount = (
       db.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number }
     ).n;
-    expect(migCount).toBe(8);
+    expect(migCount).toBe(9);
 
     db.close();
   });
 
-  it("migration IDs: 0001, 0002, 0003, 0004", () => {
+  it("migration IDs: 0001 through 0009", () => {
     const db = freshDb();
 
     const rows = db
@@ -272,15 +272,15 @@ describe("Migration completeness", () => {
       .all() as Array<{ id: string }>;
     const ids = rows.map((r) => r.id);
 
-    expect(ids).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008"]);
+    expect(ids).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009"]);
     db.close();
   });
 
-  it("after migration: 19 tables exist (13 original + 3 channel + 2 knowledge_links + schema_migrations)", () => {
+  it("after migration: 21 tables exist (includes provenance_traces)", () => {
     const db = freshDb();
     const tables = tableNames(db);
 
-    expect(tables).toHaveLength(20);
+    expect(tables).toHaveLength(21);
 
     // Verify every expected table is present
     const expected = [
@@ -299,6 +299,7 @@ describe("Migration completeness", () => {
       "model_registry",
       "notifications",
       "plugin_installs",
+      "provenance_traces",
       "run_events",
       "runs",
       "schedules",

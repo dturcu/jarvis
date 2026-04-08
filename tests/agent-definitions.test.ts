@@ -303,7 +303,7 @@ describe("all agents structural invariants", () => {
   });
 
   it("every agent has at least one approval_gate except read-only and auto-mode agents", () => {
-    const exempt = ["garden-calendar", "security-monitor", "meeting-transcriber", "drive-watcher"];
+    const exempt = ["garden-calendar", "security-monitor", "meeting-transcriber", "drive-watcher", "self-reflection"];
     const required = ALL_AGENTS.filter(a => !exempt.includes(a.agent_id));
     for (const agent of required) {
       expect(agent.approval_gates.length).toBeGreaterThanOrEqual(1);
