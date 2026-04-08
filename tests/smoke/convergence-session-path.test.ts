@@ -18,7 +18,6 @@ import { join } from "node:path";
 import { mapTelegramCommandToSession } from "../../packages/jarvis-telegram/src/session-adapter.js";
 import {
   createNotificationDispatcher,
-  writeTelegramQueue,
 } from "../../packages/jarvis-runtime/src/notify.js";
 import { runMigrations } from "../../packages/jarvis-runtime/src/migrations/runner.js";
 

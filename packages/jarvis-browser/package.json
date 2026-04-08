@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./bridge": {
+      "types": "./dist/openclaw-bridge.d.ts",
+      "default": "./dist/openclaw-bridge.js"
     }
   },
   "openclaw": {

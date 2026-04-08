@@ -134,7 +134,7 @@ export function queryCredentialAccessLog(
   const conditions: string[] = [
     "(action = 'credential.access' OR action = 'credential.denied')",
   ];
-  const params: unknown[] = [];
+  const params: (string | number | null)[] = [];
 
   if (options.workerId) {
     conditions.push("actor_id = ?");
