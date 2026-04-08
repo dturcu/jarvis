@@ -1,4 +1,4 @@
-export { loadConfig, validateConfig, type JarvisRuntimeConfig, type ConfigCheckResult } from "./config.js";
+export { loadConfig, validateConfig, getCredentialsForWorker, type JarvisRuntimeConfig, type ConfigCheckResult, type WorkerCredentials } from "./config.js";
 export { openRuntimeDb } from "./runtime-db.js";
 export { runMigrations, RUNTIME_MIGRATIONS, CRM_MIGRATIONS, KNOWLEDGE_MIGRATIONS, type Migration } from "./migrations/runner.js";
 export { Logger, type LogContext } from "./logger.js";
@@ -27,7 +27,7 @@ export { DbSchedulerStore } from "./db-scheduler.js";
 export { isReadOnlyAction, getReadOnlySuffixes } from "./action-classifier.js";
 export { V1_WORKFLOWS, type WorkflowDefinition, type WorkflowInput, type WorkflowOutputField, type WorkflowSafetyRules } from "./workflows.js";
 export { STARTER_PACKS, type StarterPack } from "./starter-packs.js";
-export { ChannelStore, type ChannelName, type MessageDirection, type DeliveryStatus, type ChannelThread, type ChannelMessage, type ArtifactDelivery, type RunTimelineEntry } from "./channel-store.js";
+export { ChannelStore, type ChannelName, type MessageDirection, type DeliveryStatus, type ThreadStatus, type ChannelThread, type ChannelMessage, type ArtifactDelivery, type DeliveryAttempt, type RunTimelineEntry } from "./channel-store.js";
 export { createCommand, type CommandSource, type CreateCommandOpts, type CreateCommandResult } from "./command-factory.js";
 export { getExecutionPolicy, WORKER_EXECUTION_POLICIES, type WorkerIsolation, type ExecutionPolicy } from "./execution-policy.js";
 export { validatePath, defaultFilesystemPolicy, loadFilesystemPolicy, type FilesystemPolicy, type PathValidationResult } from "./filesystem-policy.js";

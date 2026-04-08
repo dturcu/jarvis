@@ -74,4 +74,5 @@ export const securityMonitorAgent: AgentDefinition = {
   maturity: "operational",
   pack: "experimental",
   experimental: true,
+  product_tier: "experimental",
 };

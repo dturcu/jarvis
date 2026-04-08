@@ -90,4 +90,5 @@ export const contentEngineAgent: AgentDefinition = {
   maturity: "operational",
   pack: "experimental",
   experimental: true,
+  product_tier: "extended",
 };

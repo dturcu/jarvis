@@ -9,12 +9,15 @@ export type MessageDirection = "inbound" | "outbound";
 
 export type DeliveryStatus = "pending" | "delivered" | "failed";
 
+export type ThreadStatus = "active" | "resolved" | "archived";
+
 export type ChannelThread = {
   thread_id: string;
   channel: string;
   external_id: string | null;
   subject: string | null;
   metadata_json: string | null;
+  status: ThreadStatus;
   created_at: string;
   updated_at: string;
 };
@@ -29,6 +32,7 @@ export type ChannelMessage = {
   sender: string | null;
   command_id: string | null;
   run_id: string | null;
+  approval_id: string | null;
   created_at: string;
 };
 
@@ -43,6 +47,14 @@ export type ArtifactDelivery = {
   status: string;
   delivered_at: string | null;
   created_at: string;
+};
+
+export type DeliveryAttempt = {
+  attempt_id: string;
+  delivery_id: string;
+  attempted_at: string;
+  success: number;
+  error: string | null;
 };
 
 export type RunTimelineEntry = {
@@ -115,6 +127,7 @@ export class ChannelStore {
     sender?: string;
     commandId?: string;
     runId?: string;
+    approvalId?: string;
   }): string {
     const messageId = randomUUID();
     const now = new Date().toISOString();
@@ -134,6 +147,17 @@ export class ChannelStore {
       opts.runId ?? null,
       now,
     );
+
+    // Store approval_id if provided (column added in migration 0008)
+    if (opts.approvalId != null) {
+      try {
+        this.db.prepare(
+          "UPDATE channel_messages SET approval_id = ? WHERE message_id = ?",
+        ).run(opts.approvalId, messageId);
+      } catch {
+        // approval_id column may not exist yet if migration 0008 hasn't run
+      }
+    }
 
     // Store full content if provided (column added in migration 0007)
     if (opts.contentFull != null) {
@@ -299,5 +323,60 @@ export class ChannelStore {
     // Sort chronologically
     entries.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
     return entries;
+  }
+
+  // ─── Thread status (#43) ──────────────────────────────────────────────
+
+  /** Update the status of a thread (active, resolved, archived). */
+  updateThreadStatus(threadId: string, status: ThreadStatus): void {
+    const now = new Date().toISOString();
+    this.db.prepare(
+      "UPDATE channel_threads SET status = ?, updated_at = ? WHERE thread_id = ?",
+    ).run(status, now, threadId);
+  }
+
+  /** Get all active threads, optionally filtered by channel. */
+  getActiveThreads(channel?: string): ChannelThread[] {
+    if (channel) {
+      return this.db.prepare(
+        "SELECT * FROM channel_threads WHERE status = 'active' AND channel = ? ORDER BY updated_at DESC",
+      ).all(channel) as ChannelThread[];
+    }
+    return this.db.prepare(
+      "SELECT * FROM channel_threads WHERE status = 'active' ORDER BY updated_at DESC",
+    ).all() as ChannelThread[];
+  }
+
+  // ─── Delivery attempts (#44) ──────────────────────────────────────────
+
+  /** Record a delivery attempt for retry tracking. Returns the attempt_id. */
+  recordDeliveryAttempt(deliveryId: string, success: boolean, error?: string): string {
+    const attemptId = randomUUID();
+    this.db.prepare(`
+      INSERT INTO delivery_attempts (attempt_id, delivery_id, attempted_at, success, error)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(attemptId, deliveryId, new Date().toISOString(), success ? 1 : 0, error ?? null);
+    return attemptId;
+  }
+
+  /** Get all delivery attempts for a given delivery, ordered chronologically. */
+  getDeliveryAttempts(deliveryId: string): DeliveryAttempt[] {
+    return this.db.prepare(
+      "SELECT * FROM delivery_attempts WHERE delivery_id = ? ORDER BY attempted_at ASC",
+    ).all(deliveryId) as DeliveryAttempt[];
+  }
+
+  // ─── Thread-aware queries (#48) ───────────────────────────────────────
+
+  /** Get threads for a channel, optionally filtered by status. For operator views. */
+  getThreadsByChannel(channel: string, status?: ThreadStatus, limit = 50): ChannelThread[] {
+    if (status) {
+      return this.db.prepare(
+        "SELECT * FROM channel_threads WHERE channel = ? AND status = ? ORDER BY updated_at DESC LIMIT ?",
+      ).all(channel, status, limit) as ChannelThread[];
+    }
+    return this.db.prepare(
+      "SELECT * FROM channel_threads WHERE channel = ? ORDER BY updated_at DESC LIMIT ?",
+    ).all(channel, limit) as ChannelThread[];
   }
 }

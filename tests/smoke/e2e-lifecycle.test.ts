@@ -609,6 +609,7 @@ describe("E2E: Config Validation", () => {
       trigger_poll_ms: 10000,
       max_concurrent: 2,
       log_level: "info",
+      appliance_mode: false,
     };
 
     const result = validateConfig(config);

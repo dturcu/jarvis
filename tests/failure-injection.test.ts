@@ -95,7 +95,7 @@ function createMockRegistry(
       try {
         const timeoutPromise = new Promise<JobResult>((_, reject) => {
           setTimeout(
-            () => reject(new Error(`Worker timeout after ${timeoutMs}ms`)),
+            () => reject(new Error(`EXECUTION_TIMEOUT after ${timeoutMs}ms`)),
             timeoutMs,
           );
         });
@@ -113,13 +113,13 @@ function createMockRegistry(
       } catch (e) {
         const durationMs = Date.now() - startTime;
         const errMsg = e instanceof Error ? e.message : String(e);
-        const isTimeout = errMsg.includes("Worker timeout");
+        const isTimeout = errMsg.includes("EXECUTION_TIMEOUT");
 
         if (isTimeout) {
           healthMonitor?.recordTimeout(prefix!);
           return makeFailedResult(
             envelope,
-            "WORKER_TIMEOUT",
+            "EXECUTION_TIMEOUT",
             `${envelope.type} timed out after ${Math.round(timeoutMs / 1000)}s`,
           );
         }
@@ -181,7 +181,7 @@ describe("Failure Injection", () => {
       const result = await registry.executeJob(envelope);
 
       expect(result.status).toBe("failed");
-      expect(result.error?.code).toBe("WORKER_TIMEOUT");
+      expect(result.error?.code).toBe("EXECUTION_TIMEOUT");
     });
 
     it("subsequent job executes successfully after prior crash", async () => {

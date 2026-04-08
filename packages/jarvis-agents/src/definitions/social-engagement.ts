@@ -76,4 +76,5 @@ export const socialEngagementAgent: AgentDefinition = {
   maturity: "operational",
   pack: "experimental",
   experimental: true,
+  product_tier: "experimental",
 };

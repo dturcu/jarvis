@@ -85,4 +85,5 @@ export const contractReviewerAgent: AgentDefinition = {
   planner_mode: "multi",
   maturity: "high_stakes_manual_gate",
   pack: "core",
+  product_tier: "core",
 };

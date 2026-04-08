@@ -81,3 +81,19 @@ Each gate has objective pass criteria. A gate is either passed or not -- no part
 - [ ] Release process exists: versioning, changelog, migration notes, backup-before-upgrade, rollback plan.
 - [ ] Upgrade path from prior version is tested.
 - [ ] Production docs sufficient for a fresh operator to install, run, back up, restore, and troubleshoot.
+
+## Gate E -- Security Gates
+
+**Scope**: CI must verify these on every merge to master.
+
+**Pass criteria**:
+
+- [ ] Contract validation passes for all 143 job types (`npm run validate:contracts`).
+- [ ] Security posture smoke tests pass (`tests/smoke/security-posture.test.ts`).
+- [ ] No `run_command` or `write_file` tool handlers exist in chat surfaces (`packages/jarvis-dashboard/src/api/chat.ts`, `packages/jarvis-telegram/src/`). Grep CI step confirms zero matches.
+- [ ] Auth middleware rate limiting is exercised: IP blocked after 10 failed auth attempts within 5 minutes.
+- [ ] Appliance mode blocks startup without tokens in production (`JARVIS_MODE=production` with no `api_token` returns 503).
+- [ ] Filesystem policy denies paths outside allowed roots and blocks credential file patterns (`.env`, `.pem`, `.key`, `id_rsa`, `.ssh`, `.aws`).
+- [ ] Approval state machine rejects transitions from non-pending states (no double-approve, no approve-after-reject).
+- [ ] Schema validator rejects null, array, and string inputs for all registered job types.
+- [ ] Role hierarchy enforced: viewer cannot access operator or admin routes.

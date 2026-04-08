@@ -13,6 +13,10 @@ export type FilesystemPolicy = {
   allowed_roots: string[];
   denied_patterns: string[];
   max_file_size_bytes: number;
+  /** Maximum bytes a single read operation may return (default 10 MB). */
+  max_read_bytes: number;
+  /** Maximum bytes a single write operation may accept (default 5 MB). */
+  max_write_bytes: number;
 };
 
 export type PathValidationResult = {
@@ -33,16 +37,62 @@ const DEFAULT_DENIED_PATTERNS = [
   ".pfx",
 ];
 
+/**
+ * Hardcoded blocked paths that can never be accessed regardless of allowed_roots.
+ * Normalised to lowercase for case-insensitive comparison.
+ */
+const BLOCKED_PATH_PREFIXES: string[] = [
+  // Unix system directories
+  "/etc",
+  "/var",
+  // Windows system directories (cover all drive letters)
+  ...(process.platform === "win32"
+    ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").flatMap(d => [
+        `${d}:\\Windows`,
+        `${d}:\\Program Files`,
+        `${d}:\\Program Files (x86)`,
+      ])
+    : []),
+  // SSH keys
+  resolve(os.homedir(), ".ssh"),
+  // Cloud credential stores
+  resolve(os.homedir(), ".aws"),
+  resolve(os.homedir(), ".gcp"),
+  resolve(os.homedir(), ".azure"),
+].map(p => normalize(p).toLowerCase());
+
+/**
+ * Blocked path substrings -- paths containing any of these (case-insensitive)
+ * are denied regardless of allowed_roots.
+ */
+const BLOCKED_PATH_SUBSTRINGS: string[] = [
+  "chrome/user data",
+  "chrome\\user data",
+  "firefox/profiles",
+  "firefox\\profiles",
+];
+
+const DEFAULT_MAX_READ_BYTES = 10 * 1024 * 1024;   // 10 MB
+const DEFAULT_MAX_WRITE_BYTES = 5 * 1024 * 1024;   //  5 MB
+
 const JARVIS_DIR = resolve(os.homedir(), ".jarvis");
 
-/** Default filesystem policy: allows ~/.jarvis/ and temp dir; denies secrets. */
+/**
+ * Default filesystem policy.
+ *
+ * Allowed roots: `~/.jarvis`, `os.tmpdir()`, and either the explicit
+ * `projectRoot` or `process.cwd()`.  The entire filesystem is **never**
+ * implicitly allowed.
+ */
 export function defaultFilesystemPolicy(projectRoot?: string): FilesystemPolicy {
   const roots = [JARVIS_DIR, os.tmpdir()];
-  if (projectRoot) roots.push(resolve(projectRoot));
+  roots.push(resolve(projectRoot ?? process.cwd()));
   return {
     allowed_roots: roots,
     denied_patterns: [...DEFAULT_DENIED_PATTERNS],
-    max_file_size_bytes: 50 * 1024 * 1024, // 50MB
+    max_file_size_bytes: 50 * 1024 * 1024, // 50 MB
+    max_read_bytes: DEFAULT_MAX_READ_BYTES,
+    max_write_bytes: DEFAULT_MAX_WRITE_BYTES,
   };
 }
 
@@ -55,16 +105,44 @@ export function defaultFilesystemPolicy(projectRoot?: string): FilesystemPolicy 
 export function validatePath(targetPath: string, policy: FilesystemPolicy): PathValidationResult {
   let absPath = normalizePath(resolve(targetPath));
 
-  // Resolve symlinks to prevent bypassing allowed_roots via linked paths
+  // ── Symlink resolution ──────────────────────────────────────────────────
+  // Always resolve symlinks BEFORE any allow/deny check so that a symlink
+  // inside an allowed root that points outside cannot escape the sandbox.
   try {
     if (fs.existsSync(absPath)) {
       absPath = normalizePath(fs.realpathSync(absPath));
     }
   } catch {
-    // If realpathSync fails (e.g., broken symlink), proceed with lexical path
+    // If realpathSync fails (e.g., broken symlink) reject the path outright
+    // rather than silently allowing a potentially malicious link.
+    return {
+      allowed: false,
+      reason: `Unable to resolve real path for "${absPath}" -- broken or inaccessible symlink`,
+    };
   }
 
-  // Check against allowed roots
+  // ── Hardcoded blocked paths (always denied) ─────────────────────────────
+  const lowerAbs = absPath.toLowerCase();
+
+  for (const blocked of BLOCKED_PATH_PREFIXES) {
+    if (lowerAbs === blocked || lowerAbs.startsWith(blocked + sep.toLowerCase())) {
+      return {
+        allowed: false,
+        reason: `Path "${absPath}" falls under a blocked system/credential directory`,
+      };
+    }
+  }
+
+  for (const sub of BLOCKED_PATH_SUBSTRINGS) {
+    if (lowerAbs.includes(sub)) {
+      return {
+        allowed: false,
+        reason: `Path "${absPath}" matches blocked browser-profile pattern`,
+      };
+    }
+  }
+
+  // ── Allowed-root check ──────────────────────────────────────────────────
   const inAllowedRoot = policy.allowed_roots.some(root => {
     const normalizedRoot = normalizePath(resolve(root));
     return absPath.startsWith(normalizedRoot + sep) || absPath === normalizedRoot;
@@ -77,9 +155,8 @@ export function validatePath(targetPath: string, policy: FilesystemPolicy): Path
     };
   }
 
-  // Check against denied patterns (case-insensitive substring on segments)
-  const lowerPath = absPath.toLowerCase();
-  const segments = lowerPath.split(sep);
+  // ── Denied-pattern check (case-insensitive substring on segments) ───────
+  const segments = lowerAbs.split(sep);
   for (const pattern of policy.denied_patterns) {
     const lowerPattern = pattern.toLowerCase();
     if (segments.some(seg => seg.includes(lowerPattern))) {
@@ -102,6 +179,8 @@ export function loadFilesystemPolicy(config: {
     additional_roots?: string[];
     additional_denied_patterns?: string[];
     max_file_size_bytes?: number;
+    max_read_bytes?: number;
+    max_write_bytes?: number;
   };
   project_root?: string;
 }): FilesystemPolicy {
@@ -117,6 +196,12 @@ export function loadFilesystemPolicy(config: {
   }
   if (overrides.max_file_size_bytes) {
     base.max_file_size_bytes = overrides.max_file_size_bytes;
+  }
+  if (overrides.max_read_bytes) {
+    base.max_read_bytes = overrides.max_read_bytes;
+  }
+  if (overrides.max_write_bytes) {
+    base.max_write_bytes = overrides.max_write_bytes;
   }
 
   return base;

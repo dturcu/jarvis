@@ -35,6 +35,22 @@ const VALID_TRANSITIONS: Record<RunStatus, RunStatus[]> = {
  * table (authoritative current state) and `run_events` table (audit trail).
  *
  * Current status is always read from DB, never from an in-memory cache.
+ *
+ * ── Retention Policy (#70) ──────────────────────────────────────────────────
+ * Intended data-lifecycle rules (not yet implemented — document intent now,
+ * build compaction job later):
+ *
+ *  - run_events older than 90 days: compact into per-run summary rows, then
+ *    delete the individual step-level events. The summary preserves final
+ *    status, duration, step count, and error (if any).
+ *
+ *  - channel_messages previews older than 30 days: archive preview_json to
+ *    cold storage (or drop if full content is retained in full_content_json),
+ *    keeping the message row for thread-continuity queries.
+ *
+ * Until the compaction job ships, these tables grow unbounded. Monitor
+ * runtime.db size via the dashboard health endpoint.
+ * ────────────────────────────────────────────────────────────────────────────
  */
 export class RunStore {
   constructor(private db: DatabaseSync) {}
