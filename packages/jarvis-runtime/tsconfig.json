@@ -16,6 +16,7 @@
     { "path": "../jarvis-crm-worker" },
     { "path": "../jarvis-web-worker" },
     { "path": "../jarvis-calendar-worker" },
-    { "path": "../jarvis-scheduler" }
+    { "path": "../jarvis-scheduler" },
+    { "path": "../jarvis-observability" }
   ]
 }

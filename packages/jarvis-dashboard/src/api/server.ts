@@ -26,9 +26,11 @@ import { packsRouter } from './packs.js'
 import { serviceRouter } from './service.js'
 import { supportRouter } from './support.js'
 import { repairRouter } from './repair.js'
+import { provenanceRouter } from './provenance.js'
 import { modeRouter } from './settings.js'
 import fs from 'fs'
 import { getHealthReport, getReadinessReport, loadConfig } from '@jarvis/runtime'
+import { getMetricsText, getMetricsContentType } from '@jarvis/observability'
 import { createAuthMiddleware, authRouter } from './middleware/auth.js'
 
 const app = express()
@@ -120,6 +122,7 @@ app.use('/api/packs', packsRouter)
 app.use('/api/service', serviceRouter)
 app.use('/api/support', supportRouter)
 app.use('/api/repair', repairRouter)
+app.use('/api/provenance', provenanceRouter)
 app.use('/api/mode', modeRouter)
 
 app.get('/api/health', (_req, res) => {
@@ -139,6 +142,16 @@ app.get('/api/health', (_req, res) => {
     distExists: fs.existsSync(indexHtml),
     dashboardUrl: `http://localhost:${PORT}`
   })
+})
+
+// Prometheus metrics endpoint — returns all registered metrics in exposition format
+app.get('/api/metrics', async (_req, res) => {
+  try {
+    const text = await getMetricsText()
+    res.set('Content-Type', getMetricsContentType()).send(text)
+  } catch {
+    res.status(500).json({ error: 'Failed to collect metrics' })
+  }
 })
 
 app.get('/api/ready', (_req, res) => {

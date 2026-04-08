@@ -62,7 +62,7 @@ describe("Smoke: Database Lifecycle", () => {
     runMigrations(db); // second time
     runMigrations(db); // third time
     const rows = db.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number };
-    expect(rows.n).toBe(9);
+    expect(rows.n).toBe(10);
   });
 });
 

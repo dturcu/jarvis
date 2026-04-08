@@ -15,3 +15,4 @@ export * from "./lesson-injector.js";
 export * from "./embedding-pipeline.js";
 export * from "./hybrid-retriever.js";
 export * from "./vision-processor.js";
+export * from "./page-extractor.js";
