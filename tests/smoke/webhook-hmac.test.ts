@@ -4,8 +4,9 @@
  * Tests the crypto logic used by the webhook endpoint to verify HMAC-SHA256
  * signatures. Tests the computation and comparison directly without HTTP.
  *
- * Based on the validation logic in packages/jarvis-dashboard/src/api/webhooks.ts
- * which uses crypto.createHmac('sha256', secret) and timingSafeEqual.
+ * Based on the validation logic in @jarvis/shared webhook-normalizer.ts
+ * (verifyWebhookSignature) which uses crypto.createHmac('sha256', secret)
+ * and timingSafeEqual.
  */
 
 import { describe, it, expect } from "vitest";
@@ -13,7 +14,7 @@ import crypto from "node:crypto";
 
 /**
  * Compute HMAC-SHA256 signature in the same format as the webhook endpoint.
- * Mirrors the logic in webhooks.ts for both GitHub (X-Hub-Signature-256)
+ * Mirrors the logic in webhook-normalizer.ts for both GitHub (X-Hub-Signature-256)
  * and Jarvis generic webhooks (X-Jarvis-Signature).
  */
 function computeSignature(payload: string, secret: string): string {
@@ -22,7 +23,7 @@ function computeSignature(payload: string, secret: string): string {
 
 /**
  * Validate an HMAC signature using timing-safe comparison.
- * Mirrors the validateHmac logic from webhooks.ts, including the buffer
+ * Mirrors the verifyWebhookSignature logic from webhook-normalizer.ts, including the buffer
  * padding for length-safe timingSafeEqual.
  */
 function validateSignature(payload: string, signature: string, secret: string): boolean {

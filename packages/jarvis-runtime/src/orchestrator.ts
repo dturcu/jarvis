@@ -9,6 +9,7 @@ import { buildPlanMultiViewpoint } from "./planner-multi.js";
 import { requestApproval, waitForApproval } from "./approval-bridge.js";
 import { buildEnvelope, type WorkerRegistry } from "./worker-registry.js";
 import { writeTelegramQueue } from "./notify.js";
+import type { NotificationDispatcher } from "./notify.js";
 import { RunStore } from "./run-store.js";
 import { isReadOnlyAction } from "./action-classifier.js";
 import { classifyDisagreement, shouldBlockExecution, shouldFlagForReview, DEFAULT_DISAGREEMENT_POLICY } from "./disagreement-policy.js";
@@ -51,6 +52,7 @@ export type OrchestratorDeps = {
   ragPipeline?: RagPipeline;
   runtimeDb?: DatabaseSync;
   channelStore?: ChannelStore;
+  notifier?: NotificationDispatcher;
 };
 
 /**
@@ -272,7 +274,11 @@ export async function runAgent(
             details: { reason: "disagreement_timeout" },
           });
           runStore?.completeCommand(run.run_id, "failed");
-          writeTelegramQueue(agentId, `\u23F0 Approval expired for plan_disagreement. Run ${run.run_id} failed due to timeout.`, runtimeDb);
+          if (deps.notifier) {
+            deps.notifier.notify(agentId, `\u23F0 Approval expired for plan_disagreement. Run ${run.run_id} failed due to timeout.`, deps.runtimeDb).catch(() => {});
+          } else {
+            writeTelegramQueue(agentId, `\u23F0 Approval expired for plan_disagreement. Run ${run.run_id} failed due to timeout.`, runtimeDb);
+          }
           statusWriter?.completeRun("disagreement_timeout");
           finalizeRun(run, "Disagreement approval timeout");
           return run;
@@ -284,7 +290,11 @@ export async function runAgent(
       } else if (shouldFlagForReview(disagreementSeverity)) {
         // Moderate disagreement: proceed but flag for post-hoc review
         log.info(`Planner disagreement (${disagreementSeverity}): flagged for review, proceeding`);
-        writeTelegramQueue(agentId, `[REVIEW] Planner disagreement (${disagreementSeverity}): ${result.disagreement.reason}. Run proceeding — review output.`, runtimeDb);
+        if (deps.notifier) {
+          deps.notifier.notify(agentId, `[REVIEW] Planner disagreement (${disagreementSeverity}): ${result.disagreement.reason}. Run proceeding — review output.`, deps.runtimeDb).catch(() => {});
+        } else {
+          writeTelegramQueue(agentId, `[REVIEW] Planner disagreement (${disagreementSeverity}): ${result.disagreement.reason}. Run proceeding — review output.`, runtimeDb);
+        }
       }
     } else {
       // Default: single planner
@@ -439,7 +449,11 @@ export async function runAgent(
             agent_id: agentId, run_id: run.run_id, step: step.step,
             action: step.action, reasoning: step.reasoning, outcome: "approval_timeout",
           });
-          writeTelegramQueue(agentId, `\u23F0 Approval expired for ${step.action} (step ${step.step}). Run ${run.run_id} failed due to timeout.`, runtimeDb);
+          if (deps.notifier) {
+            deps.notifier.notify(agentId, `\u23F0 Approval expired for ${step.action} (step ${step.step}). Run ${run.run_id} failed due to timeout.`, deps.runtimeDb).catch(() => {});
+          } else {
+            writeTelegramQueue(agentId, `\u23F0 Approval expired for ${step.action} (step ${step.step}). Run ${run.run_id} failed due to timeout.`, runtimeDb);
+          }
           statusWriter?.completeRun("approval_timeout");
           finalizeRun(run, "Approval timeout");
           return run;
@@ -579,9 +593,13 @@ export async function runAgent(
     const decisions = decisionLog.getDecisions(agentId, run.run_id);
     lessonCapture.captureFromRun(run, decisions);
 
-    // 7. Notify via Telegram queue
+    // 7. Notify via Telegram queue (or unified dispatcher)
     const summary = `${def.label}: completed ${run.current_step}/${plan.steps.length} steps. Goal: ${run.goal}`;
-    writeTelegramQueue(agentId, summary, runtimeDb);
+    if (deps.notifier) {
+      deps.notifier.notify(agentId, summary, deps.runtimeDb).catch(() => {});
+    } else {
+      writeTelegramQueue(agentId, summary, runtimeDb);
+    }
 
     // 7b. Record artifact delivery linking run to originating channel thread
     if (deps.channelStore && commandId) {
@@ -602,7 +620,11 @@ export async function runAgent(
 
     // 8. Post-hoc review notification for trusted_with_review agents
     if (def.maturity === "trusted_with_review") {
-      writeTelegramQueue(agentId, `[REVIEW] ${def.label} completed autonomously. Run: ${run.run_id}. Review output and decisions.`, runtimeDb);
+      if (deps.notifier) {
+        deps.notifier.notify(agentId, `[REVIEW] ${def.label} completed autonomously. Run: ${run.run_id}. Review output and decisions.`, deps.runtimeDb).catch(() => {});
+      } else {
+        writeTelegramQueue(agentId, `[REVIEW] ${def.label} completed autonomously. Run: ${run.run_id}. Review output and decisions.`, runtimeDb);
+      }
     }
 
     return run;

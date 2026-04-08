@@ -6,7 +6,6 @@ import { agentsRouter } from './agents.js'
 import { approvalsRouter } from './approvals.js'
 import { chatRouter } from './chat.js'
 import { daemonRouter } from './daemon.js'
-import { webhookRouter } from './webhooks.js'
 import { webhookV2Router } from './webhooks-v2.js'
 import { pluginsRouter } from './plugins.js'
 import { runsRouter } from './runs.js'
@@ -75,7 +74,14 @@ const indexHtml = join(distPath, 'index.html')
 }
 
 // Request size limit
-app.use(express.json({ limit: '1mb' }))
+app.use(express.json({
+  limit: '1mb',
+  // Capture the raw body for webhook HMAC verification.
+  // GitHub signs the exact bytes, not re-serialized JSON.
+  verify: (req: import('http').IncomingMessage, _res, buf) => {
+    (req as any).rawBody = buf.toString('utf8');
+  },
+}))
 app.use((req, _res, next) => {
   console.log(`[${req.method}] ${req.path}`)
   next()
@@ -105,7 +111,9 @@ app.use('/api/agents', agentsRouter)
 app.use('/api/approvals', approvalsRouter)
 app.use('/api/chat', chatRouter)
 app.use('/api/daemon', daemonRouter)
-app.use('/api/webhooks', webhookRouter)
+// Webhook v1 (webhooks.ts) deleted — v2 serves both paths for backward compat.
+// V2 uses shared normalizer from @jarvis/shared and adds X-Jarvis-Deprecation headers.
+app.use('/api/webhooks', webhookV2Router)
 app.use('/api/webhooks-v2', webhookV2Router)
 app.use('/api/plugins', pluginsRouter)
 app.use('/api/runs', runsRouter)

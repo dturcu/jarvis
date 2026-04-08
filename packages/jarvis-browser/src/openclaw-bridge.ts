@@ -273,14 +273,15 @@ export class LegacyPuppeteerBridge implements BrowserBridge {
   async capture(options: CaptureOptions = {}): Promise<ArtifactRef> {
     const adapter = await this.getAdapter();
     const format = options.format ?? "png";
-    const path = `capture-${Date.now()}.${format}`;
+    const ts = Date.now();
+    const path = `capture-${ts}.${format}`;
     const outcome = await adapter.screenshot({
       full_page: options.fullPage ?? true,
       selector: options.selector,
       path
     });
     return {
-      artifact_id: `capture-${Date.now()}`,
+      artifact_id: `capture-${ts}`,
       path: outcome.structured_output.path,
       path_context: "local_fs"
     };

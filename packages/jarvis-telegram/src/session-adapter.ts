@@ -51,6 +51,12 @@ export type SessionAdapterConfig = {
   channelStore?: ChannelStore
   /** Optional thread ID for channel message recording. */
   threadId?: string
+  /**
+   * When true, free-text messages are routed through the OpenClaw gateway
+   * session instead of the legacy HTTP loopback to /api/chat/telegram.
+   * This removes one network hop and proves the Epic 5 operator chat path.
+   */
+  sessionChat?: boolean
 }
 
 // ─── Command Parser ─────────────────────────────────────────────────────────
@@ -107,8 +113,10 @@ export class TelegramSessionAdapter {
   private readonly gatewayOverrides: GatewayCallOptions
   private readonly channelStore: ChannelStore | undefined
   private readonly threadId: string | undefined
+  private readonly config: SessionAdapterConfig
 
   constructor(config: SessionAdapterConfig) {
+    this.config = config
     this.sessionKey = config.sessionKey
     this.gatewayOverrides = config.gatewayOverrides ?? {}
     this.channelStore = config.channelStore
@@ -123,7 +131,12 @@ export class TelegramSessionAdapter {
    */
   async send(text: string): Promise<void> {
     const truncated = text.slice(0, 4096)
-    const idempotencyKey = `tg-session-${randomUUID()}`
+    // Derive idempotency key from message content + time bucket so retries
+    // within the same 10-second window are deduplicated, not re-sent.
+    const crypto = await import('node:crypto')
+    const contentHash = crypto.createHash('sha256').update(truncated).digest('hex').slice(0, 12)
+    const timeBucket = Math.floor(Date.now() / 10_000)
+    const idempotencyKey = `tg-session-${contentHash}-${timeBucket}`
 
     await sendSessionMessage(
       {
@@ -268,6 +281,24 @@ export class TelegramSessionAdapter {
         })
 
       case 'free_text': {
+        // When sessionChat is enabled, route free-text through the OpenClaw
+        // gateway session directly — no HTTP loopback to /api/chat/telegram.
+        if (this.config.sessionChat) {
+          try {
+            const result = await sendSessionMessage(
+              { sessionKey: this.sessionKey, message: command.text },
+              undefined,
+              this.gatewayOverrides,
+            )
+            return typeof result === 'object' && result !== null && 'reply' in result
+              ? String((result as Record<string, unknown>).reply)
+              : 'Session responded but no reply text was returned.'
+          } catch {
+            // Fall back to legacy HTTP relay on session failure
+          }
+        }
+
+        // Legacy path: HTTP relay to /api/chat/telegram
         const chatCtx: ChatContext = {
           channelStore: this.channelStore,
           threadId: this.threadId,
