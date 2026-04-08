@@ -501,7 +501,11 @@ export function createWorkerRegistry(
 }
 
 /** Build a minimal valid JobEnvelope for a given job type */
-export function buildEnvelope(type: string, input: Record<string, unknown>): JobEnvelope {
+export function buildEnvelope(
+  type: string,
+  input: Record<string, unknown>,
+  approvalState: JarvisApprovalState = "not_required",
+): JobEnvelope {
   return {
     contract_version: "jarvis.v1",
     job_id: randomUUID(),
@@ -509,7 +513,7 @@ export function buildEnvelope(type: string, input: Record<string, unknown>): Job
     session_key: `daemon-${Date.now()}`,
     requested_by: { source: "agent", agent_id: "daemon" },
     priority: "normal",
-    approval_state: "not_required",
+    approval_state: approvalState,
     timeout_seconds: JOB_TIMEOUT_SECONDS[type as JarvisJobType] ?? 120,
     attempt: 1,
     input,

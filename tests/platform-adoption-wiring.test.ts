@@ -306,7 +306,7 @@ describe("Runtime Wiring: Adoption dashboard with Prometheus data", () => {
     const source = readSource("packages/jarvis-dashboard/src/api/tasks.ts");
     expect(source).toContain("release_gates");
     expect(source).toContain("all_gates_passed");
-    expect(source).toContain("webhook_default_off");
+    expect(source).toContain("webhook_retired");
     expect(source).toContain("session_mode_active");
   });
 });
@@ -315,7 +315,7 @@ describe("Runtime Wiring: TaskFlow cancel propagation", () => {
   it("/api/tasks/:id/cancel propagates to TaskFlow via gateway", () => {
     const source = readSource("packages/jarvis-dashboard/src/api/tasks.ts");
     expect(source).toContain("taskflow.cancel");
-    expect(source).toContain("flow_cancelled");
+    expect(source).toContain("flow_cancel_requested");
   });
 });
 

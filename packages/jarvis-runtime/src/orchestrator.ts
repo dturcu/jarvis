@@ -481,12 +481,12 @@ export async function runAgent(
         stepLog.info("Approved — executing");
       }
 
-      // Execute the job
+      // Execute the job — mark as approved if it went through the approval gate
       const envelope = buildEnvelope(step.action, {
         ...step.input,
         _agent_id: agentId,
         _run_id: run.run_id,
-      });
+      }, gate ? "approved" : "not_required");
 
       try {
         const result = await registry.executeJob(envelope);

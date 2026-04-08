@@ -229,12 +229,22 @@ Output the report in markdown format with clear sections, headings, and bullet p
 
     const content = await this.chat(prompt);
 
+    // Validate output_path — must be within cwd or tmpdir to prevent path traversal
+    const { resolve: pathResolve, normalize } = await import("node:path");
+    const { tmpdir } = await import("node:os");
+    const resolved = pathResolve(input.output_path);
+    const cwd = process.cwd();
+    const tmp = tmpdir();
+    if (!resolved.startsWith(cwd) && !resolved.startsWith(tmp)) {
+      throw new Error(`output_path "${input.output_path}" is outside allowed directories (cwd or tmpdir)`);
+    }
+
     // For markdown output, write directly
     if (input.output_format === "markdown") {
-      fs.writeFileSync(input.output_path, content);
+      fs.writeFileSync(resolved, content);
     } else {
       // For docx/pdf, write markdown for now (proper conversion would need additional libraries)
-      fs.writeFileSync(input.output_path, content);
+      fs.writeFileSync(resolved, content);
     }
 
     const sectionCount = (content.match(/^#{1,3}\s/gm) ?? []).length;

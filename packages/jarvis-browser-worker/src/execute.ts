@@ -167,9 +167,17 @@ export async function executeBrowserJob(
     // Low-level adapter-only types (click, type, evaluate, wait_for)
     // always fall back to the direct adapter path.
     const useBridge = options.bridge && BRIDGE_SUPPORTED_TYPES.has(envelope.type);
-    const outcome = useBridge
-      ? await routeEnvelopeViaBridge(envelope, options.bridge!)
-      : await routeEnvelope(envelope, adapter);
+    let outcome: ExecutionOutcome<unknown>;
+    if (useBridge) {
+      try {
+        outcome = await routeEnvelopeViaBridge(envelope, options.bridge!);
+      } catch {
+        // Bridge failed — fall back to direct adapter for self-healing
+        outcome = await routeEnvelope(envelope, adapter);
+      }
+    } else {
+      outcome = await routeEnvelope(envelope, adapter);
+    }
     return {
       contract_version: CONTRACT_VERSION,
       job_id: envelope.job_id,

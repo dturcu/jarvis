@@ -446,9 +446,17 @@ export class ChromeAdapter implements BrowserAdapter {
               ]);
             }
             break;
-          case "screenshot":
-            await page.screenshot({ path: step.value ?? "task-screenshot.png" });
+          case "screenshot": {
+            // Validate screenshot path — restrict to cwd/tmpdir to prevent path traversal
+            const screenshotPath = require("node:path").resolve(step.value ?? "task-screenshot.png");
+            const screenshotCwd = process.cwd();
+            const screenshotTmp = require("node:os").tmpdir();
+            if (!screenshotPath.startsWith(screenshotCwd) && !screenshotPath.startsWith(screenshotTmp)) {
+              throw new Error(`Screenshot path "${step.value}" is outside allowed directories`);
+            }
+            await page.screenshot({ path: screenshotPath });
             break;
+          }
         }
         stepsCompleted++;
       }

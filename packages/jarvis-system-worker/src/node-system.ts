@@ -130,8 +130,16 @@ function parseDiskWindows(targetPath?: string): DiskVolume[] {
 }
 
 function parseDiskPosix(targetPath?: string): DiskVolume[] {
-  const arg = targetPath ? ` "${targetPath}"` : "";
-  const raw = execSafe(`df -Pk${arg}`);
+  // Use execFileSync with args array to prevent command injection via targetPath
+  const { execFileSync } = require("node:child_process");
+  let raw: string;
+  try {
+    const args = ["-Pk"];
+    if (targetPath) args.push(targetPath);
+    raw = execFileSync("df", args, { encoding: "utf8", timeout: 10000 }).trim();
+  } catch {
+    return [];
+  }
   const lines = raw.split(/\n/).slice(1).filter(Boolean);
   const volumes: DiskVolume[] = [];
 
