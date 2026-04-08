@@ -168,9 +168,9 @@ function SystemInfoCard({ system }: { system: SupportBundle['system'] }) {
         <StatItem label="Node Version" value={system.node_version} />
         <StatItem label="Platform" value={system.platform} />
         <StatItem label="Uptime" value={formatUptime(system.uptime)} />
-        <StatItem label="Memory (RSS)" value={memMb(system.memory.rss)} />
-        <StatItem label="Heap Used" value={memMb(system.memory.heapUsed)} />
-        <StatItem label="Heap Total" value={memMb(system.memory.heapTotal)} />
+        <StatItem label="Memory (RSS)" value={memMb(system.memory?.rss)} />
+        <StatItem label="Heap Used" value={memMb(system.memory?.heapUsed)} />
+        <StatItem label="Heap Total" value={memMb(system.memory?.heapTotal)} />
       </div>
     </DataCard>
   )
@@ -268,9 +268,10 @@ function RecentRunsSummary({ runs }: { runs: SupportBundle['recent_runs'] }) {
 }
 
 function PendingApprovalsCard({ approvals }: { approvals: SupportBundle['pending_approvals'] }) {
+  const list = approvals ?? []
   return (
     <DataCard
-      variant={approvals.length > 0 ? 'warning' : 'default'}
+      variant={list.length > 0 ? 'warning' : 'default'}
       hover={false}
     >
       <div className="flex items-center justify-between mb-4">
@@ -278,17 +279,17 @@ function PendingApprovalsCard({ approvals }: { approvals: SupportBundle['pending
           Pending Approvals
         </h2>
         <StatusBadge
-          status={approvals.length > 0 ? 'pending' : 'ok'}
-          label={`${approvals.length}`}
+          status={list.length > 0 ? 'pending' : 'ok'}
+          label={`${list.length}`}
           size="sm"
         />
       </div>
 
-      {approvals.length === 0 ? (
+      {list.length === 0 ? (
         <EmptyState title="No pending approvals" subtitle="All approval requests have been resolved." />
       ) : (
         <div className="space-y-2">
-          {approvals.map(a => (
+          {list.map(a => (
             <div
               key={a.id}
               className="bg-slate-900/40 border border-white/5 rounded-lg px-4 py-3 flex items-center justify-between"
@@ -307,24 +308,25 @@ function PendingApprovalsCard({ approvals }: { approvals: SupportBundle['pending
 }
 
 function FailedEventsCard({ events }: { events: SupportBundle['failed_events'] }) {
+  const list = events ?? []
   return (
-    <DataCard variant={events.length > 0 ? 'error' : 'default'} hover={false}>
+    <DataCard variant={list.length > 0 ? 'error' : 'default'} hover={false}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">
           Failed Events
         </h2>
         <StatusBadge
-          status={events.length > 0 ? 'critical' : 'ok'}
-          label={`${events.length} failure${events.length !== 1 ? 's' : ''}`}
+          status={list.length > 0 ? 'critical' : 'ok'}
+          label={`${list.length} failure${list.length !== 1 ? 's' : ''}`}
           size="sm"
         />
       </div>
 
-      {events.length === 0 ? (
+      {list.length === 0 ? (
         <EmptyState title="No failed events" subtitle="No recent failures recorded." />
       ) : (
         <div className="max-h-64 overflow-y-auto space-y-1.5">
-          {events.map((ev, i) => (
+          {list.map((ev, i) => (
             <div
               key={`${ev.run_id}-${i}`}
               className="bg-slate-900/40 border border-red-500/10 rounded-lg px-4 py-3"
@@ -346,13 +348,14 @@ function FailedEventsCard({ events }: { events: SupportBundle['failed_events'] }
 }
 
 function AuditLogTable({ entries }: { entries: SupportBundle['audit_log'] }) {
+  const list = entries ?? []
   return (
     <DataCard hover={false}>
       <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4">
         Audit Log
       </h2>
 
-      {entries.length === 0 ? (
+      {list.length === 0 ? (
         <EmptyState title="No audit entries" subtitle="Audit log entries will appear here as actions are performed." />
       ) : (
         <div className="overflow-x-auto">
@@ -366,7 +369,7 @@ function AuditLogTable({ entries }: { entries: SupportBundle['audit_log'] }) {
               </tr>
             </thead>
             <tbody>
-              {entries.map(entry => (
+              {list.map(entry => (
                 <tr key={entry.id} className="border-b border-white/[0.03] last:border-0">
                   <td className="py-2.5 pr-4">
                     <span className="text-sm text-slate-200">{entry.action}</span>

@@ -6,7 +6,6 @@ import StatusBadge from '../shared/StatusBadge.tsx'
 import LoadingSpinner from '../shared/LoadingSpinner.tsx'
 import ConfirmDialog from '../shared/ConfirmDialog.tsx'
 import { IconCheck, IconWarning, IconError } from '../shared/icons.tsx'
-import { useMode } from '../context/ModeContext.tsx'
 import { useApi, apiFetch } from '../hooks/useApi.ts'
 import type {
   AgentSetting,
@@ -198,7 +197,6 @@ function RepairStatusIcon({ status }: { status: string }) {
 /* ── Main Component ──────────────────────────────────────── */
 
 export default function Settings() {
-  const { mode, setMode } = useMode()
   const [activeTab, setActiveTab] = useState<SettingsTab>('General')
   const [config, setConfig] = useState<Record<string, unknown>>({})
   const [agents, setAgents] = useState<AgentSetting[]>([])
@@ -328,36 +326,6 @@ export default function Settings() {
           <DataCard>
             <div className="space-y-5">
               <SectionTitle>General Configuration</SectionTitle>
-
-              {/* UI Mode toggle */}
-              <div>
-                <FieldLabel>UI Mode</FieldLabel>
-                <div className="flex items-center gap-3 mt-1">
-                  <button
-                    onClick={() => setMode('simple')}
-                    className={`text-sm px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer ${
-                      mode === 'simple'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
-                    }`}
-                  >
-                    Simple
-                  </button>
-                  <button
-                    onClick={() => setMode('expert')}
-                    className={`text-sm px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer ${
-                      mode === 'expert'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700'
-                    }`}
-                  >
-                    Expert
-                  </button>
-                </div>
-                <p className="text-xs text-slate-600 mt-1.5">
-                  Simple mode shows essential pages. Expert mode unlocks all pages.
-                </p>
-              </div>
 
               {/* LM Studio URL */}
               <div>
@@ -677,7 +645,7 @@ export default function Settings() {
                     <p className="text-xs text-amber-300">One or more runtimes are degraded.</p>
                   </div>
                 )}
-                {modelHealth.runtimes.map(rt => (
+                {(modelHealth.runtimes ?? []).map(rt => (
                   <div key={rt.name} className="bg-slate-900/50 border border-white/5 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -694,11 +662,11 @@ export default function Settings() {
                       <p className="text-xs text-red-400 mb-2">{rt.error}</p>
                     )}
                     <p className="text-xs text-slate-500">
-                      {rt.models.length} model{rt.models.length !== 1 ? 's' : ''} available
+                      {(rt.models ?? []).length} model{(rt.models ?? []).length !== 1 ? 's' : ''} available
                     </p>
-                    {rt.models.length > 0 && (
+                    {(rt.models ?? []).length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-2">
-                        {rt.models.map(m => (
+                        {(rt.models ?? []).map(m => (
                           <span key={m} className="text-[10px] bg-slate-800 text-slate-400 border border-white/5 rounded px-2 py-0.5 font-mono">
                             {m}
                           </span>
@@ -946,7 +914,7 @@ export default function Settings() {
                         System {repairReport.status.charAt(0).toUpperCase() + repairReport.status.slice(1)}
                       </h3>
                       <p className="text-xs text-slate-500">
-                        {repairReport.checks.filter(c => c.status === 'ok').length} / {repairReport.checks.length} checks passing
+                        {(repairReport.checks ?? []).filter(c => c.status === 'ok').length} / {(repairReport.checks ?? []).length} checks passing
                         {repairReport.safe_mode && ' -- Safe mode active'}
                       </p>
                     </div>
@@ -962,7 +930,7 @@ export default function Settings() {
 
               {/* Individual checks */}
               <div className="space-y-2">
-                {repairReport.checks.map((check: RepairCheck) => (
+                {(repairReport.checks ?? []).map((check: RepairCheck) => (
                   <DataCard key={check.name}>
                     <div className="flex items-start gap-3">
                       <div className="mt-0.5 shrink-0">
@@ -990,11 +958,11 @@ export default function Settings() {
               </div>
 
               {/* Recommended actions */}
-              {repairReport.recommended_actions.length > 0 && (
+              {(repairReport.recommended_actions ?? []).length > 0 && (
                 <DataCard variant="warning">
                   <SectionTitle>Recommended Actions</SectionTitle>
                   <div className="mt-3 space-y-3">
-                    {repairReport.recommended_actions.map((ra, i) => (
+                    {(repairReport.recommended_actions ?? []).map((ra, i) => (
                       <div key={i} className="flex items-start gap-2.5">
                         <span className="text-xs text-amber-400 font-mono shrink-0 mt-0.5">{i + 1}.</span>
                         <div>

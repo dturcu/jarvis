@@ -280,7 +280,7 @@ function ModelHealthCard({
                   <span className="text-[11px] text-red-400 max-w-[180px] truncate">{rt.error}</span>
                 ) : (
                   <span className="text-xs text-slate-500 font-mono">
-                    {rt.models.length} model{rt.models.length !== 1 ? 's' : ''}
+                    {(rt.models ?? []).length} model{(rt.models ?? []).length !== 1 ? 's' : ''}
                   </span>
                 )}
                 <StatusBadge
