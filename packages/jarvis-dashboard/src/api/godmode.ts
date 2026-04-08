@@ -51,9 +51,11 @@ import {
   extractToolCalls,
   buildContext,
   isReadOnlyTool,
+  detectLlm,
+  listAllModels,
 } from './tool-infra.js'
 
-const LMS_URL = process.env.LMS_URL ?? 'http://localhost:1234'
+const FALLBACK_LMS_URL = process.env.LMS_URL ?? 'http://localhost:1234'
 const DEFAULT_MODEL = process.env.LMS_MODEL ?? 'qwen/qwen3.5-35b-a3b'
 
 // Verify godmode tools are a subset of the shared registry
@@ -99,13 +101,13 @@ interface IntentResult {
  * (session-chat-adapter.ts) which delegates intent classification to the
  * OpenClaw gateway.
  */
-async function classifyIntent(message: string, model: string): Promise<IntentResult> {
+async function classifyIntent(message: string, model: string, baseUrl?: string): Promise<IntentResult> {
   const fallback: IntentResult = { intent: 'chat', surfaces: ['chat'], tools: [] }
   try {
     const response = await llmChat([
       { role: 'system', content: INTENT_SYSTEM_PROMPT },
       { role: 'user', content: message }
-    ], model, 0.1, 200)
+    ], model, 0.1, 200, baseUrl)
 
     // Extract JSON from response (handle potential markdown wrapping)
     const jsonMatch = response.match(/\{[\s\S]*\}/)
@@ -241,9 +243,9 @@ function extractArtifacts(text: string): Array<{ kind: string; title: string; co
  * @deprecated Calls LM Studio directly via HTTP. Use the session-backed adapter
  * (session-chat-adapter.ts) which routes inference through the OpenClaw gateway.
  */
-function llmChat(messages: Array<{ role: string; content: string }>, model: string, temperature = 0.3, maxTokens = 2048): Promise<string> {
+function llmChat(messages: Array<{ role: string; content: string }>, model: string, temperature = 0.3, maxTokens = 2048, baseUrl?: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const lmsUrl = new URL(`${LMS_URL}/v1/chat/completions`)
+    const lmsUrl = new URL(`${baseUrl ?? FALLBACK_LMS_URL}/v1/chat/completions`)
     const body = JSON.stringify({ model, messages, stream: false, temperature, max_tokens: maxTokens })
     const req = http.request({
       hostname: lmsUrl.hostname, port: Number(lmsUrl.port) || 1234,
@@ -275,10 +277,11 @@ function streamLlm(
   res: import('express').Response,
   messages: Array<{ role: string; content: string }>,
   model: string,
-  onEvent: (type: string, data: unknown) => void
+  onEvent: (type: string, data: unknown) => void,
+  baseUrl?: string
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const lmsUrl = new URL(`${LMS_URL}/v1/chat/completions`)
+    const lmsUrl = new URL(`${baseUrl ?? FALLBACK_LMS_URL}/v1/chat/completions`)
     const body = JSON.stringify({ model, messages, stream: true, temperature: 0.3, max_tokens: 4096 })
     const lmsReq = http.request({
       hostname: lmsUrl.hostname, port: Number(lmsUrl.port) || 1234,
@@ -349,6 +352,7 @@ godmodeRouter.post('/', async (req, res) => {
   if (!message?.trim()) { res.status(400).json({ error: 'message is required' }); return }
 
   const chosenModel = model ?? DEFAULT_MODEL
+  const detected = await detectLlm().catch(() => ({ baseUrl: FALLBACK_LMS_URL, provider: 'lmstudio' as const }))
 
   // SSE headers
   res.setHeader('Content-Type', 'text/event-stream')
@@ -359,11 +363,14 @@ godmodeRouter.post('/', async (req, res) => {
   const socket = res.socket as (NodeJS.Socket & { setNoDelay?: (v: boolean) => void }) | null
   socket?.setNoDelay?.(true)
 
+  // Notify frontend which model/provider is active
+  sendSSE(res, 'model', { model: chosenModel, provider: detected.provider, baseUrl: detected.baseUrl })
+
   let fullTextForArtifacts = ''
 
   try {
     // Step 1: Intent classification
-    const intent = await classifyIntent(message, chosenModel)
+    const intent = await classifyIntent(message, chosenModel, detected.baseUrl)
     sendSSE(res, 'surface', { surfaces: intent.surfaces })
 
     // Step 2: Build system prompt based on surfaces
@@ -394,7 +401,7 @@ Today is ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long
       } else if (type === 'token') {
         sendSSE(res, 'token', { content: data })
       }
-    })
+    }, detected.baseUrl)
 
     fullTextForArtifacts = fullResponse
 
@@ -466,7 +473,7 @@ Today is ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long
         } else if (type === 'token') {
           sendSSE(res, 'token', { content: data })
         }
-      })
+      }, detected.baseUrl)
 
       if (intent.intent === 'research') {
         sendSSE(res, 'research_step', { phase: 'done', detail: 'Research complete' })
@@ -523,22 +530,12 @@ Today is ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long
   res.end()
 })
 
-// GET /api/godmode/models — proxy to LM Studio
-godmodeRouter.get('/models', (_req, res) => {
-  const lmsUrl = new URL(`${LMS_URL}/v1/models`)
-  const lmsReq = http.request({
-    hostname: lmsUrl.hostname, port: Number(lmsUrl.port) || 1234,
-    path: lmsUrl.pathname, method: 'GET'
-  }, (lmsRes) => {
-    let body = ''
-    lmsRes.on('data', (c: Buffer) => body += c.toString())
-    lmsRes.on('end', () => {
-      try {
-        const data = JSON.parse(body) as { data: Array<{ id: string }> }
-        res.json({ models: data.data.map(m => m.id), default: DEFAULT_MODEL })
-      } catch { res.json({ models: [], default: DEFAULT_MODEL }) }
-    })
-  })
-  lmsReq.on('error', () => res.json({ models: [], default: DEFAULT_MODEL, error: 'LM Studio unreachable' }))
-  lmsReq.end()
+// GET /api/godmode/legacy/models — queries both Ollama and LM Studio
+godmodeRouter.get('/models', async (_req, res) => {
+  try {
+    const result = await listAllModels()
+    res.json({ models: result.models, default: result.models[0] ?? DEFAULT_MODEL, provider: result.provider })
+  } catch {
+    res.json({ models: [], default: DEFAULT_MODEL })
+  }
 })

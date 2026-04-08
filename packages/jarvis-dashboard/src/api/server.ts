@@ -18,6 +18,7 @@ import { backupRouter } from './backup.js'
 import { safemodeRouter } from './safemode.js'
 import { portalRouter } from './portal.js'
 import { godmodeRouter } from './godmode.js'
+import { listAllModels } from './tool-infra.js'
 import { createSessionChatRoute } from './session-chat-adapter.js'
 import { tasksRouter } from './tasks.js'
 import { modelsRouter } from './models.js'
@@ -126,6 +127,15 @@ app.use('/api/settings', settingsRouter)
 app.use('/api/backup', backupRouter)
 app.use('/api/safemode', safemodeRouter)
 app.use('/portal/api', portalRouter)
+// Mount models route BEFORE the session adapter to prevent shadowing
+app.get('/api/godmode/models', async (_req, res) => {
+  try {
+    const result = await listAllModels()
+    res.json({ models: result.models, default: result.models[0] ?? '', provider: result.provider })
+  } catch {
+    res.json({ models: [], default: '' })
+  }
+})
 app.use('/api/godmode', createSessionChatRoute())
 app.use('/api/godmode/legacy', godmodeRouter)
 app.use('/api/models', modelsRouter)

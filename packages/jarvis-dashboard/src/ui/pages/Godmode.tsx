@@ -73,7 +73,7 @@ export default function Godmode() {
 
         <div className="flex items-center gap-3">
           {/* Model selector */}
-          {models.length > 1 && (
+          {models.length >= 1 && (
             <div className="relative">
               <select
                 value={model}

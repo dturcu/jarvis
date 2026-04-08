@@ -45,6 +45,10 @@ export class AgentRuntime {
     return this.definitions.get(agentId);
   }
 
+  listAgents(): AgentDefinition[] {
+    return Array.from(this.definitions.values());
+  }
+
   /**
    * Create a new run object. The caller (orchestrator) owns the run lifecycle
    * and persists it via RunStore — AgentRuntime no longer caches run state.
