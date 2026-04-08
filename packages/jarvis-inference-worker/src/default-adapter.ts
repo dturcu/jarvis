@@ -261,7 +261,7 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
       maxTokens: input.max_tokens,
     });
 
-    const runtimeName: "ollama" | "lmstudio" = runtimeUrl.includes("11434") ? "ollama" : "lmstudio";
+    const runtimeName: "ollama" | "lmstudio" | "openclaw" = runtimeUrl.includes("11434") ? "ollama" : "lmstudio";
     const output: InferenceVisionChatOutput = {
       content: result.content,
       model: result.model,
@@ -282,7 +282,7 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
   async embed(input: InferenceEmbedInput): Promise<ExecutionOutcome<InferenceEmbedOutput>> {
     let modelId: string;
     let runtimeUrl: string;
-    let runtimeName: "ollama" | "lmstudio";
+    let runtimeName: "ollama" | "lmstudio" | "openclaw";
 
     // Primary path: registry
     if (this.runtimeDb && input.model) {

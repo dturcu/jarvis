@@ -35,7 +35,10 @@ import {
   inferenceRuntimeTotal,
   browserBridgeTotal,
   taskflowRunsTotal,
+  inferenceCostUsdTotal,
+  inferenceLocalPercentage,
 } from "@jarvis/observability";
+import { InferenceGovernor } from "@jarvis/inference";
 import {
   logCredentialAccess,
   type CredentialAuditConfig,
@@ -116,6 +119,9 @@ export function createWorkerRegistry(
     ? new DefaultInferenceAdapter(runtimeDb, config.lmstudio_url, opts?.embeddingPipeline, opts?.hybridRetriever)
     : new MockInferenceAdapter();
   const inferenceWorker = createInferenceWorker({ adapter: inferenceAdapter });
+
+  // Inference governance — checks budget/latency/local-% before each inference job
+  const inferenceGovernor = new InferenceGovernor();
 
   // Chat helper for adapters that need LLM access.
   // Uses evidence-backed model routing when runtimeDb is available.
@@ -415,7 +421,27 @@ export function createWorkerRegistry(
 
         // Convergence adoption metrics — track which runtime paths are in use
         if (prefix === "inference") {
-          inferenceRuntimeTotal.labels("lmstudio").inc();
+          const runtime = "lmstudio"; // TODO: detect from actual model selection
+          inferenceRuntimeTotal.labels(runtime).inc();
+
+          // Record governance usage after successful inference
+          const tokensUsed = typeof (result.structured_output as Record<string, unknown>)?.usage_tokens === "number"
+            ? (result.structured_output as Record<string, unknown>).usage_tokens as number
+            : 0;
+          const estimatedCost = inferenceGovernor.estimateCost(
+            String((result.structured_output as Record<string, unknown>)?.model ?? "unknown"),
+            tokensUsed,
+          );
+          inferenceGovernor.recordUsage({
+            timestamp: new Date().toISOString(),
+            model: String((result.structured_output as Record<string, unknown>)?.model ?? "unknown"),
+            runtime,
+            tokens_used: tokensUsed,
+            latency_ms: durationMs,
+            estimated_cost_usd: estimatedCost,
+          });
+          inferenceCostUsdTotal.labels(runtime, String((result.structured_output as Record<string, unknown>)?.model ?? "unknown")).inc(estimatedCost);
+          inferenceLocalPercentage.set(inferenceGovernor.getState().local_percentage);
         }
         if (prefix === "browser") {
           const mode = process.env.JARVIS_BROWSER_MODE?.toLowerCase() ?? "openclaw";

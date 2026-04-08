@@ -35,7 +35,9 @@ import { setWorkerHealthProvider } from "./health.js";
 import { resolveApproval } from "./approval-bridge.js";
 import { createNotificationDispatcher } from "./notify.js";
 import { sendSessionMessage } from "@jarvis/shared";
-import { taskflowRunsTotal } from "@jarvis/observability";
+import { taskflowRunsTotal, dreamingRunsTotal, dreamingSynthesisTotal } from "@jarvis/observability";
+import { DreamingOrchestrator, PILOT_DREAMING_CONFIG, DEFAULT_DREAMING_CONFIG } from "./dreaming.js";
+import { OpenClawInferAdapter } from "@jarvis/inference";
 
 // ─── DB Integrity (#65) ─────────────────────────────────────────────────────
 // Verify SQLite pragmas that the runtime depends on. Log warnings instead of
@@ -495,6 +497,25 @@ async function main() {
             logger.info(`Model re-discovery: ${sync.added} new, ${sync.updated} updated`);
           }
         }
+        // OpenClaw model discovery — merge gateway-provided models into local registry
+        try {
+          const openClawAdapter = new OpenClawInferAdapter();
+          const openClawModels = await openClawAdapter.listModels();
+          if (openClawModels.length > 0) {
+            const asModelInfo = openClawModels.map((m) => ({
+              id: m.id,
+              runtime: "openclaw" as const,
+              size_class: "medium" as const,
+              capabilities: m.capabilities as Array<"chat" | "code" | "vision" | "embedding">,
+            }));
+            const sync = syncModelRegistry(runtimeDb, asModelInfo);
+            if (sync.added > 0 || sync.updated > 0) {
+              logger.info(`OpenClaw model discovery: ${sync.added} new, ${sync.updated} updated`);
+            }
+          }
+        } catch {
+          // Gateway may be unavailable — silent fallback
+        }
       } catch {
         // Model runtime may be temporarily down — don't log noise on every 5min tick
       }
@@ -519,6 +540,55 @@ async function main() {
       }
     }, 24 * 60 * 60 * 1000); // Every 24 hours
     activeIntervals.push(maintenanceInterval);
+
+    // ─── Dreaming: background knowledge consolidation (Epic 8) ──────────
+    const dreamingConfig = process.env.JARVIS_DREAMING_ENABLED === "true"
+      ? PILOT_DREAMING_CONFIG
+      : DEFAULT_DREAMING_CONFIG;
+    const dreamingOrchestrator = new DreamingOrchestrator(dreamingConfig);
+
+    if (dreamingOrchestrator.isEnabled()) {
+      const dreamingInterval = setInterval(async () => {
+        try {
+          const run = await dreamingOrchestrator.execute({
+            queryLessons: (agentId) => {
+              try {
+                const docs = knowledgeStore.search("", { collection: "lessons", limit: 100 });
+                return docs.map((d) => ({ content: d.content, tags: d.tags ?? [], created_at: d.created_at ?? "" }));
+              } catch { return []; }
+            },
+            queryEntities: (agentId) => {
+              try {
+                const entities = entityGraph.getEntities(agentId);
+                return entities.map((e) => ({ entity_id: e.entity_id, name: e.name, type: e.type }));
+              } catch { return []; }
+            },
+            queryKnowledge: (agentId) => {
+              try {
+                const docs = knowledgeStore.search("", { limit: 100 });
+                return docs.map((d) => ({ doc_id: d.doc_id ?? "", title: d.title, content: d.content, tags: d.tags ?? [] }));
+              } catch { return []; }
+            },
+          });
+
+          dreamingRunsTotal.labels(run.status).inc();
+          for (const result of run.synthesis_results) {
+            dreamingSynthesisTotal.labels(result.mode, result.agent_id).inc();
+          }
+
+          if (run.synthesis_results.length > 0) {
+            logger.info(`Dreaming: ${run.agents_processed.length} agents, ${run.synthesis_results.length} syntheses`);
+          }
+        } catch (e) {
+          dreamingRunsTotal.labels("failed").inc();
+          logger.warn(`Dreaming error: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }, 24 * 60 * 60 * 1000); // Daily
+      activeIntervals.push(dreamingInterval);
+      logger.info(`Dreaming: enabled for [${dreamingConfig.enabled_agents.join(", ")}]`);
+    } else {
+      logger.debug("Dreaming: disabled (JARVIS_DREAMING_ENABLED not set)");
+    }
   }
 
   // ─── Conditional interval startup ──────────────────────────────────────────

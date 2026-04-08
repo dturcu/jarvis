@@ -53,7 +53,7 @@ describe("Runtime Wiring: Observability metrics emission", () => {
   it("worker registry emits inferenceRuntimeTotal for inference jobs", () => {
     const source = readSource("packages/jarvis-runtime/src/worker-registry.ts");
     expect(source).toContain("inferenceRuntimeTotal");
-    expect(source).toContain('inferenceRuntimeTotal.labels("lmstudio").inc()');
+    expect(source).toContain("inferenceRuntimeTotal.labels(runtime).inc()");
   });
 
   it("worker registry emits browserBridgeTotal for browser jobs", () => {
@@ -115,18 +115,120 @@ describe("Runtime Wiring: Package index exports", () => {
   });
 });
 
-describe("Runtime Wiring: Webhook conditional mounting", () => {
-  it("server.ts conditionally mounts webhook routes", () => {
+describe("Runtime Wiring: Webhook ingress defaults to OFF", () => {
+  it("server.ts defaults webhook routes to OFF (requires JARVIS_WEBHOOK_LEGACY=true)", () => {
     const source = readSource("packages/jarvis-dashboard/src/api/server.ts");
-    // Webhook routes should be behind a condition
     expect(source).toContain("JARVIS_WEBHOOK_LEGACY");
-    expect(source).toMatch(/if\s*\(.*JARVIS_WEBHOOK_LEGACY/);
+    // Must check for === 'true' (opt-in), NOT !== 'false' (opt-out)
+    expect(source).toContain("=== 'true'");
   });
 
   it("convergence checks warn about webhook legacy mode", () => {
     const source = readSource("packages/jarvis-runtime/src/convergence-checks.ts");
     expect(source).toContain("JARVIS_WEBHOOK_LEGACY");
     expect(source).toContain("Convergence: Webhook Ingress");
+  });
+});
+
+describe("Runtime Wiring: DreamingOrchestrator in daemon", () => {
+  it("daemon.ts imports and constructs DreamingOrchestrator", () => {
+    const source = readSource("packages/jarvis-runtime/src/daemon.ts");
+    expect(source).toContain("DreamingOrchestrator");
+    expect(source).toContain("PILOT_DREAMING_CONFIG");
+    expect(source).toContain("new DreamingOrchestrator(dreamingConfig)");
+  });
+
+  it("daemon.ts emits dreaming metrics", () => {
+    const source = readSource("packages/jarvis-runtime/src/daemon.ts");
+    expect(source).toContain("dreamingRunsTotal.labels(");
+    expect(source).toContain("dreamingSynthesisTotal.labels(");
+  });
+
+  it("daemon.ts gates dreaming on JARVIS_DREAMING_ENABLED env var", () => {
+    const source = readSource("packages/jarvis-runtime/src/daemon.ts");
+    expect(source).toContain("JARVIS_DREAMING_ENABLED");
+  });
+});
+
+describe("Runtime Wiring: InferenceGovernor in worker-registry", () => {
+  it("worker-registry.ts creates InferenceGovernor", () => {
+    const source = readSource("packages/jarvis-runtime/src/worker-registry.ts");
+    expect(source).toContain("new InferenceGovernor()");
+  });
+
+  it("worker-registry.ts records inference usage after execution", () => {
+    const source = readSource("packages/jarvis-runtime/src/worker-registry.ts");
+    expect(source).toContain("inferenceGovernor.recordUsage(");
+    expect(source).toContain("inferenceGovernor.estimateCost(");
+  });
+
+  it("worker-registry.ts emits cost and local percentage metrics", () => {
+    const source = readSource("packages/jarvis-runtime/src/worker-registry.ts");
+    expect(source).toContain("inferenceCostUsdTotal.labels(");
+    expect(source).toContain("inferenceLocalPercentage.set(");
+  });
+});
+
+describe("Runtime Wiring: MemoryBoundaryChecker + WikiBridge in orchestrator", () => {
+  it("orchestrator.ts imports MemoryBoundaryChecker and WikiBridge", () => {
+    const source = readSource("packages/jarvis-runtime/src/orchestrator.ts");
+    expect(source).toContain("MemoryBoundaryChecker");
+    expect(source).toContain("WikiBridge");
+  });
+
+  it("OrchestratorDeps includes boundaryChecker and wikiBridge", () => {
+    const source = readSource("packages/jarvis-runtime/src/orchestrator.ts");
+    expect(source).toContain("boundaryChecker?: MemoryBoundaryChecker");
+    expect(source).toContain("wikiBridge?: WikiBridge");
+  });
+
+  it("orchestrator validates memory boundaries at lesson capture", () => {
+    const source = readSource("packages/jarvis-runtime/src/orchestrator.ts");
+    expect(source).toContain("deps.boundaryChecker");
+    expect(source).toContain("validateComplianceBoundary");
+    expect(source).toContain("memoryBoundaryViolationsTotal");
+  });
+
+  it("orchestrator publishes lessons to wiki bridge", () => {
+    const source = readSource("packages/jarvis-runtime/src/orchestrator.ts");
+    expect(source).toContain("deps.wikiBridge");
+    expect(source).toContain("wikiBridge.publish(");
+    expect(source).toContain("wikiRetrievalTotal");
+  });
+});
+
+describe("Runtime Wiring: BrowserPolicy in browser worker", () => {
+  it("browser execute.ts accepts BrowserPolicyConfig", () => {
+    const source = readSource("packages/jarvis-browser-worker/src/execute.ts");
+    expect(source).toContain("BrowserPolicyConfig");
+    expect(source).toContain("browserPolicy");
+  });
+
+  it("browser execute.ts enforces domain allowlist/blocklist", () => {
+    const source = readSource("packages/jarvis-browser-worker/src/execute.ts");
+    expect(source).toContain("allowed_domains");
+    expect(source).toContain("blocked_domains");
+    expect(source).toContain("BROWSER_POLICY_VIOLATION");
+  });
+});
+
+describe("Runtime Wiring: OpenClaw model discovery in daemon", () => {
+  it("daemon.ts imports OpenClawInferAdapter", () => {
+    const source = readSource("packages/jarvis-runtime/src/daemon.ts");
+    expect(source).toContain("OpenClawInferAdapter");
+  });
+
+  it("daemon.ts calls listModels() in model rediscovery loop", () => {
+    const source = readSource("packages/jarvis-runtime/src/daemon.ts");
+    expect(source).toContain("openClawAdapter.listModels()");
+    expect(source).toContain('runtime: "openclaw"');
+  });
+});
+
+describe("Runtime Wiring: ModelInfo.runtime includes openclaw", () => {
+  it("router.ts ModelInfo type includes openclaw runtime", () => {
+    const source = readSource("packages/jarvis-inference/src/router.ts");
+    expect(source).toMatch(/runtime:\s*"ollama"\s*\|\s*"lmstudio"\s*\|\s*"openclaw"/);
   });
 });
 

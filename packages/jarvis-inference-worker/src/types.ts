@@ -15,7 +15,7 @@ export type InferenceChatInput = {
 export type InferenceChatOutput = {
   content: string;
   model: string;
-  runtime: "ollama" | "lmstudio";
+  runtime: "ollama" | "lmstudio" | "openclaw";
   usage: {
     prompt_tokens: number;
     completion_tokens: number;
@@ -53,26 +53,26 @@ export type InferenceEmbedInput = {
 export type InferenceEmbedOutput = {
   embeddings: number[][];
   model: string;
-  runtime: "ollama" | "lmstudio";
+  runtime: "ollama" | "lmstudio" | "openclaw";
   dimensions: number;
 };
 
 // ── inference.list_models ─────────────────────────────────────────────────────
 
 export type InferenceListModelsInput = {
-  runtime?: "ollama" | "lmstudio" | "all";
+  runtime?: "ollama" | "lmstudio" | "openclaw" | "all";
 };
 
 export type InferenceModelEntry = {
   id: string;
-  runtime: "ollama" | "lmstudio";
+  runtime: "ollama" | "lmstudio" | "openclaw";
   size_class: "small" | "medium" | "large";
   capabilities: string[];
 };
 
 export type InferenceListModelsOutput = {
   models: InferenceModelEntry[];
-  runtimes_available: Array<"ollama" | "lmstudio">;
+  runtimes_available: Array<"ollama" | "lmstudio" | "openclaw">;
   total_count: number;
 };
 

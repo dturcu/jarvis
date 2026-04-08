@@ -112,9 +112,9 @@ app.use('/api/chat', chatRouter)
 app.use('/api/daemon', daemonRouter)
 // Webhook v1 (webhooks.ts) deleted — v2 serves both paths for backward compat.
 // V2 uses shared normalizer from @jarvis/shared and adds X-Jarvis-Deprecation headers.
-// Epic 2: Conditional mounting — set JARVIS_WEBHOOK_LEGACY=true to keep dashboard routes
-// during transition to OpenClaw webhook plugin. Default: mounted (plugin not yet deployed).
-if (process.env.JARVIS_WEBHOOK_LEGACY?.toLowerCase() !== 'false') {
+// Epic 2: Webhook ingress cutover — dashboard routes OFF by default.
+// Set JARVIS_WEBHOOK_LEGACY=true to re-enable during transition.
+if (process.env.JARVIS_WEBHOOK_LEGACY?.toLowerCase() === 'true') {
   app.use('/api/webhooks', webhookV2Router)
   app.use('/api/webhooks-v2', webhookV2Router)
 }
