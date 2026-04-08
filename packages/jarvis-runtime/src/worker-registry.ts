@@ -25,6 +25,13 @@ import type { WorkerHealthMonitor } from "./worker-health.js";
 import { CRM_DB_PATH, type JarvisRuntimeConfig } from "./config.js";
 import type { Logger } from "./logger.js";
 import type { DatabaseSync } from "node:sqlite";
+import {
+  withJobSpan,
+  recordJobMetrics,
+  ProvenanceSigner,
+  hashContent,
+  type ProvenanceRecord,
+} from "@jarvis/observability";
 
 type WorkerExecuteFn = (envelope: JobEnvelope) => Promise<JobResult>;
 
@@ -58,6 +65,33 @@ export function createWorkerRegistry(
         "INSERT INTO audit_log (event_type, actor, target, details_json, created_at) VALUES (?, ?, ?, ?, ?)"
       ).run("credential_access", "worker-registry", workerId, JSON.stringify({ credential_type: credentialType }), new Date().toISOString());
     } catch { /* best-effort — audit table may not exist yet */ }
+  };
+
+  // ─── Provenance signer ──────────────────────────────────────────────────
+  // Uses JARVIS_SIGNING_KEY env var; falls back to a dev-only key in non-production.
+  const signingKey = process.env.JARVIS_SIGNING_KEY ?? (config.mode === "production" ? undefined : "jarvis-dev-signing-key-not-for-production");
+  const provenanceSigner = signingKey && signingKey.length >= 32 ? new ProvenanceSigner(signingKey) : undefined;
+  if (provenanceSigner) {
+    logger.info("Provenance: HMAC-SHA256 signing enabled");
+  } else {
+    logger.debug("Provenance: signing disabled (no valid signing key)");
+  }
+
+  // Store provenance records in runtime.db (best-effort)
+  const storeProvenance = (record: ProvenanceRecord): void => {
+    if (!runtimeDb) return;
+    try {
+      runtimeDb.prepare(
+        `INSERT INTO provenance_traces (record_id, job_id, job_type, agent_id, run_id, input_hash, output_hash, trace_id, sequence, prev_signature, signature, signed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).run(
+        record.record_id, record.job_id, record.job_type,
+        record.agent_id ?? null, record.run_id ?? null,
+        record.input_hash, record.output_hash,
+        record.trace_id ?? null, record.sequence,
+        record.prev_signature ?? null, record.signature, record.signed_at,
+      );
+    } catch { /* best-effort — provenance table may not exist */ }
   };
 
   // ─── Inference ──────────────────────────────────────────────────────────
@@ -309,7 +343,7 @@ export function createWorkerRegistry(
         }
       }
 
-      // ── Execute with error boundary + hard timeout ──
+      // ── Execute with error boundary + hard timeout + observability ──
       // Priority: execution-policy timeout > job catalog timeout (on envelope) > 60s fallback
       const timeoutMs = (policy?.timeout_seconds ?? envelope.timeout_seconds ?? 60) * 1000;
       const startTime = Date.now();
@@ -317,15 +351,43 @@ export function createWorkerRegistry(
       logger.debug(`Executing ${envelope.type}`, { job_id: envelope.job_id, timeout_ms: timeoutMs });
 
       try {
-        const timeoutPromise = new Promise<JobResult>((_, reject) => {
-          setTimeout(() => reject(new Error(`EXECUTION_TIMEOUT after ${timeoutMs}ms`)), timeoutMs);
-        });
+        const result = await withJobSpan(
+          envelope.type,
+          envelope.job_id,
+          { "jarvis.worker": prefix!, "jarvis.priority": envelope.priority },
+          async () => {
+            const timeoutPromise = new Promise<JobResult>((_, reject) => {
+              setTimeout(() => reject(new Error(`EXECUTION_TIMEOUT after ${timeoutMs}ms`)), timeoutMs);
+            });
+            return Promise.race([worker(envelope), timeoutPromise]);
+          },
+        );
 
-        const result = await Promise.race([worker(envelope), timeoutPromise]);
         const durationMs = Date.now() - startTime;
 
-        // Record health
+        // Record health + metrics
         healthMonitor?.recordExecution(prefix!, durationMs, result.status === "completed");
+        recordJobMetrics(envelope.type, result.status, durationMs, prefix!);
+
+        // Sign provenance for high-stakes job types (critical approval actions)
+        if (provenanceSigner && result.status === "completed") {
+          try {
+            const inputHash = hashContent(JSON.stringify(envelope.input));
+            const outputHash = hashContent(JSON.stringify(result.structured_output ?? result.summary));
+            const record = provenanceSigner.sign({
+              job_id: envelope.job_id,
+              job_type: envelope.type,
+              agent_id: envelope.metadata?.agent_id as string | undefined,
+              run_id: envelope.metadata?.run_id as string | undefined,
+              input_hash: inputHash,
+              output_hash: outputHash,
+              sequence: 0,
+            });
+            storeProvenance(record);
+          } catch (e) {
+            logger.debug(`Provenance signing failed for ${envelope.job_id}: ${e instanceof Error ? e.message : String(e)}`);
+          }
+        }
 
         logger.debug(`Result: ${result.status}`, { job_id: envelope.job_id, duration_ms: durationMs, summary: result.summary.slice(0, 100) });
         return result;
@@ -336,12 +398,14 @@ export function createWorkerRegistry(
 
         if (isTimeout) {
           healthMonitor?.recordTimeout(prefix!);
+          recordJobMetrics(envelope.type, "failed", durationMs, prefix!);
           logger.warn(`Execution timeout: ${envelope.type} after ${timeoutMs}ms`, { job_id: envelope.job_id });
           return failedResult("EXECUTION_TIMEOUT", `${envelope.type} timed out after ${Math.round(timeoutMs / 1000)}s`);
         }
 
         // Error boundary: catch worker crashes without killing the daemon
         healthMonitor?.recordExecution(prefix!, durationMs, false);
+        recordJobMetrics(envelope.type, "failed", durationMs, prefix!);
         logger.error(`Worker crash: ${envelope.type}: ${errMsg}`, { job_id: envelope.job_id });
         return failedResult("WORKER_CRASH", errMsg);
       }

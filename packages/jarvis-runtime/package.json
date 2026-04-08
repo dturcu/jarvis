@@ -29,6 +29,7 @@
     "@jarvis/security-worker": "file:../jarvis-security-worker",
     "@jarvis/time-worker": "file:../jarvis-time-worker",
     "@jarvis/drive-worker": "file:../jarvis-drive-worker",
-    "@jarvis/scheduler": "file:../jarvis-scheduler"
+    "@jarvis/scheduler": "file:../jarvis-scheduler",
+    "@jarvis/observability": "file:../jarvis-observability"
   }
 }
