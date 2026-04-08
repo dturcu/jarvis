@@ -10,9 +10,6 @@ import { processTelegramQueue } from './relay.js'
 export { TelegramSessionAdapter, mapTelegramCommandToSession } from './session-adapter.js'
 export type { SessionAdapterConfig } from './session-adapter.js'
 
-// Legacy: direct Telegram API bot (deprecated, kept for compatibility)
-export { DeprecatedJarvisBot, JarvisBot } from './deprecated-bot.js'
-
 // Shared utilities
 export { processTelegramQueue } from './relay.js'
 export type { ApprovalEntry } from './approvals.js'
@@ -99,12 +96,12 @@ async function startSessionMode(): Promise<void> {
  * Start the Telegram bot in legacy mode (direct Telegram API).
  * This is the original standalone bot behavior.
  *
- * @deprecated Use session mode (JARVIS_TELEGRAM_MODE=session) instead.
+ * @deprecated Use session mode (default) instead. Only use JARVIS_TELEGRAM_MODE=legacy if needed.
  */
 async function startLegacyMode(): Promise<void> {
   console.warn(
     '[jarvis-telegram] Starting in LEGACY mode (direct Telegram API). ' +
-    'Set JARVIS_TELEGRAM_MODE=session to use the OpenClaw session adapter.'
+    'Remove JARVIS_TELEGRAM_MODE=legacy to use the default OpenClaw session adapter.'
   )
 
   const config = loadConfig()
@@ -140,7 +137,7 @@ async function startLegacyMode(): Promise<void> {
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  const mode = (process.env.JARVIS_TELEGRAM_MODE ?? 'legacy').toLowerCase()
+  const mode = (process.env.JARVIS_TELEGRAM_MODE ?? 'session').toLowerCase()
 
   switch (mode) {
     case 'session':

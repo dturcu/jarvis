@@ -360,11 +360,11 @@ export function mapGodmodeToolsToSessionTools(): SessionToolRegistration[] {
 // ---- Express route -------------------------------------------------------
 
 /**
- * Create the v2 godmode route that delegates to the session adapter.
+ * Create the session-backed godmode route.
  *
- * Mount as: `app.use('/api/godmode/v2', createSessionChatRoute())`
+ * Mount as: `app.use('/api/godmode', createSessionChatRoute())`
  *
- * POST /api/godmode/v2
+ * POST /api/godmode
  *   Body: { message: string, mode?: SessionChatMode, session_key?: string }
  *   Response: { reply: string, artifacts?: [...], session_key: string }
  *

@@ -401,14 +401,14 @@ export type BrowserBridgeFactoryConfig = {
  * Create the appropriate BrowserBridge implementation.
  *
  * Selection order:
- * 1. `JARVIS_BROWSER_MODE=openclaw`  -> {@link OpenClawBrowserBridge}
+ * 1. `JARVIS_BROWSER_MODE=openclaw`  -> {@link OpenClawBrowserBridge} (default)
  * 2. `JARVIS_BROWSER_MODE=legacy`    -> {@link LegacyPuppeteerBridge}
- * 3. If no env var is set, default to `legacy` for backward compatibility.
+ * 3. If no env var is set, default to `openclaw`.
  */
 export function createBrowserBridge(
   cfg: BrowserBridgeFactoryConfig = {},
 ): BrowserBridge {
-  const mode = (process.env.JARVIS_BROWSER_MODE ?? "legacy").toLowerCase();
+  const mode = (process.env.JARVIS_BROWSER_MODE ?? "openclaw").toLowerCase();
 
   if (mode === "openclaw") {
     return new OpenClawBrowserBridge({

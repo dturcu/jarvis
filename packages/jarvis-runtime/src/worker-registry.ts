@@ -237,13 +237,12 @@ export function createWorkerRegistry(
     browserAdapter = new MockBrowserAdapter();
   }
 
-  // Create the BrowserBridge via the factory.  When JARVIS_BROWSER_MODE=openclaw
-  // the bridge routes through the OpenClaw gateway; otherwise it wraps the
-  // existing ChromeAdapter through the LegacyPuppeteerBridge.
-  const browserBridge = createBrowserBridge({
-    debuggingUrl: config.chrome?.debugging_url,
-  });
-  const browserMode = (process.env.JARVIS_BROWSER_MODE ?? "legacy").toLowerCase();
+  // Only create the BrowserBridge when openclaw mode is active.
+  // In legacy mode, the worker uses the adapter directly — no bridge overhead.
+  const browserMode = (process.env.JARVIS_BROWSER_MODE ?? "openclaw").toLowerCase();
+  const browserBridge = browserMode === "openclaw"
+    ? createBrowserBridge({ debuggingUrl: config.chrome?.debugging_url })
+    : undefined;
   logger.info(`Browser bridge: ${browserMode} mode`);
 
   const browserWorker = createBrowserWorker({
