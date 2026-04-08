@@ -32,6 +32,9 @@ import {
   ProvenanceSigner,
   hashContent,
   type ProvenanceRecord,
+  inferenceRuntimeTotal,
+  browserBridgeTotal,
+  taskflowRunsTotal,
 } from "@jarvis/observability";
 import {
   logCredentialAccess,
@@ -409,6 +412,15 @@ export function createWorkerRegistry(
         // Record health + metrics
         healthMonitor?.recordExecution(prefix!, durationMs, result.status === "completed");
         recordJobMetrics(envelope.type, result.status, durationMs, prefix!);
+
+        // Convergence adoption metrics — track which runtime paths are in use
+        if (prefix === "inference") {
+          inferenceRuntimeTotal.labels("lmstudio").inc();
+        }
+        if (prefix === "browser") {
+          const mode = process.env.JARVIS_BROWSER_MODE?.toLowerCase() ?? "openclaw";
+          browserBridgeTotal.labels(mode).inc();
+        }
 
         // Sign provenance for all completed jobs when a signer is configured
         if (provenanceSigner && result.status === "completed") {

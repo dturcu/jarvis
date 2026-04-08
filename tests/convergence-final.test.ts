@@ -142,6 +142,17 @@ describe("Convergence Program: Behavioral Assertions", () => {
     const source = readSource(".github/workflows/ci.yml");
     expect(source).toContain("check:convergence");
   });
+
+  it("Platform Adoption Roadmap supersedes old convergence roadmap", () => {
+    const oldRoadmap = readSource("docs/CONVERGENCE-ROADMAP.md");
+    expect(oldRoadmap).toContain("Superseded");
+    expect(oldRoadmap).toContain("PLATFORM-ADOPTION-ROADMAP.md");
+
+    const newRoadmap = readSource("docs/PLATFORM-ADOPTION-ROADMAP.md");
+    expect(newRoadmap).toContain("Epic 1");
+    expect(newRoadmap).toContain("Epic 12");
+    expect(newRoadmap).toContain("compliance");
+  });
 });
 
 describe("Convergence Program: Default Activation", () => {

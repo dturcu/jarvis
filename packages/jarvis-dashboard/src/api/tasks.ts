@@ -137,6 +137,7 @@ tasksRouter.get('/', (_req: Request, res: Response) => {
         r.updated_at,
         r.source,
         r.trigger_type,
+        r.owner,
         (SELECT COUNT(*) FROM jobs j WHERE j.run_id = r.run_id) as jobs_total,
         (SELECT COUNT(*) FROM jobs j WHERE j.run_id = r.run_id AND j.status IN ('completed','succeeded')) as jobs_completed,
         (SELECT COUNT(*) FROM approvals a WHERE a.run_id = r.run_id AND a.status = 'pending') as pending_approvals
@@ -156,6 +157,10 @@ tasksRouter.get('/', (_req: Request, res: Response) => {
       jobs_total: Number(row.jobs_total ?? 0),
       jobs_completed: Number(row.jobs_completed ?? 0),
       pending_approvals: Number(row.pending_approvals ?? 0),
+      provenance: row.source || row.trigger_type || row.owner ? {
+        channel: String(row.owner ?? 'daemon'),
+        trigger_type: String(row.trigger_type ?? row.source ?? 'unknown'),
+      } : undefined,
     }))
 
     res.json({ tasks })

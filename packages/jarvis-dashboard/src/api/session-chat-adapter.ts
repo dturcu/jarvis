@@ -28,6 +28,7 @@ import {
   READONLY_TOOL_NAMES,
   type ReadOnlyToolName,
 } from './tool-infra.js'
+import { sessionModeTotal, legacyPathTraffic } from '@jarvis/observability'
 
 // ---- Types ----------------------------------------------------------------
 
@@ -500,12 +501,15 @@ export function createSessionChatRoute(adapterOverride?: SessionChatAdapter): Ro
         history,
       })
 
+      sessionModeTotal.labels('session').inc()
       res.json(response)
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
 
       // If the session call failed, try the legacy fallback
       console.warn(`[session-chat-adapter] Gateway call failed, falling back to legacy: ${errMsg}`)
+      sessionModeTotal.labels('legacy').inc()
+      legacyPathTraffic.labels('/api/godmode/legacy').inc()
       await legacyFallback(req, res, message, mode, model, history)
     }
   })

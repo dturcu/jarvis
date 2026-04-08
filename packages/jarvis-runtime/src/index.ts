@@ -26,9 +26,19 @@ export {
 export { getHealthReport, getReadinessReport, type HealthReport, type HealthStatus, type ReadinessReport } from "./health.js";
 export { DbSchedulerStore } from "./db-scheduler.js";
 export {
-  createDbScheduleTrigger, createExternalTriggerSource,
-  type ScheduleTriggerSource, type DueSchedule,
+  createDbScheduleTrigger, createExternalTriggerSource, createTaskFlowTriggerSource,
+  TASKFLOW_WORKFLOW_TEMPLATES,
+  type ScheduleTriggerSource, type DueSchedule, type TaskFlowWorkflowConfig,
 } from "./schedule-trigger.js";
+export {
+  DreamingOrchestrator, DEFAULT_DREAMING_CONFIG, PILOT_DREAMING_CONFIG,
+  type DreamingConfig, type DreamingRun, type SynthesisResult, type SynthesisMode,
+} from "./dreaming.js";
+export {
+  FILE_DELETIONS, ROUTE_DELETIONS, ENV_VAR_DELETIONS, PRE_DELETION_CHECKS,
+  verifyDeletionCandidates,
+  type DeletionCandidate, type EnvVarDeletion, type RouteDeletion,
+} from "./legacy-deletion-checklist.js";
 export { isReadOnlyAction, getReadOnlySuffixes } from "./action-classifier.js";
 export { V1_WORKFLOWS, type WorkflowDefinition, type WorkflowInput, type WorkflowOutputField, type WorkflowSafetyRules } from "./workflows.js";
 export { STARTER_PACKS, type StarterPack } from "./starter-packs.js";

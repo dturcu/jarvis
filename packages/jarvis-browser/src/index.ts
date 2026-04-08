@@ -320,6 +320,11 @@ export const browserToolNames = [
 
 export const browserCommandNames = ["/browser"] as const;
 
+export {
+  DEFAULT_BROWSER_POLICY, DEFAULT_SANDBOX_CONFIG, BROWSER_CAPABILITY_MATRIX,
+  type BrowserPolicy, type BrowserSandboxConfig, type BrowserCapabilityMatrix, type ProfileInfo,
+} from "./browser-policy.js";
+
 export default definePluginEntry({
   id: "jarvis-browser",
   name: "Jarvis Browser",

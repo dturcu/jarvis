@@ -17,7 +17,7 @@ import { ALL_AGENTS } from "@jarvis/agents";
 import { loadPlugins } from "./plugin-loader.js";
 import { computeNextFireAt } from "@jarvis/scheduler";
 import { loadConfig, JARVIS_DIR, KNOWLEDGE_DB_PATH } from "./config.js";
-import { createDbScheduleTrigger, createExternalTriggerSource, type ScheduleTriggerSource } from "./schedule-trigger.js";
+import { createDbScheduleTrigger, createExternalTriggerSource, createTaskFlowTriggerSource, type ScheduleTriggerSource } from "./schedule-trigger.js";
 import { RagPipeline } from "./rag-pipeline.js";
 import { openRuntimeDb } from "./runtime-db.js";
 import { createWorkerRegistry } from "./worker-registry.js";
@@ -35,6 +35,7 @@ import { setWorkerHealthProvider } from "./health.js";
 import { resolveApproval } from "./approval-bridge.js";
 import { createNotificationDispatcher } from "./notify.js";
 import { sendSessionMessage } from "@jarvis/shared";
+import { taskflowRunsTotal } from "@jarvis/observability";
 
 // ─── DB Integrity (#65) ─────────────────────────────────────────────────────
 // Verify SQLite pragmas that the runtime depends on. Log warnings instead of
@@ -209,6 +210,9 @@ async function main() {
   if (scheduleSourceEnv === "external") {
     scheduleTrigger = createExternalTriggerSource();
     logger.info("Schedule source: external (OpenClaw TaskFlow manages schedule evaluation)");
+  } else if (scheduleSourceEnv === "taskflow") {
+    scheduleTrigger = createTaskFlowTriggerSource();
+    logger.info("Schedule source: taskflow (OpenClaw TaskFlow manages workflows and scheduling)");
   } else {
     scheduleTrigger = createDbScheduleTrigger(scheduler, computeNextFireAt);
     if (scheduleSourceEnv !== "db") {
@@ -416,6 +420,7 @@ async function main() {
         // Pass "scheduler" as owner so scheduled runs have attribution in audit trail
         agentQueue.enqueue(schedule.agent_id, cronTrigger, 0, undefined, undefined, "scheduler");
         scheduleTrigger.markFired(schedule.schedule_id, now);
+        taskflowRunsTotal.labels(scheduleTrigger.kind === "taskflow" ? "taskflow" : "daemon_poll").inc();
       }
 
       // Check queued commands in runtime.db

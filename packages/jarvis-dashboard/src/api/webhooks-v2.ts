@@ -28,6 +28,7 @@ import {
   type NormalizedWebhookEvent,
   type WebhookCommandParams,
 } from "@jarvis/shared";
+import { webhookIngressTotal, legacyPathTraffic } from "@jarvis/observability";
 
 // ─── Shared Helpers ─────────────────────────────────────────────────────────
 
@@ -149,9 +150,11 @@ export function createWebhookRouter(opts?: WebhookRouterOptions): Router {
   const onEvent: WebhookEventHandler = opts?.onEvent ?? defaultOnEvent;
   const router = Router();
 
-  // Attach deprecation header to every response from this router.
+  // Attach deprecation header and emit metrics for every request.
   router.use((_req, res, next) => {
     res.setHeader(DEPRECATION_HEADER, DEPRECATION_VALUE);
+    webhookIngressTotal.labels("dashboard").inc();
+    legacyPathTraffic.labels("/api/webhooks").inc();
     next();
   });
 

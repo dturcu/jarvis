@@ -333,6 +333,8 @@ export * from "./streaming.js";
 export * from "./task-profile.js";
 export * from "./registry.js";
 export * from "./benchmark.js";
+export * from "./openclaw-adapter.js";
+export * from "./governance.js";
 
 export default definePluginEntry({
   id: "jarvis-inference",
