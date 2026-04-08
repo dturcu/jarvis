@@ -106,7 +106,10 @@ const ROUTE_PERMISSIONS: Record<string, Record<string, UserRole>> = {
   "/api/runs": { GET: "viewer" },
   "/api/entities": { GET: "viewer" },
   "/api/analytics": { GET: "viewer" },
-  "/api/chat": { GET: "viewer", POST: "operator" },
+  // Chat POST is viewer-level so it works in tokenless dev mode.
+  // All dangerous tools (shell, email send, file write) have been removed
+  // from chat — it's read-only queries + agent triggers via the runtime kernel.
+  "/api/chat": { GET: "viewer", POST: "viewer" },
 };
 
 const ROLE_HIERARCHY: Record<UserRole, number> = {

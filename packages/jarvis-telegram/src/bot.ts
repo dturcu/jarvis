@@ -76,8 +76,9 @@ export class JarvisBot {
         return
       } catch (e) {
         if (attempt === maxRetries) {
-          console.error(`Telegram send failed after ${maxRetries} attempts:`, e)
-          return // Don't throw — message stays in notification queue for next poll cycle
+          // Re-throw so callers (e.g. checkApprovals) know delivery failed
+          // and don't mark the notification as sent.
+          throw e
         }
         const backoffMs = 1000 * Math.pow(2, attempt - 1) // 1s, 2s, 4s
         console.warn(`Telegram send attempt ${attempt}/${maxRetries} failed, retrying in ${backoffMs}ms`)

@@ -30,16 +30,27 @@ export function getProjectRoot(): string {
 export interface FetchUrlOptions {
   userAgent?: string
   timeout?: number
+  /** Internal: remaining redirect hops (default 5). */
+  _redirectsLeft?: number
 }
+
+const MAX_REDIRECTS = 5
 
 export function fetchUrl(url: string, opts: FetchUrlOptions = {}): Promise<string> {
   const userAgent = opts.userAgent ?? 'Jarvis/1.0'
   const timeout = opts.timeout ?? 15000
+  const redirectsLeft = opts._redirectsLeft ?? MAX_REDIRECTS
   return new Promise((resolve, reject) => {
     const mod = url.startsWith('https') ? https : http
     const req = mod.get(url, { headers: { 'User-Agent': userAgent } }, (res) => {
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-        fetchUrl(res.headers.location, opts).then(resolve).catch(reject)
+        if (redirectsLeft <= 0) {
+          reject(new Error(`Too many redirects (max ${MAX_REDIRECTS})`))
+          return
+        }
+        // Resolve relative Location headers against the original URL
+        const resolved = new URL(res.headers.location, url).href
+        fetchUrl(resolved, { ...opts, _redirectsLeft: redirectsLeft - 1 }).then(resolve).catch(reject)
         return
       }
       let data = ''

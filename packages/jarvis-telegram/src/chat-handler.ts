@@ -7,9 +7,23 @@ import { join } from 'node:path'
 
 type ChatMessage = { role: string; content: string }
 
+// ─── Conversation History (per-session, thin layer) ─────────────────────────
+
+const conversationHistory: ChatMessage[] = []
+const MAX_HISTORY = 20
+
+function addToHistory(role: string, content: string) {
+  conversationHistory.push({ role, content })
+  while (conversationHistory.length > MAX_HISTORY) {
+    conversationHistory.shift()
+  }
+}
+
 // ─── Jarvis API Relay ───────────────────────────────────────────────────────
 
-const JARVIS_PORT = Number(process.env.PORT ?? 4242)
+// Use a Jarvis-specific env var so hosting platforms that set PORT for the
+// *current* service (the Telegram bot) don't accidentally redirect the relay.
+const JARVIS_API_PORT = Number(process.env.JARVIS_API_PORT ?? process.env.JARVIS_DASHBOARD_PORT ?? 4242)
 const JARVIS_HOST = '127.0.0.1'
 
 /**
@@ -26,7 +40,6 @@ function loadApiToken(): string | null {
     if (typeof raw.api_token === 'string') return raw.api_token
     if (raw.api_tokens && typeof raw.api_tokens === 'object') {
       const map = raw.api_tokens as Record<string, string>
-      // Prefer operator-level token for Telegram
       return map.operator ?? map.admin ?? null
     }
   } catch { /* no config */ }
@@ -34,21 +47,25 @@ function loadApiToken(): string | null {
 }
 
 function callJarvisApi(message: string, history: ChatMessage[]): Promise<string> {
-  return new Promise((resolve, reject) => {
+  const token = loadApiToken()
+  if (!token) {
+    return Promise.resolve(
+      'Telegram relay has no API token configured. ' +
+      'Set JARVIS_API_TOKEN or add api_token to ~/.jarvis/config.json.'
+    )
+  }
+
+  return new Promise((resolve) => {
     const body = JSON.stringify({ message, history })
-    const token = loadApiToken()
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'Content-Length': String(Buffer.byteLength(body)),
-    }
-    // Always include auth header when token is available
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`
+      'Authorization': `Bearer ${token}`,
     }
 
     const req = http.request({
       hostname: JARVIS_HOST,
-      port: JARVIS_PORT,
+      port: JARVIS_API_PORT,
       path: '/api/chat/telegram',
       method: 'POST',
       headers,
@@ -67,7 +84,7 @@ function callJarvisApi(message: string, history: ChatMessage[]): Promise<string>
           resolve('Failed to parse Jarvis response.')
         }
       })
-      res.on('error', reject)
+      res.on('error', () => resolve('Jarvis API connection error.'))
     })
     req.on('error', (err) => {
       resolve(`Jarvis API unreachable (${err.message}). Is the daemon running? Try: npm start`)
@@ -86,14 +103,17 @@ function callJarvisApi(message: string, history: ChatMessage[]): Promise<string>
 /**
  * Handle free-text messages from Telegram.
  *
- * This is now a pure relay — it sends the message to the dashboard API and
- * returns the response. No action-tag parsing, no agent triggering from
- * model output. All agent triggers must come via explicit /slash commands.
- *
- * Conversation history is NOT managed here — the dashboard API manages
- * its own context per session. Telegram is a thin ingress layer.
+ * This is a relay layer — it sends the message plus recent conversation
+ * history to the dashboard API and returns the response. No action-tag
+ * parsing, no agent triggering from model output. All agent triggers
+ * must come via explicit /slash commands.
  */
 export async function handleFreeText(userMessage: string): Promise<{ text: string }> {
-  const response = await callJarvisApi(userMessage, [])
+  addToHistory('user', userMessage)
+
+  // Pass prior turns so the LLM has multi-turn context
+  const response = await callJarvisApi(userMessage, conversationHistory.slice(0, -1))
+
+  addToHistory('assistant', response)
   return { text: response }
 }

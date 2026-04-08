@@ -245,8 +245,8 @@ const JOB_INPUT_SCHEMAS: Partial<Record<JarvisJobType, InputSpec>> = {
     fields: { selector: "string", text: "string" }
   },
   "browser.evaluate": {
-    required: ["expression"],
-    fields: { expression: "string" }
+    required: ["script"],
+    fields: { script: "string", args: "array" }
   },
   "browser.wait_for": {
     required: ["selector"],
