@@ -1,9 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "jarvis.v1.review-report",
+  "$id": "https://jarvis.contracts.local/v1/review-report",
   "title": "Self-Reflection Review Report",
   "description": "Structured weekly review artifact produced by the self-reflection agent.",
-  "definitions": {
+  "$ref": "#/$defs/ReviewReport",
+  "$defs": {
     "ProposalCategory": {
       "type": "string",
       "enum": [
@@ -22,70 +23,95 @@
     "ImprovementProposal": {
       "type": "object",
       "required": ["category", "target", "observation", "recommendation", "expected_impact", "priority"],
+      "additionalProperties": false,
       "properties": {
-        "category": { "$ref": "#/definitions/ProposalCategory" },
-        "target": {
-          "type": "string",
-          "description": "Which agent, schema, collection, or workflow is affected."
-        },
-        "observation": {
-          "type": "string",
-          "description": "What the data shows, with specific numbers."
-        },
-        "recommendation": {
-          "type": "string",
-          "description": "Concrete action to take."
-        },
-        "expected_impact": {
-          "type": "string",
-          "description": "Estimated improvement."
-        },
-        "priority": { "$ref": "#/definitions/ProposalPriority" },
-        "source_run_ids": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Run IDs that evidence this proposal."
-        },
-        "source_approval_ids": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Approval IDs that evidence this proposal."
-        }
+        "category": { "$ref": "#/$defs/ProposalCategory" },
+        "target": { "type": "string", "description": "Which agent, schema, collection, or workflow is affected." },
+        "observation": { "type": "string", "description": "What the data shows, with specific numbers." },
+        "recommendation": { "type": "string", "description": "Concrete action to take." },
+        "expected_impact": { "type": "string", "description": "Estimated improvement." },
+        "priority": { "$ref": "#/$defs/ProposalPriority" },
+        "source_run_ids": { "type": "array", "items": { "type": "string" } },
+        "source_approval_ids": { "type": "array", "items": { "type": "string" } }
       }
     },
     "ReviewReport": {
       "type": "object",
-      "required": ["report_id", "period_start", "period_end", "health_score", "proposals", "agent_metrics", "approval_metrics", "knowledge_metrics"],
+      "required": ["report_id", "period_start", "period_end", "health_score", "proposals", "agent_metrics", "system_metrics", "approval_metrics", "knowledge_metrics", "failure_modes"],
+      "additionalProperties": false,
       "properties": {
         "report_id": { "type": "string" },
         "period_start": { "type": "string", "format": "date-time" },
         "period_end": { "type": "string", "format": "date-time" },
-        "health_score": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 100
-        },
+        "health_score": { "type": "integer", "minimum": 0, "maximum": 100 },
         "proposals": {
           "type": "array",
-          "minItems": 5,
-          "items": { "$ref": "#/definitions/ImprovementProposal" }
+          "items": { "$ref": "#/$defs/ImprovementProposal" },
+          "description": "LLM-generated improvement proposals. Empty when report is first assembled; filled during agent execution."
         },
         "agent_metrics": {
-          "type": "object",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "agent_id": { "type": "string" },
+              "total": { "type": "integer" },
+              "completed": { "type": "integer" },
+              "failed": { "type": "integer" },
+              "success_rate": { "type": "number" },
+              "avg_steps": { "type": "number" }
+            }
+          },
           "description": "Per-agent success/failure/step metrics."
+        },
+        "system_metrics": {
+          "type": "object",
+          "properties": {
+            "total_runs": { "type": "integer" },
+            "completed": { "type": "integer" },
+            "failed": { "type": "integer" },
+            "success_rate": { "type": "number" },
+            "active_agents": { "type": "integer" }
+          },
+          "description": "System-wide run summary."
         },
         "approval_metrics": {
           "type": "object",
+          "properties": {
+            "total": { "type": "integer" },
+            "approved": { "type": "integer" },
+            "rejected": { "type": "integer" },
+            "rejection_rate": { "type": "number" },
+            "avg_latency_ms": { "type": ["number", "null"] },
+            "by_action": { "type": "array" },
+            "by_severity": { "type": "array" }
+          },
           "description": "Approval funnel: rejection rate, latency, by action and severity."
         },
         "knowledge_metrics": {
           "type": "object",
+          "properties": {
+            "total_documents": { "type": "integer" },
+            "collections": { "type": "object" },
+            "stale_count": { "type": "integer" },
+            "thin_collections": { "type": "array" },
+            "freshness": { "type": "array" }
+          },
           "description": "Collection coverage, staleness, thin collections."
         },
-        "previous_report_id": {
-          "type": "string",
-          "description": "ID of the prior weekly report for week-over-week comparison."
-        }
+        "failure_modes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "error": { "type": "string" },
+              "count": { "type": "integer" },
+              "agent_id": { "type": "string" }
+            }
+          },
+          "description": "Most common failure error messages by agent."
+        },
+        "previous_report_id": { "type": "string", "description": "ID of the prior weekly report for week-over-week comparison." }
       }
     }
   }

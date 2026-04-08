@@ -369,7 +369,7 @@ export function createWorkerRegistry(
         healthMonitor?.recordExecution(prefix!, durationMs, result.status === "completed");
         recordJobMetrics(envelope.type, result.status, durationMs, prefix!);
 
-        // Sign provenance for high-stakes job types (critical approval actions)
+        // Sign provenance for all completed jobs when a signer is configured
         if (provenanceSigner && result.status === "completed") {
           try {
             const inputHash = hashContent(JSON.stringify(envelope.input));

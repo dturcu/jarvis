@@ -76,7 +76,7 @@ export function persistRelease(db: DatabaseSync): void {
 export function verifyMigrationConsistency(db: DatabaseSync): string[] {
   try {
     const applied = db.prepare(
-      "SELECT migration_id FROM schema_migrations",
+      "SELECT id AS migration_id FROM schema_migrations",
     ).all() as Array<{ migration_id: string }>;
     const appliedSet = new Set(applied.map(r => r.migration_id));
     return CURRENT_RELEASE.migrations.filter(m => !appliedSet.has(m));

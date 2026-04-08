@@ -1,14 +1,13 @@
 /**
  * Document page extraction service.
  *
- * Extracts per-page text from PDF files and produces page metadata
- * for downstream vision processing.  When rasterization is needed
- * (scanned PDFs), callers should use the VisionProcessor for OCR.
+ * Extracts per-page text from supported document files and produces
+ * page metadata for downstream processing.
  *
- * This service handles text-layer extraction only.  Image-based
- * rasterization requires external tools (Ghostscript, poppler) and
- * is gated behind the `rasterize` flag, returning a degraded status
- * when the tool is unavailable rather than silently omitting pages.
+ * For PDFs, this service reads the existing text layer only.  Pages with
+ * missing or very thin text are flagged via `needsVision` and warnings
+ * so callers can route scanned or image-based documents to OCR using a
+ * separate vision processor.
  */
 
 import fs from "node:fs";
@@ -101,7 +100,7 @@ export class PageExtractor {
     let needsVision = false;
 
     for (let i = 0; i < rawPages.length; i++) {
-      const text = rawPages[i].trim();
+      const text = (rawPages[i] ?? "").trim();
       const hasTextLayer = text.length > 20;
 
       if (!hasTextLayer) {

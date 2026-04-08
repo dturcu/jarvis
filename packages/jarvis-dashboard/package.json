@@ -11,6 +11,8 @@
   "dependencies": {
     "@jarvis/runtime": "file:../jarvis-runtime",
     "@jarvis/shared": "file:../jarvis-shared",
+    "@jarvis/observability": "file:../jarvis-observability",
+    "@jarvis/agents": "file:../jarvis-agents",
     "express": "^5.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

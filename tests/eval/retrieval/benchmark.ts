@@ -56,7 +56,16 @@ export function scoreBenchmark(
 
   for (const q of corpus.queries) {
     const results = retrieveFn(q.query, topK, q.collection);
-    const retrievedIds = results.map(r => r.docId);
+    // Deduplicate retrieved docIds (multiple chunks from same doc)
+    const seen = new Set<string>();
+    const retrievedIds: string[] = [];
+    for (const r of results) {
+      if (!seen.has(r.docId)) {
+        seen.add(r.docId);
+        retrievedIds.push(r.docId);
+      }
+      if (retrievedIds.length >= topK) break;
+    }
     const relevantSet = new Set(q.relevant_doc_ids);
 
     const hits = retrievedIds.filter(id => relevantSet.has(id));

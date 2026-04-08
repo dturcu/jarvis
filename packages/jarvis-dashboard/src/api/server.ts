@@ -27,6 +27,7 @@ import { serviceRouter } from './service.js'
 import { supportRouter } from './support.js'
 import { repairRouter } from './repair.js'
 import { provenanceRouter } from './provenance.js'
+import { evalRouter } from './eval.js'
 import { modeRouter } from './settings.js'
 import fs from 'fs'
 import { getHealthReport, getReadinessReport, loadConfig } from '@jarvis/runtime'
@@ -123,6 +124,7 @@ app.use('/api/service', serviceRouter)
 app.use('/api/support', supportRouter)
 app.use('/api/repair', repairRouter)
 app.use('/api/provenance', provenanceRouter)
+app.use('/api/eval', evalRouter)
 app.use('/api/mode', modeRouter)
 
 app.get('/api/health', (_req, res) => {
