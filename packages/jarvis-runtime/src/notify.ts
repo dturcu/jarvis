@@ -27,3 +27,53 @@ export function writeTelegramQueue(agentId: string, message: string, db?: Databa
     // Best-effort: don't crash if notifications table is missing or DB is closed
   }
 }
+
+// ─── Convergence: Unified Notification Dispatch ──────────────────────────────
+// See ADR-PLATFORM-KERNEL-BOUNDARY.md and CONVERGENCE-ROADMAP.md.
+// When JARVIS_TELEGRAM_MODE=session, notifications route through OpenClaw
+// sessions instead of the legacy DB-poll-then-send path.
+
+export type NotificationChannel = "telegram" | "session" | "both";
+
+export type NotificationDispatcher = {
+  /** Send a notification through the configured channel(s). */
+  notify(agentId: string, message: string, db?: DatabaseSync): Promise<void>;
+  /** Which channel is active. */
+  channel: NotificationChannel;
+};
+
+/**
+ * Create a notification dispatcher that routes through the appropriate channel.
+ *
+ * - "telegram" (default): writes to the notifications table (legacy path)
+ * - "session": sends via OpenClaw session (convergence path)
+ * - "both": writes to DB AND sends via session (transition/dual-write mode)
+ */
+export function createNotificationDispatcher(opts: {
+  channel?: NotificationChannel;
+  sessionSend?: (text: string) => Promise<void>;
+}): NotificationDispatcher {
+  const channel = opts.channel ?? "telegram";
+
+  return {
+    channel,
+    async notify(agentId: string, message: string, db?: DatabaseSync): Promise<void> {
+      const formatted = `[${agentId.toUpperCase()}]\n\n${message}`;
+
+      if (channel === "telegram" || channel === "both") {
+        writeTelegramQueue(agentId, message, db);
+      }
+
+      if ((channel === "session" || channel === "both") && opts.sessionSend) {
+        try {
+          await opts.sessionSend(formatted);
+        } catch {
+          // Session delivery failed — fall back to DB queue if not already written
+          if (channel === "session") {
+            writeTelegramQueue(agentId, message, db);
+          }
+        }
+      }
+    },
+  };
+}

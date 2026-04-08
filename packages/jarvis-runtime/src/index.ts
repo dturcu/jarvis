@@ -10,7 +10,7 @@ export { scorePlan, rankPlans, detectDisagreement, type PlanScore } from "./plan
 export { runAgent, type OrchestratorDeps } from "./orchestrator.js";
 export { RunStore, type RunStatus, type RunEventType } from "./run-store.js";
 export { requestApproval, waitForApproval, resolveApproval, delegateApproval, listApprovals, listApprovalsByAssignee, getApprovalMetrics, type ApprovalEntry, type ApprovalMetrics } from "./approval-bridge.js";
-export { writeTelegramQueue } from "./notify.js";
+export { writeTelegramQueue, createNotificationDispatcher, type NotificationChannel, type NotificationDispatcher } from "./notify.js";
 export { createFilesWorkerBridge } from "./files-bridge.js";
 export { StatusWriter, type DaemonStatusData } from "./status-writer.js";
 export { AgentQueue } from "./agent-queue.js";
