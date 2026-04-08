@@ -273,9 +273,13 @@ export class TelegramSessionAdapter {
               undefined,
               this.gatewayOverrides,
             )
-            return typeof result === 'object' && result !== null && 'reply' in result
-              ? String((result as Record<string, unknown>).reply)
-              : 'Session responded but no reply text was returned.'
+            // Normalize response — gateway may return reply, content, or text
+            if (typeof result === 'object' && result !== null) {
+              const r = result as Record<string, unknown>
+              const text = r.reply ?? r.content ?? r.text
+              if (typeof text === 'string' && text.length > 0) return text
+            }
+            return 'Session responded but no reply text was returned.'
           } catch {
             // Fall back to legacy HTTP relay on session failure
           }

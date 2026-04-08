@@ -117,6 +117,8 @@ export class SessionChatAdapter {
     sessionKey: string
     message: string
     mode?: SessionChatMode
+    model?: string
+    history?: Array<{ role: 'user' | 'assistant'; content: string }>
   }): Promise<SessionChatResponse> {
     const overrides = this.callOptions()
 
@@ -131,6 +133,8 @@ export class SessionChatAdapter {
         sessionKey: params.sessionKey,
         message: `${modeDirective}${params.message}`,
         timeoutMs: this.timeoutMs,
+        ...(params.model ? { model: params.model } : {}),
+        ...(params.history?.length ? { history: params.history } : {}),
       },
       undefined, // no OpenClawConfig -- we use overrides
       overrides,
@@ -360,11 +364,11 @@ export function mapGodmodeToolsToSessionTools(): SessionToolRegistration[] {
 // ---- Express route -------------------------------------------------------
 
 /**
- * Create the v2 godmode route that delegates to the session adapter.
+ * Create the session-backed godmode route.
  *
- * Mount as: `app.use('/api/godmode/v2', createSessionChatRoute())`
+ * Mount as: `app.use('/api/godmode', createSessionChatRoute())`
  *
- * POST /api/godmode/v2
+ * POST /api/godmode
  *   Body: { message: string, mode?: SessionChatMode, session_key?: string }
  *   Response: { reply: string, artifacts?: [...], session_key: string }
  *
@@ -386,10 +390,12 @@ export function createSessionChatRoute(adapterOverride?: SessionChatAdapter): Ro
 
   // POST / -- main entry point
   router.post('/', async (req: Request, res: Response) => {
-    const { message, mode, session_key } = req.body as {
+    const { message, mode, session_key, model, history } = req.body as {
       message?: string
       mode?: SessionChatMode
       session_key?: string
+      model?: string
+      history?: Array<{ role: 'user' | 'assistant'; content: string }>
     }
 
     if (!message?.trim()) {
@@ -406,7 +412,7 @@ export function createSessionChatRoute(adapterOverride?: SessionChatAdapter): Ro
       // Fall back to legacy godmode by proxying the request internally.
       // The legacy endpoint uses SSE, so we rewrite the request body to
       // match its expected shape and pipe the response.
-      await legacyFallback(req, res, message, mode)
+      await legacyFallback(req, res, message, mode, model, history)
       return
     }
 
@@ -418,6 +424,8 @@ export function createSessionChatRoute(adapterOverride?: SessionChatAdapter): Ro
         sessionKey: resolvedKey,
         message,
         mode,
+        model,
+        history,
       })
 
       res.json(response)
@@ -426,7 +434,7 @@ export function createSessionChatRoute(adapterOverride?: SessionChatAdapter): Ro
 
       // If the session call failed, try the legacy fallback
       console.warn(`[session-chat-adapter] Gateway call failed, falling back to legacy: ${errMsg}`)
-      await legacyFallback(req, res, message, mode)
+      await legacyFallback(req, res, message, mode, model, history)
     }
   })
 
@@ -455,7 +463,7 @@ export function createSessionChatRoute(adapterOverride?: SessionChatAdapter): Ro
 // ---- Legacy fallback -----------------------------------------------------
 
 /**
- * Forward a v2 request to the legacy /api/godmode endpoint.
+ * Forward a request to the legacy /api/godmode/legacy endpoint.
  *
  * The legacy endpoint streams SSE, so we collect the full response and
  * return it as a single JSON object matching the v2 shape.
@@ -465,24 +473,31 @@ async function legacyFallback(
   res: Response,
   message: string,
   mode?: SessionChatMode,
+  model?: string,
+  history?: Array<{ role: 'user' | 'assistant'; content: string }>,
 ): Promise<void> {
   // Dynamic import to avoid circular dependency at module load time.
   // The legacy godmode router is mounted on the same Express app, so
-  // we issue a loopback HTTP request to the local /api/godmode route
+  // we issue a loopback HTTP request to /api/godmode/legacy
   // to reuse its existing middleware, auth handling, and SSE behavior.
   try {
     const http = await import('http')
 
     // Build the internal request to /api/godmode
     const PORT = Number(process.env.PORT ?? 4242)
-    const body = JSON.stringify({ message, mode })
+    const body = JSON.stringify({
+      message,
+      mode,
+      ...(model ? { model } : {}),
+      ...(history?.length ? { history } : {}),
+    })
 
     const collected = await new Promise<string>((resolve, reject) => {
       const proxyReq = http.request(
         {
           hostname: '127.0.0.1',
           port: PORT,
-          path: '/api/godmode',
+          path: '/api/godmode/legacy',
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

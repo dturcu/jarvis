@@ -237,13 +237,12 @@ export function createWorkerRegistry(
     browserAdapter = new MockBrowserAdapter();
   }
 
-  // Create the BrowserBridge via the factory.  When JARVIS_BROWSER_MODE=openclaw
-  // the bridge routes through the OpenClaw gateway; otherwise it wraps the
-  // existing ChromeAdapter through the LegacyPuppeteerBridge.
-  const browserBridge = createBrowserBridge({
-    debuggingUrl: config.chrome?.debugging_url,
-  });
-  const browserMode = (process.env.JARVIS_BROWSER_MODE ?? "legacy").toLowerCase();
+  // Only create the BrowserBridge when openclaw mode is active.
+  // In legacy mode, the worker uses the adapter directly — no bridge overhead.
+  const browserMode = (process.env.JARVIS_BROWSER_MODE ?? "openclaw").toLowerCase();
+  const browserBridge = browserMode === "openclaw"
+    ? createBrowserBridge({ debuggingUrl: config.chrome?.debugging_url })
+    : undefined;
   logger.info(`Browser bridge: ${browserMode} mode`);
 
   const browserWorker = createBrowserWorker({
@@ -376,6 +375,21 @@ export function createWorkerRegistry(
       const startTime = Date.now();
 
       logger.debug(`Executing ${envelope.type}`, { job_id: envelope.job_id, timeout_ms: timeoutMs });
+
+      // Audit credential access at the actual job dispatch boundary,
+      // where we have job_id and run context. Workers that use external
+      // credentials are logged here (not at adapter construction time).
+      const CRED_WORKERS: Record<string, string[]> = {
+        email: ["gmail"], calendar: ["calendar"], browser: ["chrome"],
+        social: ["chrome"], time: ["toggl"], drive: ["drive"],
+      };
+      const credKeys = CRED_WORKERS[prefix!];
+      if (credKeys) {
+        auditCredentialAccess(prefix!, credKeys, {
+          jobId: envelope.job_id,
+          runId: (envelope as Record<string, unknown>).run_id as string | undefined,
+        });
+      }
 
       try {
         const result = await withJobSpan(

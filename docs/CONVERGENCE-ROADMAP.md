@@ -80,14 +80,14 @@ OpenClaw owns channels, sessions, browser lifecycle, webhook ingress, automation
 - Browser tasks produce equivalent artifacts
 - Approval enforcement still works for risky browser actions
 
-### Progress (as of Wave 4)
+### Progress (as of Wave 5)
 
 | Duplication Target | Status | Notes |
 |---|---|---|
 | Webhook ingress | **Eliminated** | `webhooks.ts` deleted; v2 normalizer serves both paths |
-| Telegram transport | **Bridged** | Session adapter wired; orchestrator notifications use dispatcher |
-| Operator chat (godmode) | **Bridged** | Session adapter + v2 route; free-text session path added |
-| Browser runtime | **Bridged** | BrowserBridge factory; wiring into worker dispatch |
+| Telegram transport | **Default session** | Session mode is now default; legacy available via `JARVIS_TELEGRAM_MODE=legacy` |
+| Operator chat (godmode) | **Default session** | Session-backed adapter is now `/api/godmode`; v1 at `/api/godmode/legacy` |
+| Browser runtime | **Default openclaw** | OpenClaw bridge is now default; legacy available via `JARVIS_BROWSER_MODE=legacy` |
 
 **Year 1 Success Metric:** Four primary-path duplications eliminated. The biggest duplications (Telegram, webhooks, operator chat, browser) are gone or behind thin compatibility bridges.
 

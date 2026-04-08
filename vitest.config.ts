@@ -57,6 +57,12 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["tests/**/*.test.ts"],
-    exclude: ["tests/stress/**/*.test.ts"]
+    exclude: ["tests/stress/**/*.test.ts"],
+    env: {
+      // Tests run without an OpenClaw gateway, so convergence adapters
+      // must fall back to legacy mode for unit/integration tests.
+      JARVIS_BROWSER_MODE: "legacy",
+      JARVIS_TELEGRAM_MODE: "legacy",
+    }
   }
 });

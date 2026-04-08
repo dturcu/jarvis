@@ -200,3 +200,56 @@ describe("Convergence: Notification dispatcher", () => {
     expect(payload.message).toBe("Review complete");
   });
 });
+
+// ─── Test 5: Godmode fallback path targets /api/godmode/legacy ───────────
+
+describe("Convergence: Godmode fallback path", () => {
+  it("legacyFallback references /api/godmode/legacy, not /api/godmode", async () => {
+    // Static check: the session-chat-adapter must proxy to /api/godmode/legacy
+    // to avoid infinite recursion when the session route is mounted on /api/godmode.
+    const fs = await import("node:fs");
+    const source = fs.readFileSync(
+      new URL("../../packages/jarvis-dashboard/src/api/session-chat-adapter.ts", import.meta.url),
+      "utf8",
+    );
+
+    // The loopback HTTP request must target /api/godmode/legacy
+    expect(source).toContain("path: '/api/godmode/legacy'");
+
+    // It must NOT contain a loopback to /api/godmode (without /legacy suffix)
+    // in the HTTP request path. The mount-point comments are fine.
+    const httpPathMatches = source.match(/path:\s*['"]\/api\/godmode['"]/g) ?? [];
+    expect(
+      httpPathMatches.length,
+      "Found loopback to /api/godmode instead of /api/godmode/legacy — infinite recursion risk",
+    ).toBe(0);
+  });
+});
+
+// ─── Test 6: Browser bridge routing — unsupported types fall back ────────
+
+describe("Convergence: Browser bridge type routing", () => {
+  it("BRIDGE_SUPPORTED_TYPES does not include low-level adapter jobs", async () => {
+    // The browser worker execute.ts must only route high-level types through
+    // the bridge, and fall back to the adapter for click/type/evaluate/wait_for.
+    const fs = await import("node:fs");
+    const source = fs.readFileSync(
+      new URL("../../packages/jarvis-browser-worker/src/execute.ts", import.meta.url),
+      "utf8",
+    );
+
+    // Verify the dispatch uses BRIDGE_SUPPORTED_TYPES.has() check
+    expect(source).toContain("BRIDGE_SUPPORTED_TYPES.has(envelope.type)");
+
+    // Verify low-level types are NOT in the bridge set
+    const bridgeSetMatch = source.match(
+      /BRIDGE_SUPPORTED_TYPES\s*=\s*new\s+Set[^;]+;/s,
+    );
+    expect(bridgeSetMatch).toBeTruthy();
+    const bridgeSet = bridgeSetMatch![0];
+    expect(bridgeSet).not.toContain("browser.click");
+    expect(bridgeSet).not.toContain("browser.type");
+    expect(bridgeSet).not.toContain("browser.evaluate");
+    expect(bridgeSet).not.toContain("browser.wait_for");
+  });
+});

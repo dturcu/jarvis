@@ -358,7 +358,7 @@ async function main() {
   }
 
   // Notification dispatcher — routes through session or legacy Telegram DB queue
-  const telegramMode = (process.env.JARVIS_TELEGRAM_MODE ?? "legacy").toLowerCase();
+  const telegramMode = (process.env.JARVIS_TELEGRAM_MODE ?? "session").toLowerCase();
   const notifier = createNotificationDispatcher({
     channel: telegramMode === "session" ? "session" : "telegram",
     sessionSend: telegramMode === "session"
