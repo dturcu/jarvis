@@ -59,7 +59,7 @@ function initDatabase(
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
-function main(): void {
+async function main(): Promise<void> {
   console.log("Jarvis initialization");
   console.log("=====================\n");
 
@@ -75,12 +75,40 @@ function main(): void {
   const knowledgeCreated = initDatabase("Knowledge", KNOWLEDGE_DB_PATH, KNOWLEDGE_MIGRATIONS);
   const runtimeCreated = initDatabase("Runtime", RUNTIME_DB_PATH, RUNTIME_MIGRATIONS);
 
+  // Generate API token if none exists — secure by default
+  const configPath = join(JARVIS_DIR, "config.json");
+  let tokenGenerated = false;
+  try {
+    let config: Record<string, unknown> = {};
+    if (existsSync(configPath)) {
+      const { readFileSync } = await import("node:fs");
+      config = JSON.parse(readFileSync(configPath, "utf8")) as Record<string, unknown>;
+    }
+    if (!config.api_token && !config.api_tokens && !process.env.JARVIS_API_TOKEN) {
+      const { randomBytes } = await import("node:crypto");
+      const { writeFileSync } = await import("node:fs");
+      const token = randomBytes(32).toString("hex");
+      config.api_token = token;
+      writeFileSync(configPath, JSON.stringify(config, null, 2));
+      tokenGenerated = true;
+      console.log(`\n  [created] API token: ${token.slice(0, 8)}...${token.slice(-4)}`);
+      console.log(`  Saved to ${configPath}`);
+      console.log(`  Use as: Authorization: Bearer ${token}`);
+    }
+  } catch (e) {
+    console.warn(`  [warning] Could not generate API token: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
   console.log("\n── Summary ──────────────────────────────────────────────");
   console.log(`  Directory:    ${JARVIS_DIR}`);
   console.log(`  CRM DB:       ${crmCreated ? "CREATED" : "already existed"}`);
   console.log(`  Knowledge DB: ${knowledgeCreated ? "CREATED" : "already existed"}`);
   console.log(`  Runtime DB:   ${runtimeCreated ? "CREATED" : "already existed"}`);
+  console.log(`  API Token:    ${tokenGenerated ? "GENERATED (saved to config.json)" : "already configured"}`);
   console.log(`\n  Databases initialized. Run 'npm run seed:demo' to populate demo data.\n`);
 }
 
-main();
+main().catch(e => {
+  console.error("Init error:", e);
+  process.exitCode = 1;
+});
