@@ -1,5 +1,5 @@
 import os from "node:os";
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import {
   SystemWorkerError,
   type ExecutionOutcome,
@@ -130,8 +130,19 @@ function parseDiskWindows(targetPath?: string): DiskVolume[] {
 }
 
 function parseDiskPosix(targetPath?: string): DiskVolume[] {
-  const arg = targetPath ? ` "${targetPath}"` : "";
-  const raw = execSafe(`df -Pk${arg}`);
+  if (targetPath && !/^[a-zA-Z0-9\/.\-_ ]+$/.test(targetPath)) {
+    throw new SystemWorkerError(
+      "INVALID_PATH",
+      `Invalid path: contains disallowed characters: ${targetPath}`
+    );
+  }
+  const args = ["-Pk", ...(targetPath ? [targetPath] : [])];
+  let raw: string;
+  try {
+    raw = execFileSync("df", args, { encoding: "utf8", timeout: 10000 }).trim();
+  } catch {
+    raw = "";
+  }
   const lines = raw.split(/\n/).slice(1).filter(Boolean);
   const volumes: DiskVolume[] = [];
 

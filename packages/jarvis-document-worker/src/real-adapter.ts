@@ -1,5 +1,6 @@
 import fs from "node:fs";
-import { extname } from "node:path";
+import { extname, resolve } from "node:path";
+import os from "node:os";
 import { randomUUID } from "node:crypto";
 import type { DocumentAdapter, ExecutionOutcome } from "./adapter.js";
 import type {
@@ -229,12 +230,23 @@ Output the report in markdown format with clear sections, headings, and bullet p
 
     const content = await this.chat(prompt);
 
+    // Validate output path to prevent path traversal
+    const resolvedOutput = resolve(input.output_path);
+    const cwd = resolve(".");
+    const tmp = resolve(os.tmpdir());
+    if (
+      !(resolvedOutput.startsWith(cwd + "/") || resolvedOutput.startsWith(cwd + "\\") || resolvedOutput === cwd) &&
+      !(resolvedOutput.startsWith(tmp + "/") || resolvedOutput.startsWith(tmp + "\\") || resolvedOutput === tmp)
+    ) {
+      throw new Error(`Output path "${input.output_path}" is outside allowed directories.`);
+    }
+
     // For markdown output, write directly
     if (input.output_format === "markdown") {
-      fs.writeFileSync(input.output_path, content);
+      fs.writeFileSync(resolvedOutput, content);
     } else {
       // For docx/pdf, write markdown for now (proper conversion would need additional libraries)
-      fs.writeFileSync(input.output_path, content);
+      fs.writeFileSync(resolvedOutput, content);
     }
 
     const sectionCount = (content.match(/^#{1,3}\s/gm) ?? []).length;

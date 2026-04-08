@@ -315,7 +315,9 @@ export class JarvisSupervisor {
       error: result.error,
       logs: result.logs,
       metrics: result.metrics,
-      claim_id: claim?.claim_id ?? randomUUID(),
+      // claim_id must come from the original claim — never generate a random one,
+      // as the server validates it against the active claim to prevent stale callbacks.
+      claim_id: claim?.claim_id ?? "unknown",
       route: routeJobType(result.job_type)
     };
 

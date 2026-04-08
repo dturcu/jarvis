@@ -365,6 +365,7 @@ describe("buildEnvelope", () => {
     });
     expect(env.contract_version).toBe("jarvis.v1");
     expect(env.priority).toBe("normal");
+    // Default approval_state when no approvalState is passed to buildEnvelope
     expect(env.approval_state).toBe("not_required");
     expect(env.attempt).toBe(1);
     expect(env.artifacts_in).toEqual([]);
