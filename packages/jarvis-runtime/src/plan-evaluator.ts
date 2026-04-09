@@ -149,7 +149,7 @@ function scoreCapabilityCoverage(actions: string[], capabilities: string[]): num
   if (capabilities.length === 0) return 100;
   const used = new Set<string>();
   for (const action of actions) {
-    const prefix = action.split(".")[0];
+    const prefix = action.split(".")[0] ?? action;
     if (capabilities.includes(prefix)) {
       used.add(prefix);
     }
