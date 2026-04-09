@@ -315,13 +315,13 @@ const AGENT_TOOLS = [
   {
     type: 'function' as const, function: {
       name: 'list_files', description: 'List files and folders at a path on Daniel\'s PC',
-      parameters: { type: 'object', properties: { path: { type: 'string', description: 'Directory path. Use C:/Users/DanielV2/Desktop for desktop, C:/Users/DanielV2/Documents for documents' } }, required: ['path'] }
+      parameters: { type: 'object', properties: { path: { type: 'string', description: 'Directory path. Use C:/Users/DanielV2/Documents/Playground for the Jarvis project, C:/Users/DanielV2/Desktop for desktop, C:/Users/DanielV2/Documents for documents' } }, required: ['path'] }
     }
   },
   {
     type: 'function' as const, function: {
       name: 'read_file', description: 'Read the contents of a text file',
-      parameters: { type: 'object', properties: { path: { type: 'string', description: 'Full file path' }, max_chars: { type: 'number', description: 'Max characters to read (default 2000)' } }, required: ['path'] }
+      parameters: { type: 'object', properties: { path: { type: 'string', description: 'Full file path. Jarvis project root is C:/Users/DanielV2/Documents/Playground' }, max_chars: { type: 'number', description: 'Max characters to read (default 2000)' } }, required: ['path'] }
     }
   },
   {
@@ -588,7 +588,9 @@ function agentChat(messages: FnCallMessage[], model: string, baseUrl: string, to
 }> {
   return new Promise((resolve, reject) => {
     const url = new URL(`${baseUrl}/v1/chat/completions`)
-    const body = JSON.stringify({ model, messages, tools, stream: false, temperature: 0.3, max_tokens: 2048 })
+    // Disable thinking/reasoning mode for tool-calling — qwen3 models put
+    // everything in `reasoning` field and leave `content` empty otherwise.
+    const body = JSON.stringify({ model, messages, tools, stream: false, temperature: 0.3, max_tokens: 2048, think: false })
     const req = http.request({
       hostname: url.hostname, port: Number(url.port) || 11434,
       path: url.pathname, method: 'POST',
@@ -604,10 +606,12 @@ function agentChat(messages: FnCallMessage[], model: string, baseUrl: string, to
               finish_reason?: string
             }>
           }
-          const msg = parsed.choices?.[0]?.message
+          const msg = parsed.choices?.[0]?.message as Record<string, unknown> | undefined
+          // Fallback: some models (qwen3) put output in `reasoning` when thinking is enabled
+          const content = (msg?.content as string) || (msg?.reasoning as string) || null
           resolve({
-            content: msg?.content ?? null,
-            tool_calls: (msg?.tool_calls ?? []).map(tc => ({ id: tc.id, function: tc.function }))
+            content,
+            tool_calls: ((msg?.tool_calls ?? []) as Array<{ id: string; type: string; function: { name: string; arguments: string } }>).map(tc => ({ id: tc.id, function: tc.function }))
           })
         } catch { resolve({ content: data.slice(0, 500), tool_calls: [] }) }
       })
@@ -642,6 +646,7 @@ RULES:
 4. Ask clarifying questions when needed.
 5. You ARE Jarvis. Never identify as Qwen/GPT/etc.
 6. Today: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+7. The Jarvis project root is C:/Users/DanielV2/Documents/Playground. When asked about project files, contracts, or code, use this as the base path.
 
 You can SEARCH and READ emails (gmail_search, gmail_read) but CANNOT send emails from this surface.
 To send emails or trigger agents, use Telegram /slash commands (e.g. /bd, /content).
