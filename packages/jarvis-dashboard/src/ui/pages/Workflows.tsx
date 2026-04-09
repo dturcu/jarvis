@@ -59,10 +59,16 @@ function groupWorkflows(workflows: WorkflowDefinition[]): Array<{ group: string;
    ═══════════════════════════════════════════════════════════════ */
 
 interface WorkflowRunResult {
-  run_id: string
+  ok: boolean
   workflow_id: string
-  status: string
-  started_at: string
+  workflow_name: string
+  commands: Array<{ command_id: string; agent_id: string }>
+  preview?: boolean
+  message?: string
+  // Legacy fields from /results endpoint
+  run_id?: string
+  status?: string
+  started_at?: string
   completed_at?: string | null
   error?: string
   outputs?: Record<string, unknown>
@@ -340,8 +346,8 @@ function LaunchForm({ workflow, onBack }: { workflow: WorkflowDefinition; onBack
         </div>
         <div className="flex flex-col gap-2 ml-7">
           <InfoRow label="Workflow" value={workflow.name} />
-          <InfoRow label="Run ID" value={form.result.run_id} mono />
-          <InfoRow label="Status" value={form.result.status} />
+          <InfoRow label="Command ID" value={form.result.commands?.[0]?.command_id ?? form.result.run_id ?? '—'} mono />
+          <InfoRow label="Agents" value={form.result.commands?.map(c => c.agent_id).join(', ') ?? '—'} />
           {previewMode && (
             <div className="bg-blue-500/5 border border-blue-500/10 px-3 py-2 mt-2">
               <p className="text-[11px] text-blue-300">Preview mode — no outbound actions executed.</p>

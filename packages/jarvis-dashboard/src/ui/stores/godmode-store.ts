@@ -136,6 +136,48 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
 
       if (!res.ok || !res.body) throw new Error('No response from Godmode API')
 
+      // If the API returns plain JSON (session-chat adapter), convert it to a
+      // synthetic token event so the SSE loop below doesn't see an empty stream.
+      const contentType = res.headers.get('content-type') ?? ''
+      if (contentType.includes('application/json')) {
+        const json = await res.json() as {
+          reply?: string; message?: string;
+          artifacts?: Array<{ type: string; content: string; name?: string }>;
+          model?: string;
+        }
+        const reply = json.reply ?? json.message ?? ''
+
+        // Process artifacts from the session adapter response
+        const artifacts: Artifact[] = (json.artifacts ?? []).map((a, i) => ({
+          id: `artifact-${Date.now()}-${i}`,
+          kind: a.type,
+          title: a.name ?? `${a.type} artifact`,
+          content: a.content,
+        }))
+        const lastArtifact = artifacts.length > 0 ? artifacts[artifacts.length - 1]! : null
+
+        set(state => {
+          const msgs = [...state.messages]
+          const last = msgs[msgs.length - 1]
+          if (last?.role === 'assistant') {
+            msgs[msgs.length - 1] = { ...last, content: reply }
+          }
+          return {
+            messages: msgs,
+            ...(lastArtifact ? {
+              currentArtifact: lastArtifact,
+              artifactHistory: [...state.artifactHistory, ...artifacts],
+              activeSurfaces: [...state.activeSurfaces, 'artifact'] as SurfaceId[],
+            } : {}),
+            ...(json.model ? { model: json.model } : {}),
+          }
+        })
+        set({ streaming: false })
+        const final = get()
+        saveSession({ messages: final.messages, artifactHistory: final.artifactHistory, currentArtifact: final.currentArtifact, model: final.model })
+        return
+      }
+
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
       let buffer = ''

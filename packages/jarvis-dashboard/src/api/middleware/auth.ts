@@ -201,8 +201,10 @@ function recordFailure(ip: string): void {
   }
 }
 
-/** Check if an IP is currently blocked. */
+/** Check if an IP is currently blocked. Localhost is never blocked. */
 function isBlocked(ip: string): boolean {
+  // Never rate-limit loopback — it means the request is coming from the server itself
+  if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') return false;
   const rec = failureMap.get(ip);
   if (!rec) return false;
   if (rec.blockedUntil > Date.now()) return true;

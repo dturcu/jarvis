@@ -119,7 +119,9 @@ function callJarvisApi(message: string, history: ChatMessage[]): Promise<string>
     req.on('error', (err) => {
       resolve(`Jarvis API unreachable (${err.message}). Is the daemon running? Try: npm start`)
     })
-    req.setTimeout(120_000, () => {
+    // Multi-tool queries (file_list → read_file → synthesize) can take 3+ LLM
+    // rounds × 30s each through local models. 180s covers 6 tool iterations.
+    req.setTimeout(180_000, () => {
       req.destroy()
       resolve('Request timed out. The LLM may be loading — try again in a moment.')
     })
