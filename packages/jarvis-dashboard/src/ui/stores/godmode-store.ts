@@ -311,6 +311,22 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
       })
     }
 
+    // If the assistant message is still empty after the stream (e.g. API returned
+    // plain JSON instead of SSE, or the model produced no tokens), show an error.
+    set(state => {
+      const msgs = [...state.messages]
+      const last = msgs[msgs.length - 1]
+      if (last?.role === 'assistant' && !last.content && !last.error) {
+        msgs[msgs.length - 1] = {
+          ...last,
+          content: 'No response — no AI model is currently available. Check Settings > Models to connect a local model.',
+          error: true,
+        }
+        return { messages: msgs }
+      }
+      return {}
+    })
+
     set({ streaming: false })
 
     // Persist to sessionStorage

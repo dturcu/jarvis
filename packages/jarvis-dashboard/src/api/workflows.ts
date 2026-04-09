@@ -35,9 +35,11 @@ workflowsRouter.post('/:workflowId/start', (req, res) => {
   if (!wf) { res.status(404).json({ error: 'Workflow not found' }); return }
 
   // Validate inputs against workflow definition (field-level errors)
+  // Accept both { inputs: {...}, preview } and flat { fieldName: ..., preview } shapes
+  const inputValues: Record<string, unknown> = req.body?.inputs ?? req.body ?? {}
   const errors: Array<{ field: string; message: string }> = []
   for (const input of wf.inputs) {
-    const value = req.body?.[input.name]
+    const value = inputValues[input.name]
     if (input.required && (value === undefined || value === null || value === '')) {
       errors.push({ field: input.name, message: `${input.label} is required` })
     }

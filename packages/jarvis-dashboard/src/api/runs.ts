@@ -204,7 +204,7 @@ runsRouter.get('/:runId/explain', (req, res) => {
 
     const explanation: Record<string, unknown> = {
       summary,
-      trigger: { kind: trigger.kind, source: trigger.source },
+      trigger: trigger.source,
       data_sources: dataSources.length > 0 ? dataSources : [],
       decisions_made: decisionsMade,
       approvals_required: approvalsRequired,

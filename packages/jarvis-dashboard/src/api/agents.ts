@@ -143,9 +143,10 @@ agentsRouter.post('/:agentId/trigger', (req, res) => {
     res.status(400).json({ error: `Unknown agent: ${agentId}` })
     return
   }
+  const { goal } = req.body as { goal?: string }
   const db = getRuntimeDb()
   try {
-    const { commandId } = createCommand(db, { agentId, source: 'dashboard' })
+    const { commandId } = createCommand(db, { agentId, source: 'dashboard', payload: goal ? { goal } : undefined })
     res.json({ ok: true, command_id: commandId })
   } catch {
     res.status(500).json({ error: 'Failed to queue agent command' })

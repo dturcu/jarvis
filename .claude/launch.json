@@ -6,7 +6,10 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["vite", "--port", "4250"],
       "port": 4250,
-      "cwd": "packages/jarvis-dashboard"
+      "cwd": "packages/jarvis-dashboard",
+      "env": {
+        "JARVIS_API_TOKEN": "48a95757c64d16375ef6b8940ca9302e71a0856990e529def4df0b68eb2d66e1"
+      }
     }
   ]
 }

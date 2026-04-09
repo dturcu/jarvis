@@ -8,9 +8,9 @@ import { timeAgo } from '../types/index.ts'
 /* ── Page-local types ────────────────────────────────────── */
 
 interface QueueCommand {
-  id: string
-  type: string
-  target_agent: string
+  command_id: string
+  command_type: string
+  target_agent_id: string
   status: string
   priority: number
   created_at: string
@@ -112,17 +112,17 @@ function QueueTable({ commands }: { commands: QueueCommand[] }) {
           </thead>
           <tbody>
             {commands.map(cmd => (
-              <tr key={cmd.id} className="border-b border-white/[0.03] last:border-0 hover:bg-slate-800/30 transition-colors">
+              <tr key={cmd.command_id} className="border-b border-white/[0.03] last:border-0 hover:bg-slate-800/30 transition-colors">
                 <td className="px-5 py-3">
-                  <span className="text-xs text-slate-300 font-mono" title={cmd.id}>
-                    {truncateId(cmd.id)}
+                  <span className="text-xs text-slate-300 font-mono" title={cmd.command_id}>
+                    {truncateId(cmd.command_id)}
                   </span>
                 </td>
                 <td className="px-5 py-3">
-                  <span className="text-sm text-slate-200">{cmd.type}</span>
+                  <span className="text-sm text-slate-200">{cmd.command_type}</span>
                 </td>
                 <td className="px-5 py-3">
-                  <span className="text-xs text-slate-400">{cmd.target_agent}</span>
+                  <span className="text-xs text-slate-400">{cmd.target_agent_id}</span>
                 </td>
                 <td className="px-5 py-3">
                   <StatusBadge status={cmd.status} size="sm" />

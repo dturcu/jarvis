@@ -198,7 +198,7 @@ export interface RepairCheck {
 export interface RepairReport {
   status: 'healthy' | 'degraded' | 'broken'
   checks: RepairCheck[]
-  recommended_actions: Array<{ check: string; action: FixAction }>
+  recommended_actions: string[]
   safe_mode: boolean
 }
 

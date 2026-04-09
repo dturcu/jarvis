@@ -69,23 +69,25 @@ export async function executeInferenceJob(
   const now = options.now ?? (() => new Date());
   const startedAt = now().toISOString();
 
-  if (!isInferenceJobType(envelope.type)) {
-    return createFailureResult(
-      envelope,
-      {
-        code: "INVALID_INPUT",
-        message: `Inference worker cannot execute ${envelope.type}.`,
-        retryable: false,
-        details: { supported_job_types: [...INFERENCE_JOB_TYPES] }
-      },
-      workerId,
-      startedAt,
-      now().toISOString()
-    );
-  }
+  // Unknown inference subtype — fall through to inference.chat with a descriptive prompt
+  // so agents that emit novel sub-types (entity_resolve, traceability, etc.) still work.
+  const effectiveEnvelope: JobEnvelope = isInferenceJobType(envelope.type)
+    ? envelope
+    : {
+        ...envelope,
+        type: "inference.chat" as const,
+        input: {
+          messages: [
+            {
+              role: "user",
+              content: `Perform the following action: ${envelope.type}\n\nInput:\n${JSON.stringify(envelope.input ?? {}, null, 2)}`,
+            },
+          ],
+        },
+      };
 
   try {
-    const outcome = await routeEnvelope(envelope, adapter);
+    const outcome = await routeEnvelope(effectiveEnvelope, adapter);
     return {
       contract_version: CONTRACT_VERSION,
       job_id: envelope.job_id,

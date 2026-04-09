@@ -63,7 +63,8 @@ function verifyDbIntegrity(db: DatabaseSync, name: string, logger: Logger): void
   }
 
   try {
-    const timeout = (db.prepare("PRAGMA busy_timeout").get() as { busy_timeout: number })?.busy_timeout;
+    const row = db.prepare("PRAGMA busy_timeout").get() as { busy_timeout?: number; timeout?: number } | undefined;
+    const timeout = row?.busy_timeout ?? row?.timeout;
     if (!timeout || timeout <= 0) {
       logger.warn(`DB integrity [${name}]: busy_timeout is ${timeout}, expected > 0`);
     }
@@ -355,27 +356,29 @@ async function main() {
     logger.warn(`Failed to recover stale claims: ${e instanceof Error ? e.message : String(e)}`);
   }
 
-  // Recover runs stuck in awaiting_approval with no pending approvals
+  // Recover runs stuck in awaiting_approval (no pending approvals) or executing/planning (orphaned by kill)
   try {
     const stuckRuns = runtimeDb.prepare(`
-      SELECT r.run_id, r.agent_id FROM runs r
-      WHERE r.status = 'awaiting_approval'
-      AND NOT EXISTS (
-        SELECT 1 FROM approvals a WHERE a.run_id = r.run_id AND a.status = 'pending'
+      SELECT r.run_id, r.agent_id, r.status FROM runs r
+      WHERE r.status IN ('awaiting_approval', 'executing', 'planning')
+      AND (
+        r.status IN ('executing', 'planning')
+        OR NOT EXISTS (
+          SELECT 1 FROM approvals a WHERE a.run_id = r.run_id AND a.status = 'pending'
+        )
       )
-    `).all() as Array<{ run_id: string; agent_id: string }>;
+    `).all() as Array<{ run_id: string; agent_id: string; status: string }>;
 
     if (stuckRuns.length > 0) {
       const runStore = new RunStore(runtimeDb);
       for (const run of stuckRuns) {
         runStore.transition(run.run_id, run.agent_id, "failed", "run_failed", {
-          details: { reason: "restart_recovery", original_status: "awaiting_approval" },
+          details: { reason: "restart_recovery", original_status: run.status },
         });
-        // Also complete the linked command so it doesn't stay stuck in 'claimed'
         runStore.completeCommand(run.run_id, "failed");
-        logger.info(`Restart recovery: failed stuck run ${run.run_id} (was awaiting_approval with no pending approvals)`);
+        logger.info(`Restart recovery: failed stuck run ${run.run_id} (was ${run.status})`);
       }
-      logger.info(`Restart recovery: resolved ${stuckRuns.length} stuck awaiting_approval run(s)`);
+      logger.info(`Restart recovery: resolved ${stuckRuns.length} stuck run(s)`);
     }
   } catch (e) {
     logger.warn(`Restart recovery (stuck runs): ${e instanceof Error ? e.message : String(e)}`);
@@ -434,6 +437,12 @@ async function main() {
       const now = new Date();
       const due = scheduleTrigger.getDueSchedules(now);
       for (const schedule of due) {
+        // Skip schedules for agents that are no longer registered (legacy/archived agents)
+        if (!runtime.getDefinition(schedule.agent_id)) {
+          logger.warn(`Schedule skipped: agent "${schedule.agent_id}" is not registered (legacy schedule)`);
+          scheduleTrigger.markFired(schedule.schedule_id, now);
+          continue;
+        }
         const cronTrigger: AgentTrigger = { kind: "schedule", cron: schedule.cron_expression };
         // Pass "scheduler" as owner so scheduled runs have attribution in audit trail
         agentQueue.enqueue(schedule.agent_id, cronTrigger, 0, undefined, undefined, "scheduler");

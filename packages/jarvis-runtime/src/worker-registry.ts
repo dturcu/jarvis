@@ -361,6 +361,46 @@ export function createWorkerRegistry(
       });
 
       if (!worker) {
+        // ── Graceful fallback for planner-invented action types ──
+        // The planner sometimes generates action subtypes that don't exist as registered workers.
+        // Route them to the nearest capable worker rather than failing hard.
+        const inferenceWorkerFn = workers.get("inference");
+        const documentWorkerFn = workers.get("document");
+
+        if (prefix === "inference" && inferenceWorkerFn) {
+          // Unknown inference.* subtype — route as inference.chat with the action name in the prompt
+          logger.warn(`Unknown inference subtype "${envelope.type}" — routing to inference.chat`);
+          const chatEnvelope = {
+            ...envelope,
+            type: "inference.chat" as const,
+            input: {
+              messages: [{ role: "user", content: `Perform action "${envelope.type}": ${JSON.stringify(envelope.input ?? {})}` }],
+              ...(typeof envelope.input === "object" && envelope.input !== null ? envelope.input : {}),
+            },
+          };
+          return inferenceWorkerFn(chatEnvelope as JobEnvelope);
+        }
+
+        if (prefix === "document" && documentWorkerFn) {
+          // Unknown document.* subtype — route as document.analyze_compliance
+          logger.warn(`Unknown document subtype "${envelope.type}" — routing to document.analyze_compliance`);
+          const fallbackEnvelope = { ...envelope, type: "document.analyze_compliance" as const };
+          return documentWorkerFn(fallbackEnvelope as JobEnvelope);
+        }
+
+        if (inferenceWorkerFn && ["validation", "contracts", "clause_analysis", "recommendation", "negotiation_priorities", "file"].includes(prefix!)) {
+          // Planner-invented prefixes with no registered worker — route as inference.chat
+          logger.warn(`No worker for "${prefix}" — routing "${envelope.type}" to inference.chat`);
+          const chatEnvelope = {
+            ...envelope,
+            type: "inference.chat" as const,
+            input: {
+              messages: [{ role: "user", content: `Perform action "${envelope.type}": ${JSON.stringify(envelope.input ?? {})}` }],
+            },
+          };
+          return inferenceWorkerFn(chatEnvelope as JobEnvelope);
+        }
+
         logger.warn(`No worker for job type: ${envelope.type}`);
         return failedResult("UNKNOWN_JOB_TYPE", `No worker registered for prefix "${prefix}"`);
       }

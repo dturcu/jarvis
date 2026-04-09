@@ -248,13 +248,14 @@ function ModelHealthCard({
   }
 
   const runtimes = data.runtimes ?? []
+  const anyDown = runtimes.some(rt => !rt.connected)
 
   return (
-    <DataCard variant={data.degraded ? 'warning' : 'default'} hover={false}>
+    <DataCard variant={(data.degraded || anyDown) ? 'warning' : 'default'} hover={false}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Model Runtimes</h2>
-        {data.degraded && <StatusBadge status="degraded" label="Degraded" />}
-        {!data.degraded && runtimes.length > 0 && <StatusBadge status="healthy" label="All Connected" />}
+        {(data.degraded || anyDown) && <StatusBadge status="degraded" label="Degraded" />}
+        {!data.degraded && !anyDown && runtimes.length > 0 && <StatusBadge status="healthy" label="All Connected" />}
       </div>
 
       {runtimes.length === 0 ? (
