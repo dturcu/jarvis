@@ -188,7 +188,8 @@ Maximum ${params.max_steps} steps. Output ONLY the JSON array.`;
 
 function extractJsonObject(text: string): string {
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) return fenceMatch[1].trim();
+  const fenced = fenceMatch?.[1];
+  if (fenced) return fenced.trim();
   const start = text.indexOf("{");
   const end = text.lastIndexOf("}");
   if (start !== -1 && end > start) return text.slice(start, end + 1);
@@ -197,7 +198,8 @@ function extractJsonObject(text: string): string {
 
 function extractJsonArray(text: string): string {
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) return fenceMatch[1].trim();
+  const fenced = fenceMatch?.[1];
+  if (fenced) return fenced.trim();
   const start = text.indexOf("[");
   const end = text.lastIndexOf("]");
   if (start !== -1 && end > start) return text.slice(start, end + 1);

@@ -85,11 +85,18 @@ export async function buildPlanMultiViewpoint(params: {
 
   // Filter out empty plans
   const validCandidates = candidates.filter(p => p.steps.length > 0);
+  const emptyPlan: AgentPlan = {
+    run_id: params.run_id,
+    agent_id: params.agent_id,
+    goal: params.goal,
+    steps: [],
+    created_at: new Date().toISOString(),
+  };
 
   if (validCandidates.length === 0) {
     deps.logger.warn(`All ${viewpointCount} viewpoints produced empty plans for ${params.agent_id}`);
     return {
-      plan: candidates[0],
+      plan: candidates[0] ?? emptyPlan,
       scores: [],
       selected_index: 0,
       disagreement: detectDisagreement([]),
@@ -98,7 +105,7 @@ export async function buildPlanMultiViewpoint(params: {
   }
 
   if (validCandidates.length === 1) {
-    const singlePlan = validCandidates[0];
+    const singlePlan = validCandidates[0] ?? emptyPlan;
     deps.logger.info(`Only 1 of ${viewpointCount} viewpoints produced a plan for ${params.agent_id}`);
 
     // Run critic if requested
@@ -120,11 +127,21 @@ export async function buildPlanMultiViewpoint(params: {
 
   // Step 2: Score and rank
   const scores = rankPlans(validCandidates, params.capabilities, params.max_steps);
-  const bestIndex = scores[0].plan_index;
-  const bestPlan = validCandidates[bestIndex];
+  const bestScore = scores[0];
+  if (!bestScore) {
+    return {
+      plan: validCandidates[0] ?? emptyPlan,
+      scores: [],
+      selected_index: 0,
+      disagreement: detectDisagreement(validCandidates),
+      candidates,
+    };
+  }
+  const bestIndex = bestScore.plan_index;
+  const bestPlan = validCandidates[bestIndex] ?? validCandidates[0] ?? emptyPlan;
 
   deps.logger.info(
-    `Plan scores for ${params.agent_id}: ${scores.map((s, i) => `[${i}] ${s.total}`).join(", ")}. Selected: ${bestIndex} (score ${scores[0].total})`,
+    `Plan scores for ${params.agent_id}: ${scores.map((s, i) => `[${i}] ${s.total}`).join(", ")}. Selected: ${bestIndex} (score ${bestScore.total})`,
   );
 
   // Step 3: Check disagreement

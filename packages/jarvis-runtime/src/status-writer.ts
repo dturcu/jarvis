@@ -156,6 +156,7 @@ export class StatusWriter {
       : this.state.active_runs.length - 1;
     if (idx >= 0) {
       const run = this.state.active_runs[idx];
+      if (!run) return;
       this.state.last_run = {
         agent_id: run.agent_id,
         status,
@@ -163,9 +164,7 @@ export class StatusWriter {
       };
       this.state.active_runs.splice(idx, 1);
       // Update current_run: set to most recent active, or null
-      this.state.current_run = this.state.active_runs.length > 0
-        ? this.state.active_runs[this.state.active_runs.length - 1]
-        : null;
+      this.state.current_run = this.state.active_runs.at(-1) ?? null;
       this.flush();
     }
   }

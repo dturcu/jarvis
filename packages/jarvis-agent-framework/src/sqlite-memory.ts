@@ -1,16 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
-import type { MemoryEntry } from "./memory.js";
+import { AgentMemoryStore, type MemoryEntry } from "./memory.js";
 
 /**
  * SQLite-backed agent memory store.
  * Persists short-term and long-term memory entries across daemon restarts.
  * Uses a `memory` table in the knowledge database.
  */
-export class SqliteMemoryStore {
+export class SqliteMemoryStore extends AgentMemoryStore {
   private db: DatabaseSync;
 
   constructor(dbPath: string) {
+    super();
     this.db = new DatabaseSync(dbPath);
     this.db.exec("PRAGMA journal_mode = WAL;");
     this.db.exec(`
@@ -32,7 +33,7 @@ export class SqliteMemoryStore {
 
   // ─── Memory ─────────────────────────────────────────────────────────────
 
-  addShortTerm(agentId: string, runId: string, content: string): MemoryEntry {
+  override addShortTerm(agentId: string, runId: string, content: string): MemoryEntry {
     const entry: MemoryEntry = {
       entry_id: randomUUID(), agent_id: agentId, run_id: runId,
       kind: "short_term", content, created_at: new Date().toISOString(),
@@ -42,7 +43,7 @@ export class SqliteMemoryStore {
     return entry;
   }
 
-  addLongTerm(agentId: string, runId: string, content: string): MemoryEntry {
+  override addLongTerm(agentId: string, runId: string, content: string): MemoryEntry {
     const entry: MemoryEntry = {
       entry_id: randomUUID(), agent_id: agentId, run_id: runId,
       kind: "long_term", content, created_at: new Date().toISOString(),
@@ -58,11 +59,11 @@ export class SqliteMemoryStore {
     return entry;
   }
 
-  clearShortTerm(runId: string): void {
+  override clearShortTerm(runId: string): void {
     this.db.prepare("DELETE FROM memory WHERE run_id = ? AND kind = 'short_term'").run(runId);
   }
 
-  getContext(agentId: string, runId: string): { short_term: MemoryEntry[]; long_term: MemoryEntry[] } {
+  override getContext(agentId: string, runId: string): { short_term: MemoryEntry[]; long_term: MemoryEntry[] } {
     const short = this.db.prepare("SELECT * FROM memory WHERE agent_id = ? AND run_id = ? AND kind = 'short_term' ORDER BY created_at ASC").all(agentId, runId) as MemoryEntry[];
     const long = this.db.prepare("SELECT * FROM memory WHERE agent_id = ? AND kind = 'long_term' ORDER BY created_at DESC LIMIT 50").all(agentId) as MemoryEntry[];
     return { short_term: short, long_term: long };

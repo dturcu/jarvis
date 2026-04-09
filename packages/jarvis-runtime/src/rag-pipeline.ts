@@ -48,10 +48,13 @@ export class RagPipeline {
     const embeddings = await this.embed(chunks);
 
     // Pair chunks with their embeddings and store
-    const paired = chunks.map((text, i) => ({
-      text,
-      embedding: embeddings[i],
-    }));
+    const paired = chunks.map((text, i) => {
+      const embedding = embeddings[i];
+      if (!embedding) {
+        throw new Error(`Missing embedding for chunk ${i} of doc ${docId}`);
+      }
+      return { text, embedding };
+    });
 
     this.vectorStore.addChunks(docId, paired);
 
@@ -86,6 +89,9 @@ export class RagPipeline {
   ): Promise<Array<{ text: string; score: number; docId: string }>> {
     // Embed the query
     const [queryEmbedding] = await this.embed([query]);
+    if (!queryEmbedding) {
+      throw new Error("Embedding query returned no vector");
+    }
 
     // Dense (vector) search
     const denseResults = this.vectorStore.search(queryEmbedding, topK, collection);

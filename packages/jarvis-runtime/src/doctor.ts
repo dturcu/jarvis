@@ -135,10 +135,18 @@ function checkDaemon() {
 // ─── Migration Status ─────────────────────────────────────────────────────
 
 function checkMigrations() {
+  const runtimeLatest = RUNTIME_MIGRATIONS.at(-1)?.id;
+  const crmLatest = CRM_MIGRATIONS.at(-1)?.id;
+  const knowledgeLatest = KNOWLEDGE_MIGRATIONS.at(-1)?.id;
+  if (!runtimeLatest || !crmLatest || !knowledgeLatest) {
+    warn("Migrations", "Migration catalog is empty or unreadable");
+    return;
+  }
+
   for (const [name, dbPath, expected] of [
-    ["Runtime", RUNTIME_DB_PATH, RUNTIME_MIGRATIONS[RUNTIME_MIGRATIONS.length - 1].id],
-    ["CRM", CRM_DB_PATH, CRM_MIGRATIONS[CRM_MIGRATIONS.length - 1].id],
-    ["Knowledge", KNOWLEDGE_DB_PATH, KNOWLEDGE_MIGRATIONS[KNOWLEDGE_MIGRATIONS.length - 1].id],
+    ["Runtime", RUNTIME_DB_PATH, runtimeLatest],
+    ["CRM", CRM_DB_PATH, crmLatest],
+    ["Knowledge", KNOWLEDGE_DB_PATH, knowledgeLatest],
   ] as const) {
     if (!fs.existsSync(dbPath)) continue;
     try {

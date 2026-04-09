@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import type { ReactNode } from 'react'
 import DocumentViewer from '../components/DocumentViewer.tsx'
 
 interface DocSummary {
@@ -49,7 +50,7 @@ const TABS = ['Documents', 'Recent', 'Playbooks'] as const
 type Tab = typeof TABS[number]
 
 /** Highlight matched terms in text by wrapping them in <strong> */
-function highlightText(text: string, query: string): JSX.Element {
+function highlightText(text: string, query: string): ReactNode {
   if (!query.trim()) return <>{text}</>
   const parts = text.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'))
   return (

@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import type { AgentDefinition, AgentTrigger } from "./schema.js";
-import type { AgentMemoryStore } from "./memory.js";
 import type { AgentPlan } from "./planner.js";
 
 export type AgentRunStatus = "idle" | "planning" | "executing" | "awaiting_approval" | "completed" | "failed" | "paused";
@@ -29,11 +28,15 @@ export type AgentStepResult = {
   reasoning: string;
 };
 
+export type AgentRuntimeMemoryStore = {
+  clearShortTerm(runId: string): void;
+};
+
 export class AgentRuntime {
   private definitions = new Map<string, AgentDefinition>();
-  private readonly memory: AgentMemoryStore;
+  private readonly memory: AgentRuntimeMemoryStore;
 
-  constructor(memory: AgentMemoryStore) {
+  constructor(memory: AgentRuntimeMemoryStore) {
     this.memory = memory;
   }
 

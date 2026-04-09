@@ -197,6 +197,7 @@ export class AgentQueue {
   private pickNext(): QueueEntry | undefined {
     for (let i = 0; i < this.queue.length; i++) {
       const entry = this.queue[i];
+      if (!entry) continue;
 
       // Check browser lock: if this agent needs browser and browser is locked by another agent, skip
       if (
