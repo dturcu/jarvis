@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useSearchParams } from 'react-router-dom'
 
 interface Run {
   run_id: string
@@ -20,8 +20,18 @@ interface Run {
   [key: string]: unknown
 }
 
+interface RunEvent {
+  event_id: string
+  event_type: string
+  step_no: number | null
+  action: string | null
+  payload_json: string | null
+  created_at: string
+}
+
 interface RunDetail extends Run {
-  decisions: Array<{
+  events?: RunEvent[]
+  decisions?: Array<{
     decision_id: number
     agent_id: string
     step: string
@@ -74,9 +84,10 @@ function formatDuration(start: string, end?: string | null): string {
 
 export default function RunTimeline() {
   const { runId: urlRunId } = useParams<{ runId?: string }>()
+  const [searchParams] = useSearchParams()
   const [runs, setRuns] = useState<Run[]>([])
   const [selected, setSelected] = useState<RunDetail | null>(null)
-  const [agentFilter, setAgentFilter] = useState('all')
+  const [agentFilter, setAgentFilter] = useState(() => searchParams.get('agent') ?? 'all')
   const [statusFilter, setStatusFilter] = useState('all')
   const [offset, setOffset] = useState(0)
   const [hasMore, setHasMore] = useState(false)
@@ -139,26 +150,33 @@ export default function RunTimeline() {
 
   // Detail view
   if (selected) {
-    const steps = selected.plan?.steps ?? []
-    const decisions = selected.decisions ?? []
-    // Merge steps and decisions into a timeline
-    const timeline = steps.length > 0
-      ? steps.map((step, i) => ({
-          index: i,
-          action: step.action ?? `Step ${i + 1}`,
-          reasoning: step.reasoning ?? '',
-          outcome: step.outcome ?? '',
-          started_at: step.started_at ?? null,
-          completed_at: step.completed_at ?? null,
-        }))
-      : decisions.map((d, i) => ({
-          index: i,
-          action: d.action ?? d.step ?? `Step ${i + 1}`,
-          reasoning: d.reasoning ?? '',
-          outcome: d.outcome ?? '',
-          started_at: d.decided_at ?? d.created_at ?? null,
-          completed_at: d.decided_at ?? d.created_at ?? null,
-        }))
+    // Build timeline from run_events (step_started / step_completed pairs)
+    const events = selected.events ?? []
+    const stepMap = new Map<number, { action: string; started_at: string | null; completed_at: string | null; outcome: string }>()
+    for (const ev of events) {
+      if (ev.step_no == null || !ev.action) continue
+      if (ev.event_type === 'step_started') {
+        stepMap.set(ev.step_no, { action: ev.action, started_at: ev.created_at, completed_at: null, outcome: '' })
+      } else if (ev.event_type === 'step_completed' || ev.event_type === 'step_failed') {
+        const existing = stepMap.get(ev.step_no)
+        if (existing) {
+          existing.completed_at = ev.created_at
+          existing.outcome = ev.event_type === 'step_completed' ? 'completed' : 'failed'
+        } else {
+          stepMap.set(ev.step_no, { action: ev.action, started_at: null, completed_at: ev.created_at, outcome: ev.event_type === 'step_completed' ? 'completed' : 'failed' })
+        }
+      }
+    }
+    const timeline = Array.from(stepMap.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([stepNo, s], i) => ({
+        index: i,
+        action: s.action,
+        reasoning: '',
+        outcome: s.outcome,
+        started_at: s.started_at,
+        completed_at: s.completed_at,
+      }))
 
     return (
       <div className="p-6 max-w-4xl mx-auto">
