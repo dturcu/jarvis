@@ -213,8 +213,24 @@ Available tools:
 7. [TOOL:file_list]({"path":"src", "recursive": false})
    List files in a directory. Set recursive to true to include subdirectories.
 
+8. [TOOL:agent_status]({})
+   Get status of all Jarvis agents: last run date, current status, pending approvals count.
+
+9. [TOOL:gmail_search]({"query":"from:client subject:proposal", "max_results": 5})
+   Search Gmail using Gmail search syntax.
+
+10. [TOOL:gmail_read]({"message_id":"msg_abc123"})
+    Read a specific Gmail message by ID.
+
+11. [TOOL:wiki_search]({"query":"ASIL-D staffing rule"})
+    Search the curated wiki for lessons, playbooks, and heuristics.
+
+12. [TOOL:drive_list]({"query":"proposal"})
+    List Google Drive files matching a query.
+
 Rules:
 - Use tools when you need live/current data
+- Use agent_status when asked about running agents, schedules, or approvals
 - Use file_read and file_list when asked to review, analyze, or look at code
 - You can chain multiple tool calls
 - After receiving tool results, synthesize them into a clear answer
