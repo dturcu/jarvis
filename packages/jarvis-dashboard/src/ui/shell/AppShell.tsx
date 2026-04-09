@@ -68,6 +68,7 @@ export default function AppShell() {
               {/* Advanced */}
               <Route path="/godmode" element={<Godmode />} />
               <Route path="/runs" element={<Runs />} />
+              <Route path="/runs/:runId" element={<Runs />} />
               <Route path="/models" element={<Models />} />
               <Route path="/queue" element={<Queue />} />
               <Route path="/support" element={<Support />} />

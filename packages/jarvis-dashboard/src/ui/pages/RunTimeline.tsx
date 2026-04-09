@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
 
 interface Run {
   run_id: string
@@ -72,6 +73,7 @@ function formatDuration(start: string, end?: string | null): string {
 }
 
 export default function RunTimeline() {
+  const { runId: urlRunId } = useParams<{ runId?: string }>()
   const [runs, setRuns] = useState<Run[]>([])
   const [selected, setSelected] = useState<RunDetail | null>(null)
   const [agentFilter, setAgentFilter] = useState('all')
@@ -102,6 +104,15 @@ export default function RunTimeline() {
     setSelected(null)
     fetchRuns(agentFilter, 0)
   }, [agentFilter, fetchRuns])
+
+  useEffect(() => {
+    if (urlRunId) {
+      fetch(`/api/runs/${urlRunId}`)
+        .then(r => r.json())
+        .then((data: RunDetail) => setSelected(data))
+        .catch(() => {})
+    }
+  }, [urlRunId])
 
   const handleSelectRun = (runId: string) => {
     fetch(`/api/runs/${runId}`)

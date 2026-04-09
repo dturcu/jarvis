@@ -84,7 +84,7 @@ function EventActions({ event }: { event: HistoryEvent }) {
   if (event.type === 'run' && event.run_id) {
     return (
       <Link
-        to={`/runs`}
+        to={`/runs/${event.run_id}`}
         className="text-[11px] font-medium text-indigo-400 hover:text-indigo-300 transition-colors px-2.5 py-1 rounded-md bg-indigo-500/10 hover:bg-indigo-500/15"
       >
         Inspect
