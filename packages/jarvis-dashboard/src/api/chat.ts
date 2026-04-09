@@ -342,10 +342,15 @@ const AGENT_TOOLS = [
       parameters: { type: 'object', properties: { query: { type: 'string', description: 'Search topic' }, collection: { type: 'string', description: 'Optional: lessons, playbooks, iso26262, contracts, proposals' } }, required: ['query'] }
     }
   },
-  // trigger_agent REMOVED from the chat surface. It inserts into agent_commands
-  // (a mutation) but chat POST is viewer-level for tokenless dev mode. Agent
-  // triggering must go through explicit Telegram /slash commands or the
-  // dashboard agents API (which requires operator role).
+  {
+    type: 'function' as const, function: {
+      name: 'trigger_agent', description: 'Delegate a task to a Jarvis agent for background execution. Use this when the user asks you to CREATE files, documents, reports, or perform multi-step work that requires writing to disk, sending emails, or other mutations. The orchestrator decomposes complex tasks into sub-tasks.',
+      parameters: { type: 'object', properties: {
+        agent: { type: 'string', enum: ['orchestrator', 'proposal-engine', 'evidence-auditor', 'contract-reviewer', 'knowledge-curator', 'regulatory-watch', 'staffing-monitor'], description: 'Agent to trigger. Use orchestrator for complex multi-step tasks.' },
+        goal: { type: 'string', description: 'What the agent should accomplish. Be specific about deliverables, file formats, and where to save results.' }
+      }, required: ['agent', 'goal'] }
+    }
+  },
   {
     type: 'function' as const, function: {
       name: 'agent_status', description: 'Get status of all Jarvis agents (last run, pending approvals). Read-only.',
@@ -398,9 +403,27 @@ async function executeAgentTool(name: string, params: Record<string, unknown>): 
         return `Cannot read ${filePath}: ${e instanceof Error ? e.message : String(e)}`
       }
     }
-    // trigger_agent handler removed — mutation not allowed from viewer-level chat.
-    case 'trigger_agent':
-      return 'Agent triggering is not available from the chat surface. Use Telegram /slash commands (e.g. /orchestrator, /proposal) or the dashboard agents API.'
+    case 'trigger_agent': {
+      const agentId = params.agent as string ?? 'orchestrator'
+      const goal = params.goal as string ?? ''
+      try {
+        const { DatabaseSync } = await import('node:sqlite')
+        const { randomUUID } = await import('node:crypto')
+        const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'runtime.db'))
+        db.exec("PRAGMA journal_mode = WAL;")
+        const commandId = randomUUID()
+        const payload = JSON.stringify({ goal, triggered_by: 'telegram-chat', source: 'telegram' })
+        db.prepare(`
+          INSERT OR IGNORE INTO agent_commands
+            (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
+          VALUES (?, 'run_agent', ?, ?, 'queued', 5, ?, 'telegram-chat', ?)
+        `).run(commandId, agentId, payload, new Date().toISOString(), `telegram-chat-${agentId}-${Date.now()}`)
+        db.close()
+        return `Triggered ${agentId} (${commandId.slice(0, 8)}). Goal: "${goal.slice(0, 100)}". The agent will run in the background and you'll be notified when it completes.`
+      } catch (e) {
+        return `Failed to trigger ${agentId}: ${e instanceof Error ? e.message : String(e)}`
+      }
+    }
     case 'agent_status': {
       try {
         const { DatabaseSync } = await import('node:sqlite')
@@ -648,9 +671,11 @@ RULES:
 6. Today: ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
 7. The Jarvis project root is C:/Users/DanielV2/Documents/Playground. When asked about project files, contracts, or code, use this as the base path.
 
-You can SEARCH and READ emails (gmail_search, gmail_read) but CANNOT send emails from this surface.
-To send emails or trigger agents, use Telegram /slash commands (e.g. /bd, /content).
-This surface is read-only — it cannot trigger agents or send emails directly.
+You can SEARCH and READ emails (gmail_search, gmail_read) but CANNOT send emails directly.
+When the user asks you to CREATE documents, files, reports, presentations, or do multi-step work —
+use trigger_agent to delegate to the orchestrator. The orchestrator will decompose the task and
+dispatch to workers (office-worker for Excel/Word/PPT, web-worker for research, etc.).
+Do NOT describe what you WOULD create — actually trigger the agent to do the work.
 
 CRM/Knowledge:
 ${context.slice(0, 1500)}`
