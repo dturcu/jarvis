@@ -54,6 +54,11 @@ export async function waitForApproval(
   const deadline = Date.now() + timeoutMs;
 
   while (Date.now() < deadline) {
+    // Force WAL checkpoint so this connection sees writes from other processes
+    // (API server, Telegram bot). Without this, the long-lived daemon connection
+    // can miss approval resolutions written by external connections.
+    try { db.exec("PRAGMA wal_checkpoint(PASSIVE)"); } catch { /* best-effort */ }
+
     const row = db.prepare(
       "SELECT status FROM approvals WHERE approval_id = ?",
     ).get(approvalId) as { status: string } | undefined;
