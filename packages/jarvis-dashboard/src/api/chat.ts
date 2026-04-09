@@ -686,19 +686,33 @@ ${context.slice(0, 1500)}`
     { role: 'user', content: message }
   ]
 
-  // Use qwen3:8b (has tool support) via Ollama, fallback to LM Studio
+  // Model selection for Telegram chat — prefer fast models that don't compete
+  // with the daemon's heavier models. Try LM Studio first (separate GPU process),
+  // then small Ollama models (qwen3.5-4b loads alongside daemon models).
   let llmBaseUrl = 'http://localhost:11434'
   let llmModel = 'qwen3:8b'
   try {
-    const ollamaModels = await listLocalModels('http://localhost:11434')
-    if (ollamaModels.length > 0) {
-      // Prefer models with tool support: qwen3 > qwen2.5
-      llmModel = ollamaModels.find(m => m.startsWith('qwen3:'))
-        ?? ollamaModels.find(m => m.startsWith('qwen2.5:'))
-        ?? ollamaModels[0]!
+    // Try LM Studio first — fully parallel GPU process, no contention
+    const lmsUrl = process.env.LMS_URL ?? FALLBACK_LMS_URL
+    const lmsModels = await listLocalModels(lmsUrl).catch(() => [] as string[])
+    if (lmsModels.length > 0) {
+      llmBaseUrl = lmsUrl
+      llmModel = lmsModels.find(m => m.includes('qwen')) ?? lmsModels[0]!
     } else {
-      llmBaseUrl = FALLBACK_LMS_URL
-      llmModel = DEFAULT_MODEL
+      // Ollama: prefer small fast models to avoid contending with daemon's heavy models
+      const ollamaModels = await listLocalModels('http://localhost:11434')
+      if (ollamaModels.length > 0) {
+        // Models must support OpenAI-compatible tool calling.
+        // Prefer small models that can run alongside daemon's heavier models.
+        llmModel = ollamaModels.find(m => m === 'qwen2.5:3b')         // 3B, fast, tool support ✓
+          ?? ollamaModels.find(m => m === 'gemma-4-e4b:latest')        // 4B, tool support ✓
+          ?? ollamaModels.find(m => m.startsWith('qwen3:'))            // 8B, tool support ✓
+          ?? ollamaModels.find(m => m.startsWith('qwen2.5:'))
+          ?? ollamaModels[0]!
+      } else {
+        llmBaseUrl = FALLBACK_LMS_URL
+        llmModel = DEFAULT_MODEL
+      }
     }
   } catch {
     llmBaseUrl = FALLBACK_LMS_URL

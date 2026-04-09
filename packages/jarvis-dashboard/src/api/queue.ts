@@ -70,11 +70,12 @@ queueRouter.patch('/:commandId', (req, res) => {
   let db: DatabaseSync | undefined
   try {
     db = getRuntimeDb()
+    const now = new Date().toISOString()
     const result = db.prepare(`
       UPDATE agent_commands
-      SET status = 'cancelled', completed_at = datetime('now')
+      SET status = 'cancelled', completed_at = ?
       WHERE command_id = ? AND status IN ('queued', 'claimed')
-    `).run(commandId) as { changes: number }
+    `).run(now, commandId) as { changes: number }
 
     if (result.changes === 0) {
       res.status(404).json({ error: 'Command not found or already completed' })
@@ -83,9 +84,9 @@ queueRouter.patch('/:commandId', (req, res) => {
 
     // Also cancel any linked run
     db.prepare(`
-      UPDATE runs SET status = 'cancelled', completed_at = datetime('now')
+      UPDATE runs SET status = 'cancelled', completed_at = ?
       WHERE command_id = ? AND status NOT IN ('completed', 'failed', 'cancelled')
-    `).run(commandId)
+    `).run(now, commandId)
 
     res.json({ ok: true, command_id: commandId, status: 'cancelled' })
   } catch (e) {
@@ -100,11 +101,12 @@ queueRouter.delete('/all', (_req, res) => {
   let db: DatabaseSync | undefined
   try {
     db = getRuntimeDb()
+    const now = new Date().toISOString()
     const result = db.prepare(`
       UPDATE agent_commands
-      SET status = 'cancelled', completed_at = datetime('now')
+      SET status = 'cancelled', completed_at = ?
       WHERE status IN ('queued', 'claimed')
-    `).run() as { changes: number }
+    `).run(now) as { changes: number }
     res.json({ ok: true, cancelled: result.changes })
   } catch (e) {
     res.status(500).json({ error: `Failed to cancel: ${e instanceof Error ? e.message : String(e)}` })
