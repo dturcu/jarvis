@@ -273,6 +273,10 @@ export async function runAgent(
           payload: approvalPayload,
         });
 
+        // Transition DB from planning → awaiting_approval
+        runStore?.transition(run.run_id, agentId, "awaiting_approval", "approval_requested", {
+          details: { reason: "plan_disagreement" },
+        });
         run.status = "awaiting_approval";
         run.updated_at = new Date().toISOString();
         statusWriter?.setAwaitingApproval(0, "plan_disagreement");
@@ -306,6 +310,10 @@ export async function runAgent(
           return run;
         }
 
+        // Transition the DB from awaiting_approval → executing (not just in-memory)
+        runStore?.transition(run.run_id, agentId, "executing", "plan_approved", {
+          details: { reason: "disagreement_approved" },
+        });
         run.status = "executing";
         run.updated_at = new Date().toISOString();
         log.info("Disagreement escalation approved — proceeding with selected plan");
@@ -443,11 +451,24 @@ export async function runAgent(
           payload: `Step ${step.step}: ${step.action}\n\nReasoning: ${step.reasoning}\n\nInput: ${JSON.stringify(step.input).slice(0, 500)}`,
         });
 
+        // Transition DB from executing → awaiting_approval
+        runStore?.transition(run.run_id, agentId, "awaiting_approval", "approval_requested", {
+          step_no: step.step, action: step.action,
+        });
         run.status = "awaiting_approval";
         run.updated_at = new Date().toISOString();
         statusWriter?.setAwaitingApproval(step.step, step.action);
 
         const decision = await waitForApproval(runtimeDb, approvalId, 4 * 60 * 60 * 1000); // 4h timeout
+
+        // Transition DB back to executing after approval resolves
+        if (decision === "approved") {
+          runStore?.transition(run.run_id, agentId, "executing", "approval_resolved", {
+            step_no: step.step, action: step.action,
+            details: { decision },
+          });
+          run.status = "executing";
+        }
 
         // Emit approval_resolved event
         runStore?.emitEvent(run.run_id, agentId, "approval_resolved", {
