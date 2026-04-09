@@ -13,13 +13,8 @@ interface SupportBundle {
   system: {
     node_version: string
     platform: string
-    uptime: number
-    memory: {
-      rss?: number
-      heapUsed?: number
-      heapTotal?: number
-      [key: string]: number | undefined
-    }
+    uptime_seconds: number
+    memory_mb: number
   }
   recent_runs: Array<{
     run_id: string
@@ -28,27 +23,29 @@ interface SupportBundle {
     started_at: string
     completed_at?: string | null
   }>
-  failed_events: Array<{
+  failed_run_events: Array<{
     run_id: string
     agent_id: string
-    error?: string
-    timestamp: string
+    action?: string
+    created_at: string
   }>
-  audit_log: Array<{
-    id: string
+  recent_audit: Array<{
+    audit_id: string
     action: string
-    actor: string
-    timestamp: string
-    details?: string
+    actor_type: string
+    actor_id: string
+    target_type?: string
+    target_id?: string
+    created_at: string
   }>
   pending_approvals: Array<{
-    id: string
+    approval_id: string
     action: string
-    agent: string
-    created_at?: string
+    agent_id: string
+    requested_at?: string
   }>
   daemon_heartbeat: {
-    timestamp: string
+    last_seen_at: string
     status: string
   } | null
 }
@@ -142,12 +139,12 @@ export default function Support() {
 
       {/* ── Failed Events ────────────────────────────────────── */}
       <div className="mb-6">
-        <FailedEventsCard events={bundle.failed_events} />
+        <FailedEventsCard events={bundle.failed_run_events} />
       </div>
 
       {/* ── Audit Log ────────────────────────────────────────── */}
       <div className="mb-6">
-        <AuditLogTable entries={bundle.audit_log} />
+        <AuditLogTable entries={bundle.recent_audit} />
       </div>
     </div>
   )
@@ -156,9 +153,6 @@ export default function Support() {
 /* ── Section Components ──────────────────────────────────── */
 
 function SystemInfoCard({ system }: { system: SupportBundle['system'] }) {
-  const memMb = (bytes: number | undefined) =>
-    bytes != null ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : '--'
-
   return (
     <DataCard hover={false}>
       <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4">
@@ -167,10 +161,8 @@ function SystemInfoCard({ system }: { system: SupportBundle['system'] }) {
       <div className="grid grid-cols-2 gap-3">
         <StatItem label="Node Version" value={system.node_version} />
         <StatItem label="Platform" value={system.platform} />
-        <StatItem label="Uptime" value={formatUptime(system.uptime)} />
-        <StatItem label="Memory (RSS)" value={memMb(system.memory?.rss)} />
-        <StatItem label="Heap Used" value={memMb(system.memory?.heapUsed)} />
-        <StatItem label="Heap Total" value={memMb(system.memory?.heapTotal)} />
+        <StatItem label="Uptime" value={formatUptime(system.uptime_seconds)} />
+        <StatItem label="Memory (RSS)" value={system.memory_mb != null ? `${system.memory_mb} MB` : '--'} />
       </div>
     </DataCard>
   )
@@ -201,7 +193,7 @@ function HeartbeatCard({ heartbeat }: { heartbeat: SupportBundle['daemon_heartbe
           </div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-slate-500">Last Beat</span>
-            <span className="text-sm text-slate-200 font-medium">{timeAgo(heartbeat.timestamp)}</span>
+            <span className="text-sm text-slate-200 font-medium">{timeAgo(heartbeat.last_seen_at)}</span>
           </div>
         </div>
       ) : (
@@ -291,14 +283,14 @@ function PendingApprovalsCard({ approvals }: { approvals: SupportBundle['pending
         <div className="space-y-2">
           {list.map(a => (
             <div
-              key={a.id}
+              key={a.approval_id}
               className="bg-slate-900/40 border border-white/5 rounded-lg px-4 py-3 flex items-center justify-between"
             >
               <div className="min-w-0">
                 <span className="text-sm text-slate-200 block">{a.action}</span>
-                <span className="text-[11px] text-slate-500">{agentLabel(a.agent)}</span>
+                <span className="text-[11px] text-slate-500">{agentLabel(a.agent_id)}</span>
               </div>
-              <span className="text-[11px] text-slate-600 shrink-0 ml-2">{timeAgo(a.created_at ?? null)}</span>
+              <span className="text-[11px] text-slate-600 shrink-0 ml-2">{timeAgo(a.requested_at ?? null)}</span>
             </div>
           ))}
         </div>
@@ -307,7 +299,7 @@ function PendingApprovalsCard({ approvals }: { approvals: SupportBundle['pending
   )
 }
 
-function FailedEventsCard({ events }: { events: SupportBundle['failed_events'] }) {
+function FailedEventsCard({ events }: { events: SupportBundle['failed_run_events'] }) {
   const list = events ?? []
   return (
     <DataCard variant={list.length > 0 ? 'error' : 'default'} hover={false}>
@@ -333,10 +325,10 @@ function FailedEventsCard({ events }: { events: SupportBundle['failed_events'] }
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="text-xs text-slate-300 font-medium">{agentLabel(ev.agent_id)}</span>
-                <span className="text-[11px] text-slate-600">{timeAgo(ev.timestamp)}</span>
+                <span className="text-[11px] text-slate-600">{timeAgo(ev.created_at)}</span>
               </div>
-              {ev.error && (
-                <p className="text-[11px] text-red-400/80 font-mono break-words">{ev.error}</p>
+              {ev.action && (
+                <p className="text-[11px] text-red-400/80 font-mono break-words">{ev.action}</p>
               )}
               <p className="text-[10px] text-slate-600 font-mono mt-1">Run: {ev.run_id}</p>
             </div>
@@ -347,7 +339,7 @@ function FailedEventsCard({ events }: { events: SupportBundle['failed_events'] }
   )
 }
 
-function AuditLogTable({ entries }: { entries: SupportBundle['audit_log'] }) {
+function AuditLogTable({ entries }: { entries: SupportBundle['recent_audit'] }) {
   const list = entries ?? []
   return (
     <DataCard hover={false}>
@@ -364,26 +356,26 @@ function AuditLogTable({ entries }: { entries: SupportBundle['audit_log'] }) {
               <tr className="border-b border-white/5">
                 <th className="text-[10px] text-slate-600 uppercase tracking-wider pb-2 pr-4">Action</th>
                 <th className="text-[10px] text-slate-600 uppercase tracking-wider pb-2 pr-4">Actor</th>
-                <th className="text-[10px] text-slate-600 uppercase tracking-wider pb-2 pr-4">Details</th>
+                <th className="text-[10px] text-slate-600 uppercase tracking-wider pb-2 pr-4">Target</th>
                 <th className="text-[10px] text-slate-600 uppercase tracking-wider pb-2 text-right">Time</th>
               </tr>
             </thead>
             <tbody>
               {list.map(entry => (
-                <tr key={entry.id} className="border-b border-white/[0.03] last:border-0">
+                <tr key={entry.audit_id} className="border-b border-white/[0.03] last:border-0">
                   <td className="py-2.5 pr-4">
                     <span className="text-sm text-slate-200">{entry.action}</span>
                   </td>
                   <td className="py-2.5 pr-4">
-                    <span className="text-xs text-slate-400">{entry.actor}</span>
+                    <span className="text-xs text-slate-400">{entry.actor_type}:{entry.actor_id}</span>
                   </td>
                   <td className="py-2.5 pr-4">
                     <span className="text-xs text-slate-500 truncate block max-w-[300px]">
-                      {entry.details ?? '--'}
+                      {entry.target_type ? `${entry.target_type}:${entry.target_id}` : '--'}
                     </span>
                   </td>
                   <td className="py-2.5 text-right">
-                    <span className="text-xs text-slate-500">{timeAgo(entry.timestamp)}</span>
+                    <span className="text-xs text-slate-500">{timeAgo(entry.created_at)}</span>
                   </td>
                 </tr>
               ))}

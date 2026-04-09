@@ -576,7 +576,7 @@ function RepairCheckCard({
 function RecommendedActionsSection({
   actions,
 }: {
-  actions: Array<{ check: string; action: FixAction }>
+  actions: string[]
 }) {
   return (
     <DataCard variant="warning" hover={false}>
@@ -588,31 +588,16 @@ function RecommendedActionsSection({
       </div>
 
       <div className="space-y-3">
-        {actions.map((item, i) => (
+        {actions.map((action, i) => (
           <div
-            key={`${item.check}-${i}`}
+            key={i}
             className="bg-slate-900/40 border border-white/5 rounded-lg px-4 py-3"
           >
             <div className="flex items-start gap-3">
               <span className="text-amber-400 mt-0.5 shrink-0">
                 <IconWarning size={14} />
               </span>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-medium text-slate-200">{item.check}</span>
-                  {item.action.type && (
-                    <span className="text-[10px] text-slate-600 font-mono bg-slate-800 px-1.5 py-0.5 rounded">
-                      {item.action.type}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-slate-400">{item.action.description}</p>
-                {item.action.example && (
-                  <code className="block mt-1.5 text-[10px] text-indigo-400 font-mono bg-indigo-500/5 px-2 py-1 rounded border border-indigo-500/10">
-                    {item.action.example}
-                  </code>
-                )}
-              </div>
+              <p className="text-xs text-slate-300">{action}</p>
             </div>
           </div>
         ))}
