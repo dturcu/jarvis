@@ -163,6 +163,15 @@ export class JarvisBot {
             sender: senderName,
           }
 
+          // Send typing indicator for non-slash messages (LLM calls take time)
+          if (!text.startsWith('/')) {
+            fetch(`${this.baseUrl}/sendChatAction`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ chat_id: this.chatId, action: 'typing' }),
+            }).catch(() => {})
+          }
+
           // Inbound message recording is handled by createCommand() for
           // trigger commands (avoids duplicate rows). For non-trigger commands
           // (status, crm, help), record after handleCommand returns.
