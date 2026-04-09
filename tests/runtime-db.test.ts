@@ -33,7 +33,7 @@ describe("Runtime DB and Migration Framework", () => {
     it("records applied migrations", () => {
       runMigrations(db);
       const rows = db.prepare("SELECT id, name FROM schema_migrations ORDER BY id").all() as Array<{ id: string; name: string }>;
-      expect(rows).toHaveLength(10);
+      expect(rows).toHaveLength(11);
       expect(rows[0]!.id).toBe("0001");
       expect(rows[0]!.name).toBe("runtime_core");
       expect(rows[1]!.id).toBe("0002");
@@ -54,13 +54,15 @@ describe("Runtime DB and Migration Framework", () => {
       expect(rows[8]!.name).toBe("provenance_traces");
       expect(rows[9]!.id).toBe("0010");
       expect(rows[9]!.name).toBe("provenance_trace_index");
+      expect(rows[10]!.id).toBe("0011");
+      expect(rows[10]!.name).toBe("jobs_table");
     });
 
     it("is idempotent — repeated runs do not fail", () => {
       runMigrations(db);
       runMigrations(db);
       const rows = db.prepare("SELECT id FROM schema_migrations").all();
-      expect(rows).toHaveLength(10);
+      expect(rows).toHaveLength(11);
     });
   });
 
@@ -86,13 +88,14 @@ describe("Runtime DB and Migration Framework", () => {
       "canonical_aliases",
       "delivery_attempts",
       "provenance_traces",
+      "jobs",
     ];
 
     beforeEach(() => {
       runMigrations(db);
     });
 
-    it("creates all 20 tables", () => {
+    it("creates all 21 tables", () => {
       const tables = db.prepare(
         "SELECT name FROM sqlite_master WHERE type='table' AND name != 'schema_migrations' ORDER BY name",
       ).all() as Array<{ name: string }>;

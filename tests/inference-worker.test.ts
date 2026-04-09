@@ -443,14 +443,15 @@ describe("executeInferenceJob", () => {
     expect(typeof out.total_jobs).toBe("number");
   });
 
-  it("returns failed status for unsupported job type", async () => {
+  it("falls through unsupported job type to inference.chat", async () => {
     const envelope = makeEnvelope("device.snapshot", {});
     const result = await executeInferenceJob(envelope, adapter);
 
-    expect(result.status).toBe("failed");
-    expect(result.error?.code).toBe("INVALID_INPUT");
-    expect(result.error?.message).toContain("device.snapshot");
-    expect(result.error?.retryable).toBe(false);
+    // Unknown job types now fall through to inference.chat with a descriptive prompt
+    expect(result.status).toBe("completed");
+    expect(result.job_type).toBe("device.snapshot");
+    const out = result.structured_output as Record<string, unknown>;
+    expect(typeof out.content).toBe("string");
   });
 
   it("wraps InferenceWorkerError from adapter correctly", async () => {

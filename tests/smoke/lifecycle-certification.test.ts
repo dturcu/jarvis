@@ -576,9 +576,10 @@ describe("Lifecycle Certification", () => {
       expect(() => store.transition(r3, "inv-c", "completed", "run_completed")).toThrow(/Invalid run transition/);
       expect(() => store.transition(r3, "inv-c", "planning", "run_started")).toThrow(/Invalid run transition/);
 
-      // planning -> awaiting_approval (must go through executing first)
+      // planning -> awaiting_approval is now valid (for plan disagreement approvals)
       const r4 = store.startRun("inv-d");
-      expect(() => store.transition(r4, "inv-d", "awaiting_approval", "approval_requested")).toThrow(/Invalid run transition/);
+      store.transition(r4, "inv-d", "awaiting_approval", "approval_requested");
+      expect(store.getStatus(r4)).toBe("awaiting_approval");
 
       // executing -> planning (backward transition)
       const r5 = store.startRun("inv-e");

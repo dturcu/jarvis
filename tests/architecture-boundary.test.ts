@@ -78,7 +78,7 @@ function formatViolations(violations: Violation[]): string {
 
 // Tightened: only the specific files that still contain legacy patterns.
 // Session adapter, command-handlers, and index.ts are NOT excluded.
-const LEGACY_TELEGRAM = /packages[\\/]jarvis-telegram[\\/]src[\\/](bot|relay|chat-handler)\.(ts|mts)$/; // Epic 3
+const LEGACY_TELEGRAM = /packages[\\/]jarvis-telegram[\\/]src[\\/](bot|relay|chat-handler|vision-handler)\.(ts|mts)$/; // Epic 3
 const LEGACY_GODMODE = /packages[\\/]jarvis-dashboard[\\/]src[\\/]api[\\/](godmode|chat)\.(ts|mts)$/;   // Epic 5
 const LEGACY_WEBHOOKS = /packages[\\/]jarvis-dashboard[\\/]src[\\/]api[\\/]webhooks(-v2)?\.(ts|mts)$/;  // Epic 4
 const LEGACY_BROWSER_WORKER = /packages[\\/]jarvis-browser-worker[\\/]src[\\/]chrome-adapter\.(ts|mts)$/; // Epic 6

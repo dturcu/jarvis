@@ -320,10 +320,10 @@ describe("Runtime Wiring: TaskFlow cancel propagation", () => {
 });
 
 describe("Runtime Wiring: /api/tasks populates provenance", () => {
-  it("tasks router queries owner/source/trigger_type from runs table", () => {
+  it("tasks router queries owner/source/trigger_kind from runs table", () => {
     const source = readSource("packages/jarvis-dashboard/src/api/tasks.ts");
     expect(source).toContain("r.owner");
-    expect(source).toContain("r.trigger_type");
+    expect(source).toContain("r.trigger_kind");
     expect(source).toContain("provenance:");
     expect(source).toContain("channel:");
     expect(source).toContain("trigger_type:");

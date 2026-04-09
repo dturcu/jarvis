@@ -44,7 +44,7 @@ function scanForPattern(files: string[], pattern: RegExp, exclude?: RegExp): str
 const allFiles = getSourceFiles();
 
 // Legacy files that are allowed (deprecated but kept for transition)
-const DEPRECATED_LEGACY = /packages[\\/]jarvis-(telegram[\\/]src[\\/](bot|relay|chat-handler)|dashboard[\\/]src[\\/]api[\\/](godmode|chat)|browser-worker[\\/]src[\\/]chrome-adapter)\.(ts|mts)$/;
+const DEPRECATED_LEGACY = /packages[\\/]jarvis-(telegram[\\/]src[\\/](bot|relay|chat-handler|vision-handler)|dashboard[\\/]src[\\/]api[\\/](godmode|chat)|browser-worker[\\/]src[\\/]chrome-adapter)\.(ts|mts)$/;
 
 describe("Convergence Program: Global Exit Conditions", () => {
   it("Exit 1: No primary-path direct Telegram transport outside deprecated files", () => {

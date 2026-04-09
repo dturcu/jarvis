@@ -231,7 +231,7 @@ describe("Run State Machine — Exhaustive", () => {
     }
 
     describe("from planning", () => {
-      const invalidFromPlanning: RunStatus[] = ["completed", "awaiting_approval", "queued", "planning"];
+      const invalidFromPlanning: RunStatus[] = ["completed", "queued", "planning"];
       for (const target of invalidFromPlanning) {
         it(`planning -> ${target} must throw`, () => {
           const agentId = "plan-invalid";

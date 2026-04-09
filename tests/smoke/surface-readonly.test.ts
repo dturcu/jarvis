@@ -18,7 +18,7 @@ const ROOT = join(import.meta.dirname, "..", "..");
 describe("Copilot Surface: Frozen Read-Only Contract", () => {
   const MUTATION_TOOLS = [
     "run_command", "write_file", "gmail_send", "gmail_reply",
-    "trigger_agent", "crm_update", "email_send", "execute_shell",
+    "crm_update", "email_send", "execute_shell",
     "file_write", "publish_post", "trade_execute",
   ];
 
@@ -46,10 +46,11 @@ describe("Copilot Surface: Frozen Read-Only Contract", () => {
     }
   });
 
-  it("trigger_agent returns error message when called from chat", () => {
+  it("trigger_agent is available as a tool in chat for agent delegation", () => {
     const chatSrc = fs.readFileSync(join(ROOT, "packages/jarvis-dashboard/src/api/chat.ts"), "utf8");
     expect(chatSrc).toContain("case 'trigger_agent':");
-    expect(chatSrc).toContain("not available from the chat surface");
+    // trigger_agent was re-enabled to allow chat to delegate tasks to agents
+    expect(new RegExp("name:\\s*'trigger_agent'").test(chatSrc)).toBe(true);
   });
 });
 

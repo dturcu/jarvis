@@ -222,15 +222,23 @@ describe("E2E: Run State Machine Exhaustive", () => {
   it("rejects invalid non-terminal transitions", () => {
     const store = new RunStore(db);
 
-    // planning → awaiting_approval (must go through executing first)
+    // executing → planning (backward transition not allowed)
     const r1 = store.startRun("a");
-    expect(() => store.transition(r1, "a", "awaiting_approval", "approval_requested")).toThrow();
+    store.transition(r1, "a", "executing", "step_started");
+    expect(() => store.transition(r1, "a", "planning", "run_started")).toThrow();
 
-    // queued → executing (must go through planning first — startRun auto-transitions to planning)
-    // Since startRun transitions queued → planning, we can't test queued → executing directly
-    // But we CAN test planning → awaiting_approval which is invalid
+    // planning → completed (must go through executing first)
     const r2 = store.startRun("b");
-    expect(() => store.transition(r2, "b", "awaiting_approval", "approval_requested")).toThrow();
+    expect(() => store.transition(r2, "b", "completed", "run_completed")).toThrow();
+  });
+
+  it("allows planning → awaiting_approval transition", () => {
+    const store = new RunStore(db);
+
+    // planning → awaiting_approval is now valid (for plan disagreement approvals)
+    const r1 = store.startRun("a");
+    store.transition(r1, "a", "awaiting_approval", "approval_requested");
+    expect(store.getStatus(r1)).toBe("awaiting_approval");
   });
 
   it("records all events in chronological order", () => {

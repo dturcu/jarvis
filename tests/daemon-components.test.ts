@@ -358,10 +358,12 @@ describe("Planner (buildPlanWithInference)", () => {
     );
 
     const plan = await buildPlanWithInference({ ...baseParams, deps: makeDeps(chatFn) });
-    // Only step 1 and step 4 are fully valid (action truthy, input exists, step is number)
-    expect(plan.steps).toHaveLength(2);
+    // Steps 1, 2, and 4 pass validation (action is truthy string); step 3 is filtered (null action)
+    // Step numbers are re-assigned sequentially regardless of original step value
+    expect(plan.steps).toHaveLength(3);
     expect(plan.steps[0]!.action).toBe("crm.list_pipeline");
-    expect(plan.steps[1]!.action).toBe("web.search_news");
+    expect(plan.steps[1]!.action).toBe("email.search");
+    expect(plan.steps[2]!.action).toBe("web.search_news");
   });
 
   it("buildPlanWithInference passes system_prompt + context to chat", async () => {

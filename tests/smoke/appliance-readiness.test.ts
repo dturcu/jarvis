@@ -246,7 +246,7 @@ describe("Health report", () => {
 // ===========================================================================
 
 describe("Migration completeness", () => {
-  it("all 4 runtime migrations apply cleanly on fresh DB", () => {
+  it("all 11 runtime migrations apply cleanly on fresh DB", () => {
     const db = new DatabaseSync(":memory:");
     db.exec("PRAGMA journal_mode = WAL;");
     db.exec("PRAGMA foreign_keys = ON;");
@@ -257,12 +257,12 @@ describe("Migration completeness", () => {
     const migCount = (
       db.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number }
     ).n;
-    expect(migCount).toBe(10);
+    expect(migCount).toBe(11);
 
     db.close();
   });
 
-  it("migration IDs: 0001 through 0010", () => {
+  it("migration IDs: 0001 through 0011", () => {
     const db = freshDb();
 
     const rows = db
@@ -270,15 +270,15 @@ describe("Migration completeness", () => {
       .all() as Array<{ id: string }>;
     const ids = rows.map((r) => r.id);
 
-    expect(ids).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009", "0010"]);
+    expect(ids).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009", "0010", "0011"]);
     db.close();
   });
 
-  it("after migration: 21 tables exist (includes provenance_traces)", () => {
+  it("after migration: 22 tables exist (includes provenance_traces and jobs)", () => {
     const db = freshDb();
     const tables = tableNames(db);
 
-    expect(tables).toHaveLength(21);
+    expect(tables).toHaveLength(22);
 
     // Verify every expected table is present
     const expected = [
@@ -293,6 +293,7 @@ describe("Migration completeness", () => {
       "daemon_heartbeats",
       "decision_entity_links",
       "delivery_attempts",
+      "jobs",
       "model_benchmarks",
       "model_registry",
       "notifications",
