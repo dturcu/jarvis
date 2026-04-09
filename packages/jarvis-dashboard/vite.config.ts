@@ -20,7 +20,23 @@ export default defineConfig({
             if (token) proxyReq.setHeader('Authorization', `Bearer ${token}`)
           })
         }
-      }
+      },
+      '/portal/api': { target: 'http://localhost:4242' }
+    }
+  },
+  preview: {
+    port: 4250,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:4242',
+        configure: (proxy) => {
+          proxy.on('proxyReq', (proxyReq) => {
+            const token = process.env.JARVIS_API_TOKEN ?? ''
+            if (token) proxyReq.setHeader('Authorization', `Bearer ${token}`)
+          })
+        }
+      },
+      '/portal/api': { target: 'http://localhost:4242' }
     }
   },
   build: {
