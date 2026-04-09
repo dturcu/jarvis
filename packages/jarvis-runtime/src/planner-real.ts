@@ -69,9 +69,9 @@ Rules:
     }
   }
 
-  // Validate and cap steps
+  // Validate and cap steps — input is optional (defaults to {})
   const validated = steps
-    .filter(s => s.action && s.input && typeof s.step === "number")
+    .filter(s => s.action && typeof s.action === "string")
     .slice(0, params.max_steps)
     .map((s, i) => ({
       step: i + 1,
@@ -97,14 +97,19 @@ Rules:
 function extractJson(text: string): string {
   // Remove ```json ... ``` or ``` ... ```
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) return fenceMatch[1].trim();
+  let raw = fenceMatch ? fenceMatch[1].trim() : text.trim();
 
-  // Find the first [ ... ] block
-  const arrayStart = text.indexOf("[");
-  const arrayEnd = text.lastIndexOf("]");
-  if (arrayStart !== -1 && arrayEnd > arrayStart) {
-    return text.slice(arrayStart, arrayEnd + 1);
+  // Find the first [ ... ] block if the whole response isn't an array
+  if (!raw.startsWith("[")) {
+    const arrayStart = raw.indexOf("[");
+    const arrayEnd = raw.lastIndexOf("]");
+    if (arrayStart !== -1 && arrayEnd > arrayStart) {
+      raw = raw.slice(arrayStart, arrayEnd + 1);
+    }
   }
 
-  return text.trim();
+  // Repair common LLM JSON mistakes: trailing commas before ] or }
+  raw = raw.replace(/,\s*([}\]])/g, "$1");
+
+  return raw;
 }

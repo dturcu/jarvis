@@ -1,5 +1,7 @@
 import express from 'express'
 import { join } from 'path'
+import path from 'path'
+import os from 'os'
 import { crmRouter } from './crm.js'
 import { knowledgeRouter } from './knowledge.js'
 import { agentsRouter } from './agents.js'
@@ -34,9 +36,10 @@ import { provenanceRouter } from './provenance.js'
 import { evalRouter } from './eval.js'
 import { modeRouter } from './settings.js'
 import fs from 'fs'
-import { getHealthReport, getReadinessReport, loadConfig } from '@jarvis/runtime'
+import { getHealthReport, getReadinessReport, loadConfig, writeTelegramQueue } from '@jarvis/runtime'
 import { getMetricsText, getMetricsContentType } from '@jarvis/observability'
 import { createAuthMiddleware, authRouter } from './middleware/auth.js'
+import { DatabaseSync } from 'node:sqlite'
 
 const app = express()
 const PORT = Number(process.env.PORT ?? 4242)
@@ -107,6 +110,7 @@ app.use(createAuthMiddleware())
 
 app.use('/api/auth', authRouter)
 app.use('/api/crm', crmRouter)
+// Alias: /api/crm/contacts handled by crmRouter via GET /contacts route
 app.use('/api/knowledge', knowledgeRouter)
 app.use('/api/agents', agentsRouter)
 app.use('/api/approvals', approvalsRouter)
@@ -150,6 +154,30 @@ app.use('/api/repair', repairRouter)
 app.use('/api/provenance', provenanceRouter)
 app.use('/api/eval', evalRouter)
 app.use('/api/mode', modeRouter)
+
+// ── Telegram routes ──────────────────────────────────────────────────────────
+app.get('/api/telegram/status', (_req, res) => {
+  const config = loadConfig()
+  const hasToken = !!(config as Record<string, unknown> & { telegram?: { bot_token?: string } })?.telegram?.bot_token
+  res.json({ ok: true, configured: hasToken, mode: process.env.JARVIS_TELEGRAM_MODE ?? 'session' })
+})
+
+app.post('/api/telegram/send', (req, res) => {
+  const { message } = req.body as { message?: string }
+  if (!message) {
+    res.status(400).json({ error: 'message is required' })
+    return
+  }
+  try {
+    const RUNTIME_DB_PATH = path.join(os.homedir(), '.jarvis', 'runtime.db')
+    const db = new DatabaseSync(RUNTIME_DB_PATH)
+    writeTelegramQueue('dashboard', message, db)
+    db.close()
+    res.json({ ok: true, queued: true })
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
+  }
+})
 
 app.get('/api/health', (_req, res) => {
   const report = getHealthReport()
@@ -195,7 +223,12 @@ if (hasUI) {
   }
   app.get('/', serveIndex)
   app.use(express.static(distPath))
-  app.get('/{*splat}', serveIndex)
+  app.get('/{*splat}', (req: express.Request, res: express.Response) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/portal/')) {
+      return res.status(404).json({ error: 'Not found' })
+    }
+    return serveIndex(req, res)
+  })
 } else {
   // Friendly error page when dashboard hasn't been built
   const notBuiltHtml = `<!DOCTYPE html>

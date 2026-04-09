@@ -9,6 +9,7 @@ import { migration0007 } from "./0007_channel_full_content.js";
 import { migration0008 } from "./0008_channel_model.js";
 import { migration0009 } from "./0009_provenance.js";
 import { migration0010 } from "./0010_provenance_trace_idx.js";
+import { migration0011 } from "./0011_jobs_table.js";
 import { crmMigration0001 } from "./crm_0001_core.js";
 import { knowledgeMigration0001 } from "./knowledge_0001_core.js";
 
@@ -47,6 +48,7 @@ export const RUNTIME_MIGRATIONS: Migration[] = [
   migration0008,
   migration0009,
   migration0010,
+  migration0011,
 ];
 
 /** CRM DB migrations — contacts, notes, stages, campaigns. */

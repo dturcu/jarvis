@@ -25,6 +25,22 @@ export class RealDocumentAdapter implements DocumentAdapter {
   constructor(private readonly chat: LlmChatFn) {}
 
   async ingest(input: DocumentIngestInput): Promise<ExecutionOutcome<DocumentIngestOutput>> {
+    if (!input.file_path) {
+      return {
+        summary: "document.ingest skipped: no file_path provided",
+        structured_output: {
+          file_path: "",
+          file_type: "unknown",
+          page_count: undefined,
+          word_count: 0,
+          text: "",
+          sections: [],
+          tables: [],
+          metadata: {},
+          ingested_at: new Date().toISOString(),
+        },
+      };
+    }
     const ext = extname(input.file_path).toLowerCase();
     let text: string;
     let pageCount: number | undefined;
@@ -220,23 +236,26 @@ ${textB.slice(0, 4000)}`;
   }
 
   async generateReport(input: DocumentGenerateReportInput): Promise<ExecutionOutcome<DocumentGenerateReportOutput>> {
-    const title = input.title ?? `${input.template} Report`;
-    const prompt = `Generate a ${input.template} report titled "${title}".
+    const template = input.template ?? "custom";
+    const title = input.title ?? `${template} Report`;
+    const data = input.data ?? {};
+    const prompt = `Generate a ${template} report titled "${title}".
 
-Data: ${JSON.stringify(input.data).slice(0, 4000)}
+Data: ${JSON.stringify(data).slice(0, 4000)}
 
 Output the report in markdown format with clear sections, headings, and bullet points. Be structured and professional.`;
 
     const content = await this.chat(prompt);
 
     // Validate output_path — must be within cwd or tmpdir to prevent path traversal
-    const { resolve: pathResolve, normalize } = await import("node:path");
+    const { resolve: pathResolve } = await import("node:path");
     const { tmpdir } = await import("node:os");
-    const resolved = pathResolve(input.output_path);
+    const outputPath = input.output_path ?? `${tmpdir()}/${title.replace(/[^a-z0-9]/gi, '_')}.md`;
+    const resolved = pathResolve(outputPath);
     const cwd = process.cwd();
     const tmp = tmpdir();
     if (!resolved.startsWith(cwd) && !resolved.startsWith(tmp)) {
-      throw new Error(`output_path "${input.output_path}" is outside allowed directories (cwd or tmpdir)`);
+      throw new Error(`output_path "${outputPath}" is outside allowed directories (cwd or tmpdir)`);
     }
 
     // For markdown output, write directly

@@ -40,6 +40,22 @@ crmRouter.get('/', (_req, res) => {
   }
 })
 
+// GET /contacts — alias for GET / (same contact list)
+crmRouter.get('/contacts', (_req, res) => {
+  try {
+    const db = getDb()
+    const rows = db.prepare('SELECT * FROM contacts ORDER BY updated_at DESC').all() as Record<string, unknown>[]
+    db.close()
+    const contacts = rows.map(r => ({
+      ...r,
+      tags: typeof r.tags === 'string' ? (() => { try { return JSON.parse(r.tags) } catch { return [] } })() : (r.tags ?? [])
+    }))
+    res.json(contacts)
+  } catch {
+    res.json([])
+  }
+})
+
 // GET /:id — get contact + notes + stage_history
 crmRouter.get('/:id', (req, res) => {
   try {
@@ -65,9 +81,9 @@ crmRouter.get('/:id', (req, res) => {
 
 // POST / — create contact
 crmRouter.post('/', (req, res) => {
-  const { name, company, stage = 'prospect', email, phone, source, score, tags } = req.body as {
-    name?: string; company?: string; stage?: string; email?: string;
-    phone?: string; source?: string; score?: number; tags?: string[]
+  const { name, company, role, stage = 'prospect', email, linkedin_url, source, score, tags } = req.body as {
+    name?: string; company?: string; role?: string; stage?: string; email?: string;
+    linkedin_url?: string; source?: string; score?: number; tags?: string[]
   }
   if (!name || !company) {
     res.status(400).json({ error: 'name and company are required' })
@@ -76,17 +92,18 @@ crmRouter.post('/', (req, res) => {
   try {
     const db = getDb()
     const now = new Date().toISOString()
-    const result = db.prepare(
-      `INSERT INTO contacts (name, company, stage, email, phone, source, score, tags, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    const id = randomUUID()
+    db.prepare(
+      `INSERT INTO contacts (id, name, company, role, stage, email, linkedin_url, source, score, tags, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
-      name, company, stage,
-      email ?? null, phone ?? null, source ?? null,
+      id, name, company, role ?? null, stage,
+      email ?? null, linkedin_url ?? null, source ?? null,
       score ?? null,
       tags ? JSON.stringify(tags) : '[]',
       now, now
     )
-    const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(result.lastInsertRowid)
+    const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(id)
     db.close()
     res.status(201).json(contact)
   } catch (err) {
@@ -96,7 +113,7 @@ crmRouter.post('/', (req, res) => {
 
 // PATCH /:id — update contact fields
 crmRouter.patch('/:id', (req, res) => {
-  const allowed = ['name', 'company', 'stage', 'email', 'phone', 'source', 'score', 'tags', 'notes_text']
+  const allowed = ['name', 'company', 'role', 'stage', 'email', 'linkedin_url', 'source', 'score', 'tags']
   const updates = req.body as Record<string, unknown>
   const fields = Object.keys(updates).filter(k => allowed.includes(k))
   if (fields.length === 0) {

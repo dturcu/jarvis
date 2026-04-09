@@ -94,7 +94,7 @@ function mapRunStatus(status: string): TaskStatus {
 }
 
 function inferSource(row: Record<string, unknown>): TaskSource {
-  const src = String(row.source ?? row.trigger_type ?? '')
+  const src = String(row.trigger_kind ?? row.owner ?? '')
   if (src.includes('schedule') || src.includes('cron')) return 'schedule'
   if (src.includes('webhook')) return 'webhook'
   if (src.includes('operator') || src.includes('godmode') || src.includes('chat')) return 'operator'
@@ -116,6 +116,13 @@ function ensureCorrelationTable(db: DatabaseSync): void {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `)
+  // Add created_at if the table existed before the column was introduced
+  try {
+    const cols = db.prepare("PRAGMA table_info(taskflow_correlations)").all() as Array<{ name: string }>
+    if (!cols.some((c) => c.name === 'created_at')) {
+      db.exec("ALTER TABLE taskflow_correlations ADD COLUMN created_at TEXT NOT NULL DEFAULT (datetime('now'))")
+    }
+  } catch { /* best-effort */ }
 }
 
 function lookupFlowId(db: DatabaseSync, runId: string): string | undefined {
@@ -166,7 +173,7 @@ async function queryGatewayFlows(): Promise<GatewayFlowEntry[]> {
 
 export const tasksRouter = Router()
 
-tasksRouter.get('/', (_req: Request, res: Response) => {
+tasksRouter.get('/', async (_req: Request, res: Response) => {
   const db = openDb()
   if (!db) {
     res.json({ tasks: [], message: 'runtime.db not found' })
@@ -190,7 +197,7 @@ tasksRouter.get('/', (_req: Request, res: Response) => {
       params.push(agent_id)
     }
     if (since) {
-      conditions.push('r.created_at >= ?')
+      conditions.push('r.started_at >= ?')
       params.push(since)
     }
 
@@ -201,17 +208,16 @@ tasksRouter.get('/', (_req: Request, res: Response) => {
         r.run_id,
         r.agent_id,
         r.status,
-        r.created_at,
-        r.updated_at,
-        r.source,
-        r.trigger_type,
+        r.started_at,
+        r.completed_at,
+        r.trigger_kind,
         r.owner,
         (SELECT COUNT(*) FROM jobs j WHERE j.run_id = r.run_id) as jobs_total,
         (SELECT COUNT(*) FROM jobs j WHERE j.run_id = r.run_id AND j.status IN ('completed','succeeded')) as jobs_completed,
         (SELECT COUNT(*) FROM approvals a WHERE a.run_id = r.run_id AND a.status = 'pending') as pending_approvals
       FROM runs r
       ${where}
-      ORDER BY r.created_at DESC
+      ORDER BY r.started_at DESC
       LIMIT ?
     `).all(...params, pageLimit) as Array<Record<string, unknown>>
 
@@ -222,15 +228,15 @@ tasksRouter.get('/', (_req: Request, res: Response) => {
       agent_id: String(row.agent_id ?? ''),
       source: inferSource(row),
       status: mapRunStatus(String(row.status ?? 'queued')),
-      started_at: String(row.created_at ?? ''),
-      updated_at: String(row.updated_at ?? row.created_at ?? ''),
+      started_at: String(row.started_at ?? ''),
+      updated_at: String(row.completed_at ?? row.started_at ?? ''),
       jobs_total: Number(row.jobs_total ?? 0),
       jobs_completed: Number(row.jobs_completed ?? 0),
       pending_approvals: Number(row.pending_approvals ?? 0),
       flow_id: lookupFlowId(db, String(row.run_id)),
-      provenance: row.source || row.trigger_type || row.owner ? {
+      provenance: row.trigger_kind || row.owner ? {
         channel: String(row.owner ?? 'daemon'),
-        trigger_type: String(row.trigger_type ?? row.source ?? 'unknown'),
+        trigger_type: String(row.trigger_kind ?? 'unknown'),
       } : undefined,
     }))
 
@@ -293,8 +299,8 @@ tasksRouter.post('/:id/cancel', (req: Request, res: Response) => {
       return
     }
 
-    db.prepare('UPDATE runs SET status = ?, updated_at = ? WHERE run_id = ?')
-      .run('cancelled', new Date().toISOString(), id)
+    db.prepare('UPDATE runs SET status = ? WHERE run_id = ?')
+      .run('cancelled', id)
 
     // Cancel pending jobs for this run
     db.prepare("UPDATE jobs SET status = 'cancelled' WHERE run_id = ? AND status IN ('queued', 'claimed')")
@@ -312,69 +318,6 @@ tasksRouter.post('/:id/cancel', (req: Request, res: Response) => {
     }
 
     res.json({ task_id: id, status: 'cancelled', cancelled_at: new Date().toISOString(), flow_cancel_requested: flowCancelRequested })
-  } catch (err) {
-    res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
-  } finally {
-    try { db.close() } catch { /* ignore */ }
-  }
-})
-
-tasksRouter.get('/:id', (req: Request, res: Response) => {
-  const db = openDb()
-  if (!db) {
-    res.status(404).json({ error: 'runtime.db not found' })
-    return
-  }
-
-  try {
-    const { id } = req.params
-
-    const row = db.prepare(`
-      SELECT run_id, agent_id, status, created_at, updated_at, source, trigger_type
-      FROM runs WHERE run_id = ?
-    `).get(id) as Record<string, unknown> | undefined
-
-    if (!row) {
-      res.status(404).json({ error: 'Task not found' })
-      return
-    }
-
-    const jobs = db.prepare(`
-      SELECT job_id, type, status, claimed_at, completed_at
-      FROM jobs WHERE run_id = ? ORDER BY created_at
-    `).all(id) as Array<Record<string, unknown>>
-
-    const approvals = db.prepare(`
-      SELECT approval_id, action, status, created_at
-      FROM approvals WHERE run_id = ? ORDER BY created_at
-    `).all(id) as Array<Record<string, unknown>>
-
-    const detail: TaskDetail = {
-      task_id: String(row.run_id),
-      agent_id: String(row.agent_id ?? ''),
-      source: inferSource(row),
-      status: mapRunStatus(String(row.status ?? 'queued')),
-      started_at: String(row.created_at ?? ''),
-      updated_at: String(row.updated_at ?? row.created_at ?? ''),
-      jobs_total: jobs.length,
-      jobs_completed: jobs.filter((j) => ['completed', 'succeeded'].includes(String(j.status))).length,
-      pending_approvals: approvals.filter((a) => a.status === 'pending').length,
-      jobs: jobs.map((j) => ({
-        job_id: String(j.job_id),
-        type: String(j.type ?? ''),
-        status: String(j.status ?? ''),
-        claimed_at: j.claimed_at ? String(j.claimed_at) : undefined,
-        completed_at: j.completed_at ? String(j.completed_at) : undefined,
-      })),
-      approvals: approvals.map((a) => ({
-        approval_id: String(a.approval_id),
-        action: String(a.action ?? ''),
-        status: String(a.status ?? ''),
-        created_at: String(a.created_at ?? ''),
-      })),
-    }
-
-    res.json(detail)
   } catch (err) {
     res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
   } finally {
@@ -462,8 +405,8 @@ tasksRouter.post('/callback', async (req: Request, res: Response) => {
         ensureCorrelationTable(db)
         const row = db.prepare('SELECT run_id FROM taskflow_correlations WHERE flow_id = ?').get(flow_id) as { run_id: string } | undefined
         if (row) {
-          db.prepare("UPDATE runs SET status = 'cancelled', updated_at = ? WHERE run_id = ? AND status NOT IN ('completed','succeeded','failed','cancelled')")
-            .run(new Date().toISOString(), row.run_id)
+          db.prepare("UPDATE runs SET status = 'cancelled' WHERE run_id = ? AND status NOT IN ('completed','succeeded','failed','cancelled')")
+            .run(row.run_id)
         }
       } catch { /* best-effort */ } finally {
         try { db.close() } catch { /* ignore */ }
@@ -477,7 +420,7 @@ tasksRouter.post('/callback', async (req: Request, res: Response) => {
 })
 
 // GET /api/tasks/adoption — Adoption metrics dashboard for release gates.
-tasksRouter.get('/adoption', (_req: Request, res: Response) => {
+tasksRouter.get('/adoption', async (_req: Request, res: Response) => {
   const db = openDb()
 
   const metrics: Record<string, unknown> = {
@@ -559,4 +502,68 @@ tasksRouter.get('/adoption', (_req: Request, res: Response) => {
   metrics.all_gates_passed = Object.values(gates).every((g) => g.passed)
 
   res.json(metrics)
+})
+
+// GET /api/tasks/:id — Task detail (must be last to avoid shadowing named routes)
+tasksRouter.get('/:id', (req: Request, res: Response) => {
+  const db = openDb()
+  if (!db) {
+    res.status(404).json({ error: 'runtime.db not found' })
+    return
+  }
+
+  try {
+    const { id } = req.params
+
+    const row = db.prepare(`
+      SELECT run_id, agent_id, status, started_at, completed_at, trigger_kind, owner
+      FROM runs WHERE run_id = ?
+    `).get(id) as Record<string, unknown> | undefined
+
+    if (!row) {
+      res.status(404).json({ error: 'Task not found' })
+      return
+    }
+
+    const jobs = db.prepare(`
+      SELECT job_id, job_type, status, claimed_at, completed_at
+      FROM jobs WHERE run_id = ? ORDER BY created_at
+    `).all(id) as Array<Record<string, unknown>>
+
+    const approvals = db.prepare(`
+      SELECT approval_id, action, status, created_at
+      FROM approvals WHERE run_id = ? ORDER BY created_at
+    `).all(id) as Array<Record<string, unknown>>
+
+    const detail: TaskDetail = {
+      task_id: String(row.run_id),
+      agent_id: String(row.agent_id ?? ''),
+      source: inferSource(row),
+      status: mapRunStatus(String(row.status ?? 'queued')),
+      started_at: String(row.started_at ?? ''),
+      updated_at: String(row.completed_at ?? row.started_at ?? ''),
+      jobs_total: jobs.length,
+      jobs_completed: jobs.filter((j) => ['completed', 'succeeded'].includes(String(j.status))).length,
+      pending_approvals: approvals.filter((a) => a.status === 'pending').length,
+      jobs: jobs.map((j) => ({
+        job_id: String(j.job_id),
+        type: String(j.job_type ?? ''),
+        status: String(j.status ?? ''),
+        claimed_at: j.claimed_at ? String(j.claimed_at) : undefined,
+        completed_at: j.completed_at ? String(j.completed_at) : undefined,
+      })),
+      approvals: approvals.map((a) => ({
+        approval_id: String(a.approval_id),
+        action: String(a.action ?? ''),
+        status: String(a.status ?? ''),
+        created_at: String(a.created_at ?? ''),
+      })),
+    }
+
+    res.json(detail)
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : String(err) })
+  } finally {
+    try { db.close() } catch { /* ignore */ }
+  }
 })

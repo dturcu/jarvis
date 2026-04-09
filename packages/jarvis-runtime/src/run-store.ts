@@ -22,7 +22,7 @@ export type RunEventType =
 /** Valid state transitions for the run state machine. */
 const VALID_TRANSITIONS: Record<RunStatus, RunStatus[]> = {
   queued: ["planning", "cancelled"],
-  planning: ["executing", "failed", "cancelled"],
+  planning: ["executing", "awaiting_approval", "failed", "cancelled"],
   executing: ["awaiting_approval", "completed", "failed", "cancelled"],
   awaiting_approval: ["executing", "cancelled", "failed"],
   completed: [],

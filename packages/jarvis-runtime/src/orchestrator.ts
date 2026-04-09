@@ -327,6 +327,11 @@ export async function runAgent(
     // Update durable run metadata
     runStore?.updateRunMeta(run.run_id, { goal: run.goal, total_steps: plan.steps.length });
 
+    // Transition DB status from planning → executing so approval gates can fire correctly
+    runStore?.transition(run.run_id, agentId, "executing", "plan_built", {
+      details: { steps: plan.steps.length, planner_mode: plannerMode },
+    });
+
     // Emit plan_built event
     runStore?.emitEvent(run.run_id, agentId, "plan_built", {
       details: { steps: plan.steps.length, goal: run.goal, planner_mode: plannerMode },
