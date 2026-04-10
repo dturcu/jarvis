@@ -29,6 +29,7 @@ export type ChannelMessage = {
   external_id: string | null;
   direction: string;
   content_preview: string | null;
+  content_full: string | null;
   sender: string | null;
   command_id: string | null;
   run_id: string | null;
