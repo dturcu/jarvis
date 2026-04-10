@@ -414,10 +414,10 @@ export default function JarvisChat() {
   }
 
   return (
-    <div className="flex bg-slate-800/30 backdrop-blur-sm border border-white/5 rounded-xl overflow-hidden" style={{ height: '500px' }}>
+    <div className="flex h-full overflow-hidden">
       {/* ── History sidebar ──────────────────────────────── */}
-      <div className={`${showHistory ? 'w-64' : 'w-0'} shrink-0 transition-all duration-200 overflow-hidden border-r border-white/5 bg-slate-900/50`}>
-        <div className="w-64 h-full flex flex-col">
+      <div className={`${showHistory ? 'w-52' : 'w-0'} shrink-0 transition-all duration-200 overflow-hidden border-r border-white/5 bg-slate-900/50`}>
+        <div className="w-52 h-full flex flex-col">
           <div className="flex items-center justify-between px-3 py-3 border-b border-white/5">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Chats</span>
             <button
