@@ -57,11 +57,11 @@ const SUMMARY_SYSTEM_PROMPT = `Compress this conversation into a brief context s
 Write in third person as a context briefing for an AI assistant resuming this conversation.`
 
 async function generateSummary(
-  messages: Array<{ direction: string; content_preview: string | null }>,
+  messages: Array<{ direction: string; content_preview: string | null; content_full: string | null }>,
   model: string,
 ): Promise<string | null> {
   const conversationText = messages
-    .map(m => `${m.direction === 'inbound' ? 'User' : 'Assistant'}: ${m.content_preview ?? ''}`)
+    .map(m => `${m.direction === 'inbound' ? 'User' : 'Assistant'}: ${m.content_full ?? m.content_preview ?? ''}`)
     .join('\n')
 
   try {
@@ -88,10 +88,10 @@ async function generateSummary(
 }
 
 function shouldSummarize(
-  messages: Array<{ content_preview: string | null }>,
+  messages: Array<{ content_preview: string | null; content_full: string | null }>,
 ): boolean {
   if (messages.length > SUMMARY_MSG_THRESHOLD) return true
-  const totalChars = messages.reduce((sum, m) => sum + (m.content_preview?.length ?? 0), 0)
+  const totalChars = messages.reduce((sum, m) => sum + ((m.content_full ?? m.content_preview)?.length ?? 0), 0)
   if (estimateTokens(totalChars.toString()) > SUMMARY_TOKEN_RATIO * CONTEXT_WINDOW) return true
   // More accurate: estimate from actual text
   if (totalChars / 3.5 > SUMMARY_TOKEN_RATIO * CONTEXT_WINDOW) return true
@@ -201,7 +201,7 @@ router.get('/:id', (req, res) => {
       messages: messages.map(m => ({
         id: m.message_id,
         role: m.direction === 'inbound' ? 'user' : 'assistant',
-        content: m.content_preview ?? '',
+        content: m.content_full ?? m.content_preview ?? '',
         createdAt: m.created_at,
       })),
     })
