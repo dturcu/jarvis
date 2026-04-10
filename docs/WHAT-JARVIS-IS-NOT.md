@@ -16,7 +16,7 @@ Jarvis is domain-focused for automotive safety consulting (ISO 26262, ASPICE, AU
 
 ## Not a Replacement for Human Judgment
 
-High-stakes decisions are approval-gated. Jarvis will not send an email, publish a post, execute a trade, or move a CRM stage without human approval. Of 143 job types, 17 always require approval and 33 are conditionally gated. The system is designed to surface recommendations, not to act unilaterally on consequential actions.
+High-stakes decisions are approval-gated. Jarvis will not send an email, publish a post, execute a trade, or move a CRM stage without human approval. Of 144 job types, 17 always require approval and 33 are conditionally gated. The system is designed to surface recommendations, not to act unilaterally on consequential actions.
 
 ## Not a Distributed System
 

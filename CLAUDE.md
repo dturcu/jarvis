@@ -101,7 +101,7 @@ OpenClaw Gateway (WebSocket + HTTP, plugin host)
     '-- config.json   -- configuration
 ```
 
-## Packages (43)
+## Packages (44)
 
 ### Core & Framework
 - `@jarvis/shared` -- base types, OpenClaw SDK integration, gateway utilities
@@ -113,6 +113,7 @@ OpenClaw Gateway (WebSocket + HTTP, plugin host)
 ### Infrastructure
 - `@jarvis/jobs`, `@jarvis/dispatch`, `@jarvis/scheduler`, `@jarvis/supervisor`
 - `@jarvis/inference`, `@jarvis/interpreter`, `@jarvis/security`, `@jarvis/system`, `@jarvis/voice`, `@jarvis/device`
+- `@jarvis/observability`
 
 ### Plugins (6)
 - `@jarvis/agent-plugin`, `@jarvis/email-plugin`, `@jarvis/calendar-plugin`
@@ -138,8 +139,8 @@ OpenClaw Gateway (WebSocket + HTTP, plugin host)
 - `packages/jarvis-agents/src/legacy/prompts/` -- 14 archived prompt files
 - `packages/jarvis-agents/src/data/` -- Garden beds + planting calendar (JSON)
 - `packages/jarvis-agent-framework/src/` -- Runtime, memory, knowledge, entity graph, lesson capture
-- `contracts/jarvis/v1/` -- JSON schemas (23 families), 144 examples, job catalog (143 types), plugin surface
-- `tests/` -- 92 test files (unit + smoke + stress), 2384+ test cases
+- `contracts/jarvis/v1/` -- JSON schemas (27 families), 145 examples, job catalog (144 types), plugin surface
+- `tests/` -- 125 test files (unit + smoke + stress), 2860+ test cases
 - `scripts/` -- Setup, contract validation, DB initialization, ops (health, backup, recovery)
 - `scripts/runtime/` -- OpenClaw gateway bootstrap and smoke harness
 - `docs/` -- Architecture, usage guide, production target, release gates, specs, runbooks
@@ -149,9 +150,9 @@ OpenClaw Gateway (WebSocket + HTTP, plugin host)
 
 ```bash
 npm run check                    # Full pipeline: contracts + tests + build
-npm test                         # Tests only (92 files, 2384+ tests)
+npm test                         # Tests only (125 files, 2860+ tests)
 npm run build                    # TypeScript compilation
-npm run validate:contracts       # Schema + example validation (143 job types)
+npm run validate:contracts       # Schema + example validation (144 job types)
 npm run smoke:runtime            # OpenClaw + LM Studio integration smoke test
 ```
 
@@ -175,6 +176,6 @@ prospect -> qualified -> contacted -> meeting -> proposal -> negotiation -> won 
 - `crm.move_stage` -- requires approval (warning)
 - `document.generate_report` -- requires approval (warning)
 
-Of 143 total job types: 17 always require approval, 33 are conditional, 93 never require approval.
+Of 144 total job types: 17 always require approval, 33 are conditional, 94 never require approval.
 
 Read-only operations (search, analyze, list) never require approval.

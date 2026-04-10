@@ -213,8 +213,8 @@ The dashboard also provides two read-only copilot surfaces (`/api/chat/telegram`
 
 All job types, tool responses, and worker callbacks conform to the `jarvis.v1` contract — a frozen JSON Schema specification.
 
-- **143 job types** across **23 schema families**: agent, browser, calendar, crm, device, document, drive, email, files, inference, interpreter, office, python, scheduler, scrape, search, security, social, system, time, voice, web
-- **Schema validation** via `npm run validate:contracts` — validates all schemas and 144 example payloads against full envelope/result schemas
+- **144 job types** across **27 schema families**: agent, browser, calendar, crm, device, document, drive, email, files, inference, interpreter, office, python, scheduler, search, security, social, system, time, voice, web
+- **Schema validation** via `npm run validate:contracts` — validates all schemas and 145 example payloads against full envelope/result schemas
 - **Contract files** live in `contracts/jarvis/v1/`
 
 ### Job Lifecycle
@@ -235,13 +235,13 @@ Agent calls tool -> submitJob(type, input)
 
 ## Approval Rules
 
-High-stakes actions require human approval before execution. Of 143 job types:
+High-stakes actions require human approval before execution. Of 144 job types:
 
 | Approval | Count | Examples |
 |---|---|---|
 | **Required** (always) | 17 | `email.send`, `device.click`, `device.type_text`, `python.run`, `security.lockdown`, `calendar.create_event` |
 | **Conditional** (policy-gated) | 33 | `crm.move_stage`, `document.generate_report`, `device.open_app`, `files.write` |
-| **Not required** (read-only) | 93 | `email.search`, `crm.list_pipeline`, `device.snapshot`, `system.cpu_usage` |
+| **Not required** (read-only) | 94 | `email.search`, `crm.list_pipeline`, `device.snapshot`, `system.cpu_usage` |
 
 Agents with `high_stakes_manual_gate` maturity require approval for **every** mutating action.
 
@@ -326,9 +326,9 @@ Environment variables override config file values. See `.env.example` for all op
 
 ```bash
 npm run check              # Full pipeline: contracts + tests + build
-npm test                   # Run tests (62 files, 1411+ tests)
+npm test                   # Run tests (125 files, 2860+ tests)
 npm run build              # TypeScript compilation
-npm run validate:contracts # Schema + example validation (143 job types)
+npm run validate:contracts # Schema + example validation (144 job types)
 npm run dashboard:dev      # Dashboard dev mode (hot reload)
 npm run smoke:runtime      # OpenClaw + LM Studio integration smoke test
 ```
