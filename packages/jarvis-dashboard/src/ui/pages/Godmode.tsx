@@ -65,7 +65,7 @@ export default function Godmode() {
   const hasRightPanel = rightSurface !== null
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-white/5 bg-[#030712]">
         <div className="flex items-center gap-3">

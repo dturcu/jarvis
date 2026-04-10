@@ -205,7 +205,10 @@ function initState(): {
   }
 }
 
-function persistCurrentConversation(state: GodmodeState): void {
+function persistCurrentConversation(
+  state: GodmodeState,
+  storeSetter: (partial: Partial<GodmodeState>) => void,
+): void {
   const { currentConversationId, messages, artifactHistory, currentArtifact, model, conversations } = state
   if (!currentConversationId) return
 
@@ -219,6 +222,9 @@ function persistCurrentConversation(state: GodmodeState): void {
       : c
   )
   saveConversationList(updated)
+
+  // Sync metadata back to store so sidebar reflects current counts
+  storeSetter({ conversations: updated })
 }
 
 export const useGodmodeStore = create<GodmodeState>((set, get) => {
@@ -247,7 +253,7 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
     if (state.streaming) return
 
     // Persist current conversation first
-    persistCurrentConversation(state)
+    persistCurrentConversation(state, set)
 
     // Create new empty conversation
     const id = generateId()
@@ -283,7 +289,7 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
     if (state.streaming || id === state.currentConversationId) return
 
     // Persist current first
-    persistCurrentConversation(state)
+    persistCurrentConversation(state, set)
 
     // Load target
     const data = loadConversationData(id)
@@ -418,7 +424,7 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
           }
         })
         set({ streaming: false })
-        persistCurrentConversation(get())
+        persistCurrentConversation(get(), set)
         return
       }
 
