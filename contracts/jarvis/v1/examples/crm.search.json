@@ -34,8 +34,8 @@
       "contacts": [
         {
           "contact_id": "a0b1c2d3-1111-4000-8000-aabbccddeeff",
-          "name": "Klaus Berger",
-          "company": "Bertrandt",
+          "name": "Martin Fischer",
+          "company": "Meridian Engineering",
           "role": "Senior Systems Architect",
           "tags": ["AUTOSAR", "safety", "Adaptive Platform"],
           "stage": "qualified",
@@ -45,8 +45,8 @@
         },
         {
           "contact_id": "f0b1c2d3-6666-4000-8000-aabbccddeeff",
-          "name": "François Sagnely",
-          "company": "Bertrandt",
+          "name": "Luca Bianchi",
+          "company": "Meridian Engineering",
           "role": "VP Engineering",
           "tags": ["AUTOSAR", "safety"],
           "stage": "contacted",

@@ -14,8 +14,8 @@
     "attempt": 1,
     "input": {
       "attendees": [
-        "t.hofmann@bmw.com",
-        "s.bauer@bmw.com",
+        "a.richter@apex-motors.example.com",
+        "c.werner@apex-motors.example.com",
         "consultant@jarvis.local"
       ],
       "duration_minutes": 60,
@@ -52,8 +52,8 @@
       ],
       "total_slots": 2,
       "searched_attendees": [
-        "t.hofmann@bmw.com",
-        "s.bauer@bmw.com",
+        "a.richter@apex-motors.example.com",
+        "c.werner@apex-motors.example.com",
         "consultant@jarvis.local"
       ]
     }

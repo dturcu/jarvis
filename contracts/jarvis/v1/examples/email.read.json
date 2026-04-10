@@ -26,17 +26,17 @@
     "job_id": "a1b2c3d4-e002-4000-8000-000000000101",
     "job_type": "email.read",
     "status": "completed",
-    "summary": "Read message \"RFQ: ISO 26262 safety analysis — brake controller ECU\" from procurement@automotech.com.",
+    "summary": "Read message \"RFQ: ISO 26262 safety analysis — brake controller ECU\" from procurement@example-automotech.com.",
     "attempt": 1,
     "artifacts": [],
     "structured_output": {
       "message_id": "msg-002",
       "thread_id": "thread-002",
       "subject": "RFQ: ISO 26262 safety analysis — brake controller ECU",
-      "from": "procurement@automotech.com",
-      "to": ["consulting@jarvis-safety.com"],
+      "from": "procurement@example-automotech.com",
+      "to": ["consulting@example-consulting.com"],
       "date": "2026-04-03T11:30:00.000Z",
-      "body_text": "Dear Consulting Team,\n\nWe are issuing a Request for Quotation for an ISO 26262:2018 safety analysis engagement covering our next-generation brake controller ECU (ASIL-D target).\n\nScope:\n- Hazard Analysis and Risk Assessment (HARA)\n- Functional Safety Concept\n- System FMEA\n- Safety case documentation\n\nPlease find the technical specification attached.\n\nDeadline for quotation: 2026-04-15\n\nRegards,\nProcurement Team\nAutomoTech AG",
+      "body_text": "Dear Consulting Team,\n\nWe are issuing a Request for Quotation for an ISO 26262:2018 safety analysis engagement covering our next-generation brake controller ECU (ASIL-D target).\n\nScope:\n- Hazard Analysis and Risk Assessment (HARA)\n- Functional Safety Concept\n- System FMEA\n- Safety case documentation\n\nPlease find the technical specification attached.\n\nDeadline for quotation: 2026-04-15\n\nRegards,\nProcurement Team\nAutomoTech Example AG",
       "attachments": [
         {
           "filename": "brake_ecu_technical_spec_v2.pdf",

@@ -28,7 +28,7 @@
     "job_id": "c1b2c3d4-0004-4000-8000-000000000104",
     "job_type": "crm.move_stage",
     "status": "completed",
-    "summary": "Moved contact Klaus Berger from prospect to qualified.",
+    "summary": "Moved contact Martin Fischer from prospect to qualified.",
     "attempt": 1,
     "artifacts": [],
     "structured_output": {

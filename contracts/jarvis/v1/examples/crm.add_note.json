@@ -28,7 +28,7 @@
     "job_id": "c1b2c3d4-0005-4000-8000-000000000105",
     "job_type": "crm.add_note",
     "status": "completed",
-    "summary": "Added meeting note to contact Klaus Berger.",
+    "summary": "Added meeting note to contact Martin Fischer.",
     "attempt": 1,
     "artifacts": [],
     "structured_output": {

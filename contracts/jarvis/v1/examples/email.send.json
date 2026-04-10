@@ -26,7 +26,7 @@
     "job_id": "a1b2c3d4-e004-4000-8000-000000000103",
     "job_type": "email.send",
     "status": "completed",
-    "summary": "Sent email \"Re: RFQ — ISO 26262 ASIL-D safety analysis proposal\" to procurement@automotech.com.",
+    "summary": "Sent email \"Re: RFQ — ISO 26262 ASIL-D safety analysis proposal\" to procurement@example-automotech.com.",
     "attempt": 1,
     "artifacts": [],
     "structured_output": {

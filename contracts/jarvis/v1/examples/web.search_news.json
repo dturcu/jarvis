@@ -13,7 +13,7 @@
     "timeout_seconds": 300,
     "attempt": 1,
     "input": {
-      "query": "Bertrandt AUTOSAR safety engineer",
+      "query": "Meridian Engineering AUTOSAR safety engineer",
       "max_results": 5,
       "date_from": "2026-01-01"
     },
@@ -28,37 +28,37 @@
     "job_id": "b2c3d4e5-0001-4000-8000-000000000101",
     "job_type": "web.search_news",
     "status": "completed",
-    "summary": "Found 3 news articles for query \"Bertrandt AUTOSAR safety engineer\".",
+    "summary": "Found 3 news articles for query \"Meridian Engineering AUTOSAR safety engineer\".",
     "attempt": 1,
     "artifacts": [],
     "structured_output": {
       "articles": [
         {
-          "title": "Bertrandt AG Expands AUTOSAR Software Team Amid Safety Push",
-          "url": "https://www.automotive-engineering.de/bertrandt-autosar-expansion",
+          "title": "Meridian Engineering GmbH Expands AUTOSAR Software Team Amid Safety Push",
+          "url": "https://www.automotive-engineering.example.com/meridian-autosar-expansion",
           "source": "Automotive Engineering Today",
           "published_at": "2026-03-28T09:00:00Z",
-          "snippet": "Bertrandt AG has announced a significant hiring push in its AUTOSAR and functional safety division, targeting ISO 26262 ASIL-D expertise across Munich and Stuttgart.",
+          "snippet": "Meridian Engineering GmbH has announced a significant hiring push in its AUTOSAR and functional safety division, targeting ISO 26262 ASIL-D expertise across Munich and Stuttgart.",
           "relevance_score": 0.95
         },
         {
-          "title": "EDAG Group Wins Chassis Safety Validation Contract for Tier 1",
-          "url": "https://www.automotiveworld.de/edag-chassis-safety-contract",
+          "title": "Atlas Design Engineering Group Wins Chassis Safety Validation Contract for Tier 1",
+          "url": "https://www.automotiveworld.example.com/atlas-chassis-safety-contract",
           "source": "AutomotiveWorld DE",
           "published_at": "2026-03-25T14:30:00Z",
-          "snippet": "EDAG Group secured a multi-year chassis validation program with a major German Tier 1 supplier, focused on ISO 26262 compliance and automated FMEA tooling integration.",
+          "snippet": "Atlas Design Engineering Group secured a multi-year chassis validation program with a major German Tier 1 supplier, focused on ISO 26262 compliance and automated FMEA tooling integration.",
           "relevance_score": 0.88
         },
         {
-          "title": "Continental Doubles Down on Autonomous Safety Architecture Hiring",
-          "url": "https://www.continental-careers.com/news/safety-architecture-2026",
-          "source": "Continental Careers",
+          "title": "Zentral Automotive Doubles Down on Autonomous Safety Architecture Hiring",
+          "url": "https://www.zentral-auto-careers.example.com/news/safety-architecture-2026",
+          "source": "Zentral Automotive Careers",
           "published_at": "2026-03-20T11:00:00Z",
-          "snippet": "Continental AG is targeting 200 additional safety architecture engineers for its ADAS unit, with a focus on AUTOSAR Adaptive, SOTIF, and cybersecurity per UN R155.",
+          "snippet": "Zentral Automotive GmbH is targeting 200 additional safety architecture engineers for its ADAS unit, with a focus on AUTOSAR Adaptive, SOTIF, and cybersecurity per UN R155.",
           "relevance_score": 0.82
         }
       ],
-      "query": "Bertrandt AUTOSAR safety engineer",
+      "query": "Meridian Engineering AUTOSAR safety engineer",
       "total_found": 3
     }
   }
