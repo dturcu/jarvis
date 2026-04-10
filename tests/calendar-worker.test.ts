@@ -287,11 +287,11 @@ describe("MockCalendarAdapter", () => {
 
     it("brief attendees include company when known", async () => {
       const result = await adapter.brief({ event_id: "evt-iso26262-003" });
-      const bmwAttendee = result.structured_output.attendees.find((a) =>
-        a.email.includes("bmw")
+      const apexAttendee = result.structured_output.attendees.find((a) =>
+        a.email.includes("apex-motors")
       );
-      expect(bmwAttendee).toBeDefined();
-      expect(bmwAttendee!.company).toBe("BMW Group");
+      expect(apexAttendee).toBeDefined();
+      expect(apexAttendee!.company).toBe("Apex Motors AG");
     });
   });
 });

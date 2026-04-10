@@ -27,13 +27,13 @@ const ATTENTION = {
 }
 
 const APPROVALS = [
-  { id: 'apr-001', agent: 'Proposal Engine', action: 'email.send', severity: 'warning', label: 'Send ISO 26262 audit proposal to BMW Group', time: '12m ago' },
+  { id: 'apr-001', agent: 'Proposal Engine', action: 'email.send', severity: 'warning', label: 'Send ISO 26262 audit proposal to Apex Motors AG', time: '12m ago' },
   { id: 'apr-002', agent: 'Contract Reviewer', action: 'publish_post', severity: 'critical', label: 'Publish NDA review summary to portal', time: '34m ago' },
 ]
 
 const ACTIVE_WORK = [
   { agent_id: 'regulatory-watch', agent: 'Regulatory Watch', status: 'executing', step: 3, total: 5, action: 'Scanning EU regulatory feed' },
-  { agent_id: 'proposal-engine', agent: 'Proposal Engine', status: 'planning', step: 1, total: 4, action: 'Analyzing RFQ from Continental' },
+  { agent_id: 'proposal-engine', agent: 'Proposal Engine', status: 'planning', step: 1, total: 4, action: 'Analyzing RFQ from Zentral Automotive' },
 ]
 
 const AGENTS = [
@@ -65,8 +65,8 @@ const COMPLETIONS = [
 
 const CHAT_MESSAGES = [
   { role: 'user' as const, content: 'What needs my attention right now?' },
-  { role: 'assistant' as const, content: 'You have **2 pending approvals** and **1 failed run**.\n\nThe approvals are:\n1. Proposal Engine wants to send the ISO 26262 audit proposal to BMW Group (12m ago)\n2. Contract Reviewer wants to publish the NDA review summary (34m ago)\n\nThe Knowledge Curator failed 45 minutes ago during document ingestion. The error looks like a timeout connecting to the knowledge store — likely recoverable with a retry.' },
-  { role: 'user' as const, content: 'Approve the BMW proposal send.' },
+  { role: 'assistant' as const, content: 'You have **2 pending approvals** and **1 failed run**.\n\nThe approvals are:\n1. Proposal Engine wants to send the ISO 26262 audit proposal to Apex Motors AG (12m ago)\n2. Contract Reviewer wants to publish the NDA review summary (34m ago)\n\nThe Knowledge Curator failed 45 minutes ago during document ingestion. The error looks like a timeout connecting to the knowledge store — likely recoverable with a retry.' },
+  { role: 'user' as const, content: 'Approve the Apex Motors proposal send.' },
 ]
 
 const METRICS = {

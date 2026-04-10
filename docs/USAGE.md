@@ -309,10 +309,10 @@ The `orchestrator` agent automatically:
 
 ### Manual operations
 In a Claude Code session:
-- "Add a contact: John Smith, Bosch, Head of Safety, john@bosch.com, source: LinkedIn"
+- "Add a contact: John Smith, Sigma Components, Head of Safety, john@sigma.example.com, source: LinkedIn"
 - "Move Lindström to proposal stage with note: sent SOW draft"
 - "Show me all contacts in the meeting stage"
-- "Search CRM for Volvo"
+- "Search CRM for Nordic Auto"
 
 ### Via dashboard
 Open `http://localhost:4242/crm` — drag cards between columns, click for detail panel, add notes inline.
@@ -332,7 +332,7 @@ The knowledge base stores lessons, playbooks, and reference documents across col
 ### Manual search (Claude Code)
 - "Search knowledge base for ASIL-D staffing rules"
 - "Show me all playbooks"
-- "What did we learn from the Volvo engagement?"
+- "What did we learn from the Nordic Auto engagement?"
 
 ### Via dashboard
 Open `http://localhost:4242/knowledge` — search bar + collection tabs.

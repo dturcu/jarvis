@@ -13,9 +13,9 @@
     "timeout_seconds": 60,
     "attempt": 1,
     "input": {
-      "to": ["procurement@automotech.com"],
+      "to": ["procurement@example-automotech.com"],
       "subject": "Re: RFQ — ISO 26262 ASIL-D safety analysis proposal",
-      "body": "Dear AutomoTech Procurement Team,\n\nThank you for your RFQ regarding the ISO 26262:2018 safety analysis for the brake controller ECU.\n\nWe have reviewed the technical specification and are pleased to submit our proposal for an ASIL-D engagement covering HARA, Functional Safety Concept, System FMEA, and safety case documentation.\n\nProposed timeline: 14 weeks\nEstimated effort: 320 person-hours\n\nPlease find our detailed proposal attached.\n\nBest regards,\nJarvis Safety Consulting",
+      "body": "Dear AutomoTech Procurement Team,\n\nThank you for your RFQ regarding the ISO 26262:2018 safety analysis for the brake controller ECU.\n\nWe have reviewed the technical specification and are pleased to submit our proposal for an ASIL-D engagement covering HARA, Functional Safety Concept, System FMEA, and safety case documentation.\n\nProposed timeline: 14 weeks\nEstimated effort: 320 person-hours\n\nPlease find our detailed proposal attached.\n\nBest regards,\nExample Safety Consulting",
       "reply_to_message_id": "msg-002"
     },
     "artifacts_in": [],
@@ -29,7 +29,7 @@
     "job_id": "a1b2c3d4-e003-4000-8000-000000000102",
     "job_type": "email.draft",
     "status": "completed",
-    "summary": "Created draft \"Re: RFQ — ISO 26262 ASIL-D safety analysis proposal\" to procurement@automotech.com.",
+    "summary": "Created draft \"Re: RFQ — ISO 26262 ASIL-D safety analysis proposal\" to procurement@example-automotech.com.",
     "attempt": 1,
     "artifacts": [],
     "structured_output": {

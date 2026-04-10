@@ -52,7 +52,7 @@ describe("Email Worker Workflows", () => {
     // 3. Draft a reply
     const draftResult = await executeEmailJob(
       envelope("email.draft", {
-        to: ["hans.mueller@autotech.com"],
+        to: ["jan.krause@autotech.example.com"],
         subject: "Re: AUTOSAR migration",
         body: "Thank you for your inquiry about ISO 26262 consulting.",
         reply_to_message_id: firstMsg.message_id,
@@ -149,10 +149,10 @@ describe("CRM Worker Workflows", () => {
     // 1. Add contact
     const addResult = await executeCrmJob(
       envelope("crm.add_contact", {
-        name: "Klaus Weber",
-        company: "BMW AG",
+        name: "Stefan Braun",
+        company: "Apex Motors AG",
         role: "Safety Director",
-        email: "k.weber@bmw.com",
+        email: "s.braun@apex-motors.example.com",
         tags: ["oem", "safety"],
       }),
       crm,
@@ -224,7 +224,7 @@ describe("CRM Worker Workflows", () => {
 
   it("search contacts by query", async () => {
     const result = await executeCrmJob(
-      envelope("crm.search", { query: "Bertrandt" }),
+      envelope("crm.search", { query: "Meridian Engineering" }),
       crm,
     );
     expect(result.status).toBe("completed");

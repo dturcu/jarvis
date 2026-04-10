@@ -37,17 +37,17 @@
         {
           "event_id": "evt-autosar-001",
           "calendar_id": "primary",
-          "title": "AUTOSAR safety review with Volvo",
+          "title": "AUTOSAR safety review with Nordic Auto",
           "description": "Review AUTOSAR adaptive platform safety requirements for next model year ECU integration.",
           "start": "2026-04-05T09:00:00.000Z",
           "end": "2026-04-05T10:30:00.000Z",
-          "location": "Volvo Cars HQ, Gothenburg (Room 4B)",
+          "location": "Nordic Auto HQ, Conference Room 4B",
           "attendees": [
-            { "email": "h.lindqvist@volvo.com", "name": "Henrik Lindqvist", "response": "accepted" },
-            { "email": "a.makinen@volvo.com", "name": "Anna Makinen", "response": "accepted" },
+            { "email": "e.johansson@nordic-auto.example.com", "name": "Erik Johansson", "response": "accepted" },
+            { "email": "m.lindgren@nordic-auto.example.com", "name": "Maria Lindgren", "response": "accepted" },
             { "email": "consultant@jarvis.local", "name": "Jarvis Consultant", "response": "accepted" }
           ],
-          "organizer": "h.lindqvist@volvo.com",
+          "organizer": "e.johansson@nordic-auto.example.com",
           "status": "confirmed",
           "is_all_day": false
         },
@@ -55,13 +55,13 @@
           "event_id": "evt-tier1-002",
           "calendar_id": "primary",
           "title": "Proposal presentation - Tier 1 supplier",
-          "description": "Present functional safety consulting proposal to Continental AG powertrain division.",
+          "description": "Present functional safety consulting proposal to Zentral Automotive GmbH powertrain division.",
           "start": "2026-04-07T13:00:00.000Z",
           "end": "2026-04-07T14:00:00.000Z",
           "location": "Teams call",
           "attendees": [
-            { "email": "m.schmidt@continental.com", "name": "Markus Schmidt", "response": "accepted" },
-            { "email": "l.weber@continental.com", "name": "Laura Weber", "response": "tentative" },
+            { "email": "f.hartmann@zentral-auto.example.com", "name": "Felix Hartmann", "response": "accepted" },
+            { "email": "n.schreiber@zentral-auto.example.com", "name": "Nina Schreiber", "response": "tentative" },
             { "email": "consultant@jarvis.local", "name": "Jarvis Consultant", "response": "accepted" }
           ],
           "organizer": "consultant@jarvis.local",
@@ -72,16 +72,16 @@
           "event_id": "evt-iso26262-003",
           "calendar_id": "primary",
           "title": "ISO 26262 evidence audit kick-off",
-          "description": "Kick-off meeting for Part 4/Part 6 software evidence audit for the BMW iX3 project.",
+          "description": "Kick-off meeting for Part 4/Part 6 software evidence audit for the Apex EV3 project.",
           "start": "2026-04-08T10:00:00.000Z",
           "end": "2026-04-08T12:00:00.000Z",
-          "location": "BMW Group Munich, Petuelring 130",
+          "location": "Apex Motors HQ, Bahnhofstr. 42",
           "attendees": [
-            { "email": "t.hofmann@bmw.com", "name": "Thomas Hofmann", "response": "accepted" },
-            { "email": "s.bauer@bmw.com", "name": "Sabine Bauer", "response": "accepted" },
+            { "email": "a.richter@apex-motors.example.com", "name": "Andreas Richter", "response": "accepted" },
+            { "email": "c.werner@apex-motors.example.com", "name": "Claudia Werner", "response": "accepted" },
             { "email": "consultant@jarvis.local", "name": "Jarvis Consultant", "response": "accepted" }
           ],
-          "organizer": "t.hofmann@bmw.com",
+          "organizer": "a.richter@apex-motors.example.com",
           "status": "confirmed",
           "is_all_day": false
         }

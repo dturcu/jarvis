@@ -290,12 +290,12 @@ describe("SqliteEntityGraph", () => {
 
   it("upsertEntity creates a new entity", () => {
     const entity = graph.upsertEntity(
-      { entity_type: "company", name: "Volvo Cars", attributes: { hq: "Gothenburg" } },
+      { entity_type: "company", name: "Nordic Auto AB", attributes: { hq: "Gothenburg" } },
       "bd-pipeline",
     );
     expect(entity.entity_id).toBeTruthy();
     expect(entity.entity_type).toBe("company");
-    expect(entity.name).toBe("Volvo Cars");
+    expect(entity.name).toBe("Nordic Auto AB");
     expect(entity.attributes.hq).toBe("Gothenburg");
     expect(entity.seen_by).toContain("bd-pipeline");
     expect(entity.created_at).toBeTruthy();
@@ -303,16 +303,16 @@ describe("SqliteEntityGraph", () => {
 
   it("upsertEntity deduplicates by canonical_key", () => {
     graph.upsertEntity(
-      { entity_type: "contact", name: "Anna L", canonical_key: "anna@volvo.com", attributes: { role: "Lead" } },
+      { entity_type: "contact", name: "Anna L", canonical_key: "anna@nordic-auto.example.com", attributes: { role: "Lead" } },
       "bd-pipeline",
     );
     const updated = graph.upsertEntity(
-      { entity_type: "contact", name: "Anna Lindstrom", canonical_key: "anna@volvo.com", attributes: { phone: "+46123" } },
+      { entity_type: "contact", name: "Ingrid Dahl", canonical_key: "anna@nordic-auto.example.com", attributes: { phone: "+46123" } },
       "evidence-auditor",
     );
 
     expect(graph.getStats().entity_count).toBe(1);
-    expect(updated.name).toBe("Anna Lindstrom"); // name updated
+    expect(updated.name).toBe("Ingrid Dahl"); // name updated
     expect(updated.attributes.role).toBe("Lead"); // old attr preserved
     expect(updated.attributes.phone).toBe("+46123"); // new attr added
     expect(updated.seen_by).toContain("bd-pipeline");
@@ -321,11 +321,11 @@ describe("SqliteEntityGraph", () => {
 
   it("upsertEntity deduplicates by name+type when no canonical_key", () => {
     graph.upsertEntity(
-      { entity_type: "company", name: "Continental", attributes: { country: "DE" } },
+      { entity_type: "company", name: "Zentral Automotive", attributes: { country: "DE" } },
       "bd-pipeline",
     );
     const updated = graph.upsertEntity(
-      { entity_type: "company", name: "Continental", attributes: { revenue: "10B" } },
+      { entity_type: "company", name: "Zentral Automotive", attributes: { revenue: "10B" } },
       "proposal-engine",
     );
 
@@ -397,20 +397,20 @@ describe("SqliteEntityGraph", () => {
   // ── findByName ────────────────────────────────────────────────────────────
 
   it("findByName partial match (case-insensitive)", () => {
-    graph.upsertEntity({ entity_type: "company", name: "Volvo Cars AB", attributes: {} }, "a");
-    graph.upsertEntity({ entity_type: "company", name: "Volvo Trucks AB", attributes: {} }, "a");
-    graph.upsertEntity({ entity_type: "company", name: "BMW Group", attributes: {} }, "a");
+    graph.upsertEntity({ entity_type: "company", name: "Nordic Auto AB AB", attributes: {} }, "a");
+    graph.upsertEntity({ entity_type: "company", name: "Nordic Auto Trucks AB", attributes: {} }, "a");
+    graph.upsertEntity({ entity_type: "company", name: "Apex Motors AG", attributes: {} }, "a");
 
-    const results = graph.findByName("volvo"); // lowercase
+    const results = graph.findByName("nordic auto"); // lowercase
     expect(results).toHaveLength(2);
-    expect(results.every(r => r.name.toLowerCase().includes("volvo"))).toBe(true);
+    expect(results.every(r => r.name.toLowerCase().includes("nordic auto"))).toBe(true);
   });
 
   it("findByName filters by type when provided", () => {
-    graph.upsertEntity({ entity_type: "company", name: "Volvo", attributes: {} }, "a");
-    graph.upsertEntity({ entity_type: "contact", name: "Volvo Person", attributes: {} }, "a");
+    graph.upsertEntity({ entity_type: "company", name: "Nordic Auto", attributes: {} }, "a");
+    graph.upsertEntity({ entity_type: "contact", name: "Nordic Auto Person", attributes: {} }, "a");
 
-    const companies = graph.findByName("Volvo", "company");
+    const companies = graph.findByName("Nordic Auto", "company");
     expect(companies).toHaveLength(1);
     expect(companies[0]!.entity_type).toBe("company");
   });
@@ -501,10 +501,10 @@ describe("SqliteEntityGraph", () => {
 
   it("neighborhood returns center + neighbors + relations", () => {
     const anna = graph.upsertEntity({ entity_type: "contact", name: "Anna", attributes: {} }, "x");
-    const volvo = graph.upsertEntity({ entity_type: "company", name: "Volvo", attributes: {} }, "x");
+    const nordicAuto =graph.upsertEntity({ entity_type: "company", name: "Nordic Auto", attributes: {} }, "x");
     const proj = graph.upsertEntity({ entity_type: "project", name: "ASIL-D Analysis", attributes: {} }, "x");
 
-    graph.addRelation(anna.entity_id, volvo.entity_id, "works_at");
+    graph.addRelation(anna.entity_id, nordicAuto.entity_id, "works_at");
     graph.addRelation(anna.entity_id, proj.entity_id, "leads");
 
     const nb = graph.neighborhood(anna.entity_id);
@@ -868,7 +868,7 @@ describe("LessonCapture with SqliteKnowledgeStore", () => {
     capture.captureCasestudy({
       agent_id: "evidence-auditor",
       run_id: "run-002",
-      client: "Volvo Cars",
+      client: "Nordic Auto AB",
       scope: "ASIL-D HARA + FSC",
       outcome: "Gate review passed",
       key_challenges: ["Late requirement changes"],
@@ -877,7 +877,7 @@ describe("LessonCapture with SqliteKnowledgeStore", () => {
 
     const caseStudies = store.listCollection("case-studies");
     expect(caseStudies.length).toBeGreaterThan(0);
-    const doc = caseStudies.find(d => d.title.includes("Volvo Cars"));
+    const doc = caseStudies.find(d => d.title.includes("Nordic Auto AB"));
     expect(doc).toBeDefined();
     expect(doc!.tags).toContain("case-study");
   });

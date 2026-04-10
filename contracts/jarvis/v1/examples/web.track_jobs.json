@@ -13,7 +13,7 @@
     "timeout_seconds": 600,
     "attempt": 1,
     "input": {
-      "company_names": ["Bertrandt AG", "EDAG Engineering Group", "Robert Bosch GmbH"],
+      "company_names": ["Meridian Engineering GmbH", "Atlas Design Engineering Group", "Sigma Components GmbH"],
       "keywords": ["AUTOSAR", "ISO 26262", "safety"],
       "max_per_company": 3
     },
@@ -34,35 +34,35 @@
     "structured_output": {
       "postings": [
         {
-          "company": "Bertrandt AG",
+          "company": "Meridian Engineering GmbH",
           "title": "Safety Engineer AUTOSAR (m/w/d)",
           "location": "Munich, Germany",
           "posted_at": "2026-03-30T08:00:00Z",
-          "url": "https://jobs.bertrandt.com/safety-engineer-autosar-munich",
+          "url": "https://jobs.example-meridian.com/safety-engineer-autosar-munich",
           "keywords_matched": ["AUTOSAR", "ISO 26262", "safety"],
           "relevance_score": 0.97
         },
         {
-          "company": "EDAG Engineering Group",
+          "company": "Atlas Design Engineering Group",
           "title": "Functional Safety Consultant ISO 26262",
           "location": "Fulda, Germany",
           "posted_at": "2026-03-29T10:00:00Z",
-          "url": "https://www.edag.com/careers/functional-safety-consultant",
+          "url": "https://www.example-atlas.com/careers/functional-safety-consultant",
           "keywords_matched": ["ISO 26262", "safety"],
           "relevance_score": 0.91
         },
         {
-          "company": "Robert Bosch GmbH",
+          "company": "Sigma Components GmbH",
           "title": "AUTOSAR Software Integration Engineer",
           "location": "Stuttgart, Germany",
           "posted_at": "2026-03-27T09:30:00Z",
-          "url": "https://karriere.bosch.com/autosar-software-integration",
+          "url": "https://careers.example-sigma.com/autosar-software-integration",
           "keywords_matched": ["AUTOSAR"],
           "relevance_score": 0.85
         }
       ],
       "total_found": 3,
-      "companies_searched": ["Bertrandt AG", "EDAG Engineering Group", "Robert Bosch GmbH"],
+      "companies_searched": ["Meridian Engineering GmbH", "Atlas Design Engineering Group", "Sigma Components GmbH"],
       "scanned_at": "2026-04-04T12:00:00Z"
     }
   }

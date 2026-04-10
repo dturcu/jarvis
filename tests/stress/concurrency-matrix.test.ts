@@ -168,7 +168,7 @@ describe("Concurrency Matrix", () => {
       ...range(10).map(() => executeCrmJob(envelope("crm.digest", {}), crm)),
       ...range(10).map(() => executeWebJob(envelope("web.search_news", { query: "ISO 26262", max_results: 3 }), web)),
       ...range(10).map((i) => executeWebJob(envelope("web.scrape_profile", { url: `https://company-${i}.com`, profile_type: "company" }), web)),
-      ...range(10).map(() => executeWebJob(envelope("web.competitive_intel", { company_name: "Bertrandt" }), web)),
+      ...range(10).map(() => executeWebJob(envelope("web.competitive_intel", { company_name: "Meridian Engineering" }), web)),
     ]);
 
     expect(results).toHaveLength(90);

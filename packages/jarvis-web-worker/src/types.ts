@@ -1,7 +1,7 @@
 // ── web.search_news ───────────────────────────────────────────────────────────
 
 export type WebSearchNewsInput = {
-  query: string;           // e.g., "Bertrandt AUTOSAR safety"
+  query: string;           // e.g., "Meridian Engineering AUTOSAR safety"
   max_results?: number;    // default 10
   date_from?: string;      // ISO date
   sources?: string[];      // preferred sources

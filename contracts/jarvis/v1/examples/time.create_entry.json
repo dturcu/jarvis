@@ -11,7 +11,7 @@
     "attempt": 1,
     "input": {
       "description": "ASPICE assessment preparation meeting",
-      "project_id": "automotech-aspice",
+      "project_id": "example-automotech-aspice",
       "start": "2026-04-07T14:00:00.000Z",
       "duration_seconds": 3600,
       "tags": ["meeting", "aspice"]
@@ -31,7 +31,7 @@
       "entry": {
         "id": "te-010",
         "description": "ASPICE assessment preparation meeting",
-        "project": "automotech-aspice",
+        "project": "example-automotech-aspice",
         "start": "2026-04-07T14:00:00.000Z",
         "stop": "2026-04-07T15:00:00.000Z",
         "duration_seconds": 3600,

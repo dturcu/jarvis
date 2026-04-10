@@ -230,7 +230,7 @@ describe("Email Read Exhaustive", () => {
     email = new MockEmailAdapter();
   });
 
-  it("read msg-001: Hans Mueller AUTOSAR message", async () => {
+  it("read msg-001: Jan Krause AUTOSAR message", async () => {
     const result = await executeEmailJob(
       envelope("email.read", { message_id: "msg-001" }),
       email,

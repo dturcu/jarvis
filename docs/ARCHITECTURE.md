@@ -2,7 +2,7 @@
 
 ## System Shape
 
-Jarvis is a single-node autonomous agent system. It runs on one Windows machine (EVO-X2) with local LLM inference. The architecture has five planes:
+Jarvis is a single-node autonomous agent system. It runs on one Windows development machine with local LLM inference. The architecture has five planes:
 
 ```
 Operator Plane          Control Plane           Execution Plane

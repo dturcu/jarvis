@@ -18,7 +18,7 @@ Noticed [Company] is actively hiring for functional safety and AUTOSAR roles —
 
 One thing that tends to catch teams off guard at that scale: the ASPICE evidence infrastructure. Generating compliant work products for an ASIL-D gate requires more than headcount — it needs process baselines, traceability chains, and tool qualification in place before the program review.
 
-At Thinking in Code, we take workstream ownership on safety-critical deliverables — not just consulting support. We've done this at Volvo and Garrett with direct ASIL-D responsibility.
+At Thinking in Code, we take workstream ownership on safety-critical deliverables — not just consulting support. We've done this at Nordic Auto and Garrett with direct ASIL-D responsibility.
 
 What specific safety deliverables are you most concerned about hitting before your next program gate?
 
@@ -68,7 +68,7 @@ Saw the announcement about [program/platform] — looks like a significant ramp 
 
 On new program launches, the part that tends to compress fast is the safety-critical software workstream: AUTOSAR configuration, ASIL decomposition, process evidence. When that's not owned end-to-end, it fragments across teams and creates gate risk.
 
-We do workstream ownership — we take the deliverable, not just the headcount. Direct ASIL-D responsibility, milestone-based. We've done this for Volvo and Bosch-adjacent programs.
+We do workstream ownership — we take the deliverable, not just the headcount. Direct ASIL-D responsibility, milestone-based. We've done this for Nordic Auto and Sigma Components-adjacent programs.
 
 Is there a safety-critical workstream on this program that's currently unowned or at risk of slipping a gate?
 

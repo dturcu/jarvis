@@ -31,40 +31,40 @@ export class MockCrmAdapter implements CrmAdapter {
   }
 
   private _seed(): void {
-    // François Sagnely, Bertrandt, VP Engineering, stage: contacted, score: 75
+    // Luca Bianchi, Meridian Engineering, VP Engineering, stage: contacted, score: 75
     this.store.addContact({
-      name: "François Sagnely",
-      company: "Bertrandt",
+      name: "Luca Bianchi",
+      company: "Meridian Engineering",
       role: "VP Engineering",
       tags: ["AUTOSAR", "safety"],
       stage: "contacted",
       score: 75
     });
 
-    // Anna Lindström, Volvo Cars, Safety Architect, stage: won, score: 90
+    // Ingrid Dahl, Nordic Auto AB, Safety Architect, stage: won, score: 90
     this.store.addContact({
-      name: "Anna Lindström",
-      company: "Volvo Cars",
+      name: "Ingrid Dahl",
+      company: "Nordic Auto AB",
       role: "Safety Architect",
       tags: [],
       stage: "won",
       score: 90
     });
 
-    // Thomas Keller, EDAG, Project Manager, stage: qualified, score: 55
+    // Thomas Keller, Atlas Design, Project Manager, stage: qualified, score: 55
     this.store.addContact({
       name: "Thomas Keller",
-      company: "EDAG",
+      company: "Atlas Design",
       role: "Project Manager",
       tags: ["ISO 26262"],
       stage: "qualified",
       score: 55
     });
 
-    // Radu Ionescu, Continental, ASPICE Lead, stage: prospect, score: 40
+    // Mihai Popov, Zentral Automotive, ASPICE Lead, stage: prospect, score: 40
     this.store.addContact({
-      name: "Radu Ionescu",
-      company: "Continental",
+      name: "Mihai Popov",
+      company: "Zentral Automotive",
       role: "ASPICE Lead",
       tags: [],
       stage: "prospect",

@@ -40,7 +40,7 @@ const MOCK_FEED_POSTS: Record<SocialPlatform, FeedPost[]> = {
   linkedin: [
     {
       post_url: "https://www.linkedin.com/feed/update/urn:li:activity:1234",
-      author: "Hans Mueller",
+      author: "Jan Krause",
       text_preview: "Excited to share our latest AUTOSAR migration success story...",
       likes: 42,
       comments: 8,

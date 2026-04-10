@@ -513,18 +513,18 @@ describe("Memory Exhaustive", () => {
   // ── Entity Same Name Different Type ──────────────────────────────────────
 
   describe("entity same name different type", () => {
-    it("'Bertrandt' as contact and company creates 2 entities", () => {
+    it("'Meridian Engineering' as contact and company creates 2 entities", () => {
       const store = new AgentMemoryStore();
       store.upsertEntity({
         agent_id: "bd",
         entity_type: "contact",
-        name: "Bertrandt",
+        name: "Meridian Engineering",
         data: { person: true },
       });
       store.upsertEntity({
         agent_id: "bd",
         entity_type: "company",
-        name: "Bertrandt",
+        name: "Meridian Engineering",
         data: { company: true },
       });
 
@@ -546,10 +546,10 @@ describe("Memory Exhaustive", () => {
   // ── Entity Same Name Different Agent ─────────────────────────────────────
 
   describe("entity same name different agent", () => {
-    it("agent-A and agent-B both create 'Bertrandt' contact = 2 entities", () => {
+    it("agent-A and agent-B both create 'Meridian Engineering' contact = 2 entities", () => {
       const store = new AgentMemoryStore();
-      store.upsertEntity({ agent_id: "agent-A", entity_type: "contact", name: "Bertrandt", data: { a: 1 } });
-      store.upsertEntity({ agent_id: "agent-B", entity_type: "contact", name: "Bertrandt", data: { b: 2 } });
+      store.upsertEntity({ agent_id: "agent-A", entity_type: "contact", name: "Meridian Engineering", data: { a: 1 } });
+      store.upsertEntity({ agent_id: "agent-B", entity_type: "contact", name: "Meridian Engineering", data: { b: 2 } });
 
       expect(store.getEntities("agent-A", "contact")).toHaveLength(1);
       expect(store.getEntities("agent-B", "contact")).toHaveLength(1);
@@ -854,7 +854,7 @@ describe("Memory Exhaustive", () => {
     it("special characters in entity name", () => {
       const store = new AgentMemoryStore();
       const specialNames = [
-        "François Sagnely",
+        "Luca Bianchi",
         "名前テスト",
         "O'Reilly & Associates",
         "Contact <script>alert(1)</script>",

@@ -165,19 +165,19 @@ describe("EntityGraph", () => {
 
   it("upserts a new entity and retrieves it", () => {
     const entity = graph.upsertEntity(
-      { entity_type: "company", name: "Volvo Cars", attributes: { industry: "automotive" } },
+      { entity_type: "company", name: "Nordic Auto AB", attributes: { industry: "automotive" } },
       "bd-pipeline"
     );
     expect(entity.entity_id).toBeTruthy();
     expect(entity.seen_by).toContain("bd-pipeline");
 
     const found = graph.getEntity(entity.entity_id);
-    expect(found?.name).toBe("Volvo Cars");
+    expect(found?.name).toBe("Nordic Auto AB");
   });
 
   it("merges attributes when upserting the same entity by name+type", () => {
-    graph.upsertEntity({ entity_type: "company", name: "Volvo Cars", attributes: { industry: "automotive" } }, "bd-pipeline");
-    const updated = graph.upsertEntity({ entity_type: "company", name: "Volvo Cars", attributes: { revenue: "€20B" } }, "proposal-engine");
+    graph.upsertEntity({ entity_type: "company", name: "Nordic Auto AB", attributes: { industry: "automotive" } }, "bd-pipeline");
+    const updated = graph.upsertEntity({ entity_type: "company", name: "Nordic Auto AB", attributes: { revenue: "€20B" } }, "proposal-engine");
 
     expect(updated.attributes["industry"]).toBe("automotive");
     expect(updated.attributes["revenue"]).toBe("€20B");
@@ -187,8 +187,8 @@ describe("EntityGraph", () => {
   });
 
   it("deduplicates via canonical_key", () => {
-    graph.upsertEntity({ entity_type: "contact", name: "Anna L", canonical_key: "anna@volvo.com", attributes: {} }, "bd-pipeline");
-    const deduped = graph.upsertEntity({ entity_type: "contact", name: "Anna Lindstrom", canonical_key: "anna@volvo.com", attributes: { role: "Safety Lead" } }, "evidence-auditor");
+    graph.upsertEntity({ entity_type: "contact", name: "Anna L", canonical_key: "anna@nordic-auto.example.com", attributes: {} }, "bd-pipeline");
+    const deduped = graph.upsertEntity({ entity_type: "contact", name: "Anna Lindstrom", canonical_key: "anna@nordic-auto.example.com", attributes: { role: "Safety Lead" } }, "evidence-auditor");
 
     expect(graph.getStats().entity_count).toBe(1);
     expect(deduped.seen_by).toContain("bd-pipeline");
@@ -197,29 +197,29 @@ describe("EntityGraph", () => {
   });
 
   it("findByCanonicalKey returns the correct entity", () => {
-    graph.upsertEntity({ entity_type: "contact", name: "Anna", canonical_key: "anna@volvo.com", attributes: {} }, "bd-pipeline");
-    const found = graph.findByCanonicalKey("anna@volvo.com");
+    graph.upsertEntity({ entity_type: "contact", name: "Anna", canonical_key: "anna@nordic-auto.example.com", attributes: {} }, "bd-pipeline");
+    const found = graph.findByCanonicalKey("anna@nordic-auto.example.com");
     expect(found?.name).toBe("Anna");
   });
 
   it("findByName returns partial matches", () => {
-    graph.upsertEntity({ entity_type: "company", name: "Volvo Cars AB", attributes: {} }, "bd-pipeline");
-    graph.upsertEntity({ entity_type: "company", name: "Volvo Trucks AB", attributes: {} }, "bd-pipeline");
-    graph.upsertEntity({ entity_type: "company", name: "BMW Group", attributes: {} }, "bd-pipeline");
+    graph.upsertEntity({ entity_type: "company", name: "Nordic Auto AB AB", attributes: {} }, "bd-pipeline");
+    graph.upsertEntity({ entity_type: "company", name: "Nordic Auto Trucks AB", attributes: {} }, "bd-pipeline");
+    graph.upsertEntity({ entity_type: "company", name: "Apex Motors AG", attributes: {} }, "bd-pipeline");
 
-    const volvoResults = graph.findByName("Volvo");
-    expect(volvoResults.length).toBe(2);
+    const nordicResults = graph.findByName("Nordic Auto");
+    expect(nordicResults.length).toBe(2);
 
-    const typedResults = graph.findByName("Volvo", "company");
+    const typedResults = graph.findByName("Nordic Auto", "company");
     expect(typedResults.length).toBe(2);
 
-    const contactResults = graph.findByName("Volvo", "contact");
+    const contactResults = graph.findByName("Nordic Auto", "contact");
     expect(contactResults.length).toBe(0);
   });
 
   it("adds a relation and retrieves it", () => {
     const contact = graph.upsertEntity({ entity_type: "contact", name: "Anna", attributes: {} }, "bd-pipeline");
-    const company = graph.upsertEntity({ entity_type: "company", name: "Volvo", attributes: {} }, "bd-pipeline");
+    const company = graph.upsertEntity({ entity_type: "company", name: "Nordic Auto", attributes: {} }, "bd-pipeline");
 
     const rel = graph.addRelation(contact.entity_id, company.entity_id, "works_at");
     expect(rel.relation_id).toBeTruthy();
@@ -251,10 +251,10 @@ describe("EntityGraph", () => {
 
   it("neighborhood returns center + neighbors + relations", () => {
     const anna = graph.upsertEntity({ entity_type: "contact", name: "Anna", attributes: {} }, "x");
-    const volvo = graph.upsertEntity({ entity_type: "company", name: "Volvo", attributes: {} }, "x");
+    const nordicAuto = graph.upsertEntity({ entity_type: "company", name: "Nordic Auto", attributes: {} }, "x");
     const project = graph.upsertEntity({ entity_type: "project", name: "ASIL-D Analysis", attributes: {} }, "x");
 
-    graph.addRelation(anna.entity_id, volvo.entity_id, "works_at");
+    graph.addRelation(anna.entity_id, nordicAuto.entity_id, "works_at");
     graph.addRelation(anna.entity_id, project.entity_id, "leads");
 
     const nb = graph.neighborhood(anna.entity_id);
@@ -264,9 +264,9 @@ describe("EntityGraph", () => {
   });
 
   it("entitiesSeenBy filters correctly", () => {
-    graph.upsertEntity({ entity_type: "company", name: "Volvo", attributes: {} }, "bd-pipeline");
+    graph.upsertEntity({ entity_type: "company", name: "Nordic Auto", attributes: {} }, "bd-pipeline");
     graph.upsertEntity({ entity_type: "company", name: "Garrett", attributes: {} }, "proposal-engine");
-    graph.upsertEntity({ entity_type: "company", name: "Continental", attributes: {} }, "bd-pipeline");
+    graph.upsertEntity({ entity_type: "company", name: "Zentral Automotive", attributes: {} }, "bd-pipeline");
 
     const bdEntities = graph.entitiesSeenBy("bd-pipeline");
     expect(bdEntities.length).toBe(2);
@@ -396,7 +396,7 @@ describe("LessonCapture", () => {
     capture.captureCasestudy({
       agent_id: "evidence-auditor",
       run_id: "run-002",
-      client: "Volvo Cars",
+      client: "Nordic Auto AB",
       scope: "ASIL-D HARA + FSC",
       outcome: "Gate review passed",
       key_challenges: ["Late requirement changes", "Cross-domain ASIL conflicts"],
@@ -405,10 +405,10 @@ describe("LessonCapture", () => {
 
     const casestudies = store.listCollection("case-studies");
     expect(casestudies.length).toBeGreaterThan(0);
-    const doc = casestudies.find(d => d.title.startsWith("Case study: Volvo Cars"));
+    const doc = casestudies.find(d => d.title.startsWith("Case study: Nordic Auto AB"));
     expect(doc).toBeDefined();
     expect(doc?.content).toContain("Late requirement changes");
-    expect(doc?.tags).toContain("volvo-cars");
+    expect(doc?.tags).toContain("nordic-auto-ab");
   });
 
   it("captureManual persists a lesson without a full run", () => {

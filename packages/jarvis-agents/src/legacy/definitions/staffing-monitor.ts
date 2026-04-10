@@ -11,10 +11,10 @@ TIC TEAM PROFILE:
 - Available hours per engineer: ~160h/month
 
 CURRENT ACTIVE ENGAGEMENTS (examples):
-- Volvo Cars: 5 engineers, ASIL-D, BSW + safety analysis, ends Q3 2026
+- Nordic Auto AB: 5 engineers, ASIL-D, BSW + safety analysis, ends Q3 2026
 - Garrett Motion: 3 engineers, E-Axle timing closure, rolling
 - Hella (Forvia): 2 engineers, ASPICE L2 audit, ends Q2 2026
-- Continental: 1 engineer, cyber gap analysis, ad hoc
+- Zentral Automotive: 1 engineer, cyber gap analysis, ad hoc
 - TIC Internal: 2 engineers, tooling + proposals
 
 ANALYSIS TASKS:

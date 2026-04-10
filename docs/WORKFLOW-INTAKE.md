@@ -98,8 +98,8 @@ Invoke the corresponding agent with the intake fields as context:
 
 ```
 /proposal-engine
-Client: Bertrandt AG
-Document: ~/Documents/RFQs/bertrandt-asild-bsw-2026.pdf
+Client: Meridian Engineering GmbH
+Document: ~/Documents/RFQs/meridian-asild-bsw-2026.pdf
 Service areas: AUTOSAR, ISO 26262
 ASIL: D
 Deadline: 2026-04-25

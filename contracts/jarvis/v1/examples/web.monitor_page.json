@@ -13,8 +13,8 @@
     "timeout_seconds": 300,
     "attempt": 1,
     "input": {
-      "url": "https://karriere.bertrandt.com/jobs?category=safety",
-      "page_id": "bertrandt-safety-jobs",
+      "url": "https://careers.example-meridian.com/jobs?category=safety",
+      "page_id": "meridian-safety-jobs",
       "selector": ".job-listing-container"
     },
     "artifacts_in": [],
@@ -28,12 +28,12 @@
     "job_id": "b2c3d4e5-0003-4000-8000-000000000103",
     "job_type": "web.monitor_page",
     "status": "completed",
-    "summary": "Page bertrandt-safety-jobs has changed since last check.",
+    "summary": "Page meridian-safety-jobs has changed since last check.",
     "attempt": 1,
     "artifacts": [],
     "structured_output": {
-      "url": "https://karriere.bertrandt.com/jobs?category=safety",
-      "page_id": "bertrandt-safety-jobs",
+      "url": "https://careers.example-meridian.com/jobs?category=safety",
+      "page_id": "meridian-safety-jobs",
       "has_changed": true,
       "change_summary": "New job postings detected in safety category since last monitoring cycle.",
       "current_hash": "sha256-abc123def456",

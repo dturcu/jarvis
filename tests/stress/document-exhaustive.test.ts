@@ -102,7 +102,7 @@ describe("Document Exhaustive — extract_clauses", () => {
 
   it("extract by file_path", async () => {
     const result = await executeDocumentJob(
-      envelope("document.extract_clauses", { file_path: "/contracts/nda-bertrandt.pdf" }),
+      envelope("document.extract_clauses", { file_path: "/contracts/nda-meridian.pdf" }),
       doc,
     );
     expect(result.status).toBe("completed");
@@ -303,10 +303,10 @@ describe("Document Exhaustive — generate_report", () => {
     const result = await executeDocumentJob(
       envelope("document.generate_report", {
         template: "proposal",
-        data: { client: "Bertrandt AG", scope: "ISO 26262 gap analysis" },
+        data: { client: "Meridian Engineering GmbH", scope: "ISO 26262 gap analysis" },
         output_format: "docx",
-        output_path: "/output/proposal-bertrandt",
-        title: "Bertrandt ISO 26262 Proposal",
+        output_path: "/output/proposal-meridian",
+        title: "Meridian Engineering ISO 26262 Proposal",
       }),
       doc,
     );
@@ -348,7 +348,7 @@ describe("Document Exhaustive — generate_report", () => {
         data: { clauses: 12, issues: 3 },
         output_format: "pdf",
         output_path: "/output/nda-analysis",
-        title: "NDA Analysis: EDAG",
+        title: "NDA Analysis: Atlas Design",
       }),
       doc,
     );
@@ -373,7 +373,7 @@ describe("Document Exhaustive — generate_report", () => {
     const result = await executeDocumentJob(
       envelope("document.generate_report", {
         template: "proposal",
-        data: { client: "Continental" },
+        data: { client: "Zentral Automotive" },
         output_format: "pdf",
         output_path: "/output/no-title-report",
       }),

@@ -36,9 +36,9 @@
       "title": "ISO 26262 evidence audit kick-off",
       "start": "2026-04-08T10:00:00.000Z",
       "attendees": [
-        { "email": "t.hofmann@bmw.com", "name": "Thomas Hofmann", "company": "BMW Group" },
-        { "email": "s.bauer@bmw.com", "name": "Sabine Bauer", "company": "BMW Group" },
-        { "email": "p.chen@bmw.com", "name": "Peter Chen", "company": "BMW Group" },
+        { "email": "a.richter@apex-motors.example.com", "name": "Andreas Richter", "company": "Apex Motors AG" },
+        { "email": "c.werner@apex-motors.example.com", "name": "Claudia Werner", "company": "Apex Motors AG" },
+        { "email": "k.tanaka@apex-motors.example.com", "name": "Kenji Tanaka", "company": "Apex Motors AG" },
         { "email": "consultant@jarvis.local", "name": "Jarvis Consultant" }
       ],
       "key_topics": [
@@ -53,7 +53,7 @@
         "25 min — Gap analysis and open technical items",
         "15 min — Audit schedule and next steps"
       ],
-      "context_notes": "ISO 26262 evidence audit kick-off for BMW iX3 project. Attendees represent the OEM safety team. Thomas Hofmann is the project safety manager. Part 4 (system level) and Part 6 (software level) are in scope. All materials are governed by the signed NDA.",
+      "context_notes": "ISO 26262 evidence audit kick-off for Apex EV3 project. Attendees represent the OEM safety team. Andreas Richter is the project safety manager. Part 4 (system level) and Part 6 (software level) are in scope. All materials are governed by the signed NDA.",
       "action_items_from_last_meeting": [
         "Follow up on open ASIL classification items for the propulsion control unit",
         "Send updated software safety plan draft by EOW",

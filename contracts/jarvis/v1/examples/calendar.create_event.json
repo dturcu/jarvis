@@ -17,10 +17,10 @@
       "start": "2026-04-15T09:00:00.000Z",
       "end": "2026-04-15T12:00:00.000Z",
       "description": "Facilitate SOTIF (ISO 21448) analysis session for camera and LiDAR fusion pipeline.",
-      "location": "Mobileye Engineering, Jerusalem",
+      "location": "VisionDrive Engineering Center",
       "attendees": [
-        "d.levy@mobileye.com",
-        "n.cohen@mobileye.com",
+        "r.torres@visiondrive.example.com",
+        "s.park@visiondrive.example.com",
         "consultant@jarvis.local"
       ],
       "calendar_id": "primary",

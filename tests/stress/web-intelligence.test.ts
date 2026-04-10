@@ -50,7 +50,7 @@ describe("Web Intelligence Stress", () => {
   it("profile scraping: company type", async () => {
     const result = await executeWebJob(
       envelope("web.scrape_profile", {
-        url: "https://bertrandt.com",
+        url: "https://example-meridian.com",
         profile_type: "company",
       }),
       web,
@@ -102,15 +102,15 @@ describe("Web Intelligence Stress", () => {
   it("contact enrichment for known contacts", async () => {
     const result = await executeWebJob(
       envelope("web.enrich_contact", {
-        name: "Klaus Weber",
-        company: "Bertrandt",
+        name: "Stefan Braun",
+        company: "Meridian Engineering",
       }),
       web,
     );
 
     expect(result.status).toBe("completed");
     const data = result.structured_output as any;
-    expect(data.name).toBe("Klaus Weber");
+    expect(data.name).toBe("Stefan Braun");
     expect(data.confidence).toBeGreaterThan(0);
   });
 
@@ -130,7 +130,7 @@ describe("Web Intelligence Stress", () => {
   it("job tracking across multiple companies", async () => {
     const result = await executeWebJob(
       envelope("web.track_jobs", {
-        company_names: ["Bertrandt", "EDAG", "Continental"],
+        company_names: ["Meridian Engineering", "Atlas Design", "Zentral Automotive"],
         keywords: ["safety", "AUTOSAR", "ISO 26262"],
         max_per_company: 5,
       }),
@@ -149,14 +149,14 @@ describe("Web Intelligence Stress", () => {
   it("competitive intelligence for known company", async () => {
     const result = await executeWebJob(
       envelope("web.competitive_intel", {
-        company_name: "Bertrandt",
+        company_name: "Meridian Engineering",
         aspects: ["products", "team", "news"],
       }),
       web,
     );
 
     expect(result.status).toBe("completed");
-    expect(result.structured_output?.company_name).toBe("Bertrandt AG");
+    expect(result.structured_output?.company_name).toBe("Meridian Engineering GmbH");
   });
 
   it("competitive intelligence for unknown company", async () => {
@@ -175,8 +175,8 @@ describe("Web Intelligence Stress", () => {
     const results = await Promise.all([
       ...Array.from({ length: 3 }, () => executeWebJob(envelope("web.search_news", { query: "automotive", max_results: 5 }), web)),
       ...Array.from({ length: 3 }, () => executeWebJob(envelope("web.scrape_profile", { url: "https://example.com", profile_type: "company" }), web)),
-      ...Array.from({ length: 2 }, () => executeWebJob(envelope("web.track_jobs", { company_names: ["Bertrandt"], keywords: ["safety"] }), web)),
-      ...Array.from({ length: 2 }, () => executeWebJob(envelope("web.competitive_intel", { company_name: "EDAG", aspects: ["news"] }), web)),
+      ...Array.from({ length: 2 }, () => executeWebJob(envelope("web.track_jobs", { company_names: ["Meridian Engineering"], keywords: ["safety"] }), web)),
+      ...Array.from({ length: 2 }, () => executeWebJob(envelope("web.competitive_intel", { company_name: "Atlas Design", aspects: ["news"] }), web)),
     ]);
 
     expect(results.every(r => r.status === "completed")).toBe(true);
@@ -184,25 +184,25 @@ describe("Web Intelligence Stress", () => {
     expect(web.getScrapeCount()).toBe(3);
   });
 
-  it("full BD intelligence pipeline: search → scrape → enrich → track", async () => {
+  it("full BD intelligence pipeline: search -> scrape -> enrich -> track", async () => {
     // 1. Search news
     const news = await executeWebJob(envelope("web.search_news", { query: "ISO 26262 consulting", max_results: 5 }), web);
     expect(news.status).toBe("completed");
 
     // 2. Scrape a company profile
-    const profile = await executeWebJob(envelope("web.scrape_profile", { url: "https://bertrandt.com", profile_type: "company" }), web);
+    const profile = await executeWebJob(envelope("web.scrape_profile", { url: "https://example-meridian.com", profile_type: "company" }), web);
     expect(profile.status).toBe("completed");
 
     // 3. Enrich a contact
-    const enriched = await executeWebJob(envelope("web.enrich_contact", { name: "Anna Müller", company: "EDAG" }), web);
+    const enriched = await executeWebJob(envelope("web.enrich_contact", { name: "Ingrid Dahl", company: "Atlas Design" }), web);
     expect(enriched.status).toBe("completed");
 
     // 4. Track job postings
-    const jobs = await executeWebJob(envelope("web.track_jobs", { company_names: ["Bertrandt", "EDAG"], keywords: ["safety"] }), web);
+    const jobs = await executeWebJob(envelope("web.track_jobs", { company_names: ["Meridian Engineering", "Atlas Design"], keywords: ["safety"] }), web);
     expect(jobs.status).toBe("completed");
 
     // 5. Competitive intel
-    const intel = await executeWebJob(envelope("web.competitive_intel", { company_name: "Bertrandt", aspects: ["products", "news", "customers"] }), web);
+    const intel = await executeWebJob(envelope("web.competitive_intel", { company_name: "Meridian Engineering", aspects: ["products", "news", "customers"] }), web);
     expect(intel.status).toBe("completed");
   });
 });

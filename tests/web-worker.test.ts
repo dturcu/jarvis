@@ -75,8 +75,8 @@ describe("MockWebAdapter", () => {
 
   describe("searchNews", () => {
     it("returns articles for a query", async () => {
-      const result = await adapter.searchNews({ query: "Bertrandt AUTOSAR safety" });
-      expect(result.structured_output.query).toBe("Bertrandt AUTOSAR safety");
+      const result = await adapter.searchNews({ query: "Meridian Engineering AUTOSAR safety" });
+      expect(result.structured_output.query).toBe("Meridian Engineering AUTOSAR safety");
       expect(result.structured_output.articles.length).toBeGreaterThan(0);
       expect(result.structured_output.total_found).toBe(result.structured_output.articles.length);
     });
@@ -87,7 +87,7 @@ describe("MockWebAdapter", () => {
     });
 
     it("each article has required fields", async () => {
-      const result = await adapter.searchNews({ query: "EDAG functional safety" });
+      const result = await adapter.searchNews({ query: "Atlas Design functional safety" });
       const article = result.structured_output.articles[0]!;
       expect(article).toMatchObject({
         title: expect.any(String),
@@ -112,11 +112,11 @@ describe("MockWebAdapter", () => {
   describe("scrapeProfile", () => {
     it("returns company profile data", async () => {
       const result = await adapter.scrapeProfile({
-        url: "https://www.bertrandt.com/about",
+        url: "https://www.example-meridian.com/about",
         profile_type: "company"
       });
       expect(result.structured_output.profile_type).toBe("company");
-      expect(result.structured_output.url).toBe("https://www.bertrandt.com/about");
+      expect(result.structured_output.url).toBe("https://www.example-meridian.com/about");
       expect(result.structured_output.data).toBeDefined();
       expect(result.structured_output.scraped_at).toBeTruthy();
     });
@@ -134,7 +134,7 @@ describe("MockWebAdapter", () => {
 
     it("respects extract_fields filter", async () => {
       const result = await adapter.scrapeProfile({
-        url: "https://www.bertrandt.com/about",
+        url: "https://www.example-meridian.com/about",
         profile_type: "company",
         extract_fields: ["name", "industry"]
       });
@@ -154,8 +154,8 @@ describe("MockWebAdapter", () => {
   describe("monitorPage", () => {
     it("reports no change on first visit", async () => {
       const result = await adapter.monitorPage({
-        url: "https://karriere.bertrandt.com/safety-jobs",
-        page_id: "bertrandt-safety-unique-test"
+        url: "https://careers.example-meridian.com/safety-jobs",
+        page_id: "meridian-safety-unique-test"
       });
       expect(result.structured_output.has_changed).toBe(false);
       expect(result.structured_output.previous_hash).toBeUndefined();
@@ -180,9 +180,9 @@ describe("MockWebAdapter", () => {
 
   describe("enrichContact", () => {
     it("enriches a known contact", async () => {
-      const result = await adapter.enrichContact({ name: "Klaus Weber", company: "Bertrandt AG" });
-      expect(result.structured_output.name).toBe("Klaus Weber");
-      expect(result.structured_output.company).toBe("Bertrandt AG");
+      const result = await adapter.enrichContact({ name: "Stefan Braun", company: "Meridian Engineering GmbH" });
+      expect(result.structured_output.name).toBe("Stefan Braun");
+      expect(result.structured_output.company).toBe("Meridian Engineering GmbH");
       expect(result.structured_output.role).toBeDefined();
       expect(result.structured_output.confidence).toBeGreaterThan(0);
       expect(result.structured_output.confidence).toBeLessThanOrEqual(1);
@@ -190,8 +190,8 @@ describe("MockWebAdapter", () => {
     });
 
     it("enriches a second known contact", async () => {
-      const result = await adapter.enrichContact({ name: "Anna Müller" });
-      expect(result.structured_output.name).toBe("Anna Müller");
+      const result = await adapter.enrichContact({ name: "Ingrid Dahl" });
+      expect(result.structured_output.name).toBe("Ingrid Dahl");
       expect(result.structured_output.email).toBeDefined();
     });
 
@@ -207,18 +207,18 @@ describe("MockWebAdapter", () => {
   describe("trackJobs", () => {
     it("returns job postings for known companies", async () => {
       const result = await adapter.trackJobs({
-        company_names: ["Bertrandt AG", "EDAG Engineering Group"],
+        company_names: ["Meridian Engineering GmbH", "Atlas Design Engineering Group"],
         keywords: ["AUTOSAR", "ISO 26262"]
       });
       expect(result.structured_output.postings.length).toBeGreaterThan(0);
       expect(result.structured_output.total_found).toBe(result.structured_output.postings.length);
-      expect(result.structured_output.companies_searched).toContain("Bertrandt AG");
+      expect(result.structured_output.companies_searched).toContain("Meridian Engineering GmbH");
       expect(result.structured_output.scanned_at).toBeTruthy();
     });
 
     it("each posting has correct shape", async () => {
       const result = await adapter.trackJobs({
-        company_names: ["Bertrandt AG"],
+        company_names: ["Meridian Engineering GmbH"],
         keywords: ["AUTOSAR"]
       });
       const posting = result.structured_output.postings[0]!;
@@ -235,7 +235,7 @@ describe("MockWebAdapter", () => {
 
     it("respects max_per_company limit", async () => {
       const result = await adapter.trackJobs({
-        company_names: ["Bertrandt AG", "EDAG Engineering Group", "Robert Bosch GmbH"],
+        company_names: ["Meridian Engineering GmbH", "Atlas Design Engineering Group", "Sigma Components GmbH"],
         keywords: ["AUTOSAR", "safety", "ISO 26262"],
         max_per_company: 1
       });
@@ -251,16 +251,16 @@ describe("MockWebAdapter", () => {
 
   describe("competitiveIntel", () => {
     it("returns intel for a known company", async () => {
-      const result = await adapter.competitiveIntel({ company_name: "Bertrandt" });
-      expect(result.structured_output.company_name).toBe("Bertrandt AG");
+      const result = await adapter.competitiveIntel({ company_name: "Meridian Engineering" });
+      expect(result.structured_output.company_name).toBe("Meridian Engineering GmbH");
       expect(result.structured_output.summary.length).toBeGreaterThan(0);
       expect(result.structured_output.key_facts.length).toBeGreaterThan(0);
       expect(result.structured_output.intel_gathered_at).toBeTruthy();
     });
 
-    it("returns intel for EDAG", async () => {
-      const result = await adapter.competitiveIntel({ company_name: "EDAG" });
-      expect(result.structured_output.company_name).toBe("EDAG Engineering Group");
+    it("returns intel for Atlas Design", async () => {
+      const result = await adapter.competitiveIntel({ company_name: "Atlas Design" });
+      expect(result.structured_output.company_name).toBe("Atlas Design Engineering Group");
       expect(result.structured_output.key_facts.length).toBeGreaterThan(0);
     });
 
@@ -283,7 +283,7 @@ describe("executeWebJob", () => {
 
   it("produces a completed JobResult for web.search_news", async () => {
     const envelope = makeEnvelope("web.search_news", {
-      query: "Bertrandt AUTOSAR safety"
+      query: "Meridian Engineering AUTOSAR safety"
     });
     const result = await executeWebJob(envelope, adapter);
 
@@ -295,13 +295,13 @@ describe("executeWebJob", () => {
     expect(result.metrics?.worker_id).toBe("web-worker");
     expect(result.metrics?.started_at).toBeTruthy();
     const out = result.structured_output as Record<string, unknown>;
-    expect(out.query).toBe("Bertrandt AUTOSAR safety");
+    expect(out.query).toBe("Meridian Engineering AUTOSAR safety");
     expect(Array.isArray(out.articles)).toBe(true);
   });
 
   it("produces a completed JobResult for web.scrape_profile", async () => {
     const envelope = makeEnvelope("web.scrape_profile", {
-      url: "https://www.bertrandt.com",
+      url: "https://www.example-meridian.com",
       profile_type: "company"
     });
     const result = await executeWebJob(envelope, adapter);
@@ -314,7 +314,7 @@ describe("executeWebJob", () => {
 
   it("produces a completed JobResult for web.monitor_page", async () => {
     const envelope = makeEnvelope("web.monitor_page", {
-      url: "https://karriere.bertrandt.com",
+      url: "https://careers.example-meridian.com",
       page_id: "execute-test-page"
     });
     const result = await executeWebJob(envelope, adapter);
@@ -328,21 +328,21 @@ describe("executeWebJob", () => {
 
   it("produces a completed JobResult for web.enrich_contact", async () => {
     const envelope = makeEnvelope("web.enrich_contact", {
-      name: "Klaus Weber",
-      company: "Bertrandt AG"
+      name: "Stefan Braun",
+      company: "Meridian Engineering GmbH"
     });
     const result = await executeWebJob(envelope, adapter);
 
     expect(result.status).toBe("completed");
     expect(result.job_type).toBe("web.enrich_contact");
     const out = result.structured_output as Record<string, unknown>;
-    expect(out.name).toBe("Klaus Weber");
+    expect(out.name).toBe("Stefan Braun");
     expect(typeof out.confidence).toBe("number");
   });
 
   it("produces a completed JobResult for web.track_jobs", async () => {
     const envelope = makeEnvelope("web.track_jobs", {
-      company_names: ["Bertrandt AG", "EDAG Engineering Group"],
+      company_names: ["Meridian Engineering GmbH", "Atlas Design Engineering Group"],
       keywords: ["AUTOSAR", "safety"]
     });
     const result = await executeWebJob(envelope, adapter);
@@ -356,7 +356,7 @@ describe("executeWebJob", () => {
 
   it("produces a completed JobResult for web.competitive_intel", async () => {
     const envelope = makeEnvelope("web.competitive_intel", {
-      company_name: "Bertrandt"
+      company_name: "Meridian Engineering"
     });
     const result = await executeWebJob(envelope, adapter);
 
@@ -434,7 +434,7 @@ describe("createWebWorker", () => {
   it("executes a job via the worker facade", async () => {
     const worker = createWebWorker({ adapter: createMockWebAdapter() });
     const envelope = makeEnvelope("web.search_news", {
-      query: "Continental safety architecture"
+      query: "Zentral Automotive safety architecture"
     });
     const result = await worker.execute(envelope);
 
