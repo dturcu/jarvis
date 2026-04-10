@@ -1,11 +1,10 @@
 import JarvisChat from '../components/JarvisChat.tsx'
 
 export default function AssistantRail({ open, onClose }: { open: boolean; onClose: () => void }) {
-  if (!open) return null
-
   return (
     <aside
       className="w-[340px] shrink-0 bg-j-surface border-l border-j-border flex flex-col h-full animate-j-slide-in"
+      style={{ display: open ? undefined : 'none' }}
       aria-label="Jarvis assistant"
     >
       {/* Header */}
