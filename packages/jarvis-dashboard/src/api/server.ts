@@ -35,6 +35,7 @@ import { repairRouter } from './repair.js'
 import { provenanceRouter } from './provenance.js'
 import { evalRouter } from './eval.js'
 import { modeRouter } from './settings.js'
+import { conversationsRouter } from './conversations.js'
 import fs from 'fs'
 import { getHealthReport, getReadinessReport, loadConfig, writeTelegramQueue } from '@jarvis/runtime'
 import { getMetricsText, getMetricsContentType } from '@jarvis/observability'
@@ -154,6 +155,7 @@ app.use('/api/repair', repairRouter)
 app.use('/api/provenance', provenanceRouter)
 app.use('/api/eval', evalRouter)
 app.use('/api/mode', modeRouter)
+app.use('/api/conversations', conversationsRouter)
 
 // ── Telegram routes ──────────────────────────────────────────────────────────
 app.get('/api/telegram/status', (_req, res) => {

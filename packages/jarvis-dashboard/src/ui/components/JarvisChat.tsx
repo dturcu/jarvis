@@ -16,7 +16,50 @@ interface ChatSession {
   updatedAt: string
 }
 
-// ─── Persistent state helpers ───────────────────────────────
+// ─── Conversations API (database-backed) ───────────────────
+const API_CHANNEL = 'dashboard-chat'
+
+const chatApi = {
+  async listConversations(): Promise<Array<{ id: string; title: string; updatedAt: string; messageCount: number }>> {
+    try {
+      const res = await fetch(`/api/conversations?channel=${API_CHANNEL}`)
+      if (!res.ok) return []
+      return await res.json()
+    } catch { return [] }
+  },
+  async createConversation(title?: string): Promise<string | null> {
+    try {
+      const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel: API_CHANNEL, title }),
+      })
+      if (!res.ok) return null
+      return ((await res.json()) as { id: string }).id
+    } catch { return null }
+  },
+  async recordMessage(convId: string, role: 'user' | 'assistant', content: string, model?: string): Promise<void> {
+    try {
+      await fetch(`/api/conversations/${convId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role, content, model }),
+      })
+    } catch { /* best-effort */ }
+  },
+  async getContext(id: string): Promise<{ mode: string; summary: string | null; messages?: Array<{ role: string; content: string }>; recentMessages?: Array<{ role: string; content: string }> } | null> {
+    try {
+      const res = await fetch(`/api/conversations/${id}/context`)
+      if (!res.ok) return null
+      return await res.json()
+    } catch { return null }
+  },
+  async deleteConversation(id: string): Promise<void> {
+    try { await fetch(`/api/conversations/${id}`, { method: 'DELETE' }) } catch {}
+  },
+}
+
+// ─── Persistent state helpers (localStorage cache) ─────────
 const SESSIONS_KEY = 'jarvis-chat-sessions'
 const ACTIVE_KEY = 'jarvis-chat-active'
 
@@ -180,8 +223,9 @@ export default function JarvisChat() {
   }, [activeId])
 
   const startNewSession = useCallback(() => {
+    const localId = generateId()
     const newSession: ChatSession = {
-      id: generateId(),
+      id: localId,
       title: 'New chat',
       messages: [],
       model,
@@ -192,6 +236,13 @@ export default function JarvisChat() {
     setActiveId(newSession.id)
     setInput('')
     inputRef.current?.focus()
+    // Create on server in background
+    chatApi.createConversation('New chat').then(serverId => {
+      if (serverId && serverId !== localId) {
+        setSessions(prev => prev.map(s => s.id === localId ? { ...s, id: serverId } : s))
+        setActiveId(prev => prev === localId ? serverId : prev)
+      }
+    }).catch(() => {})
   }, [model])
 
   const switchSession = useCallback((id: string) => {
@@ -207,6 +258,7 @@ export default function JarvisChat() {
       const remaining = sessions.filter(s => s.id !== id)
       setActiveId(remaining.length > 0 ? remaining[0].id : null)
     }
+    chatApi.deleteConversation(id).catch(() => {})
   }, [activeId, sessions])
 
   const send = async (text: string) => {
@@ -246,7 +298,23 @@ export default function JarvisChat() {
     ))
     setStreaming(true)
 
-    const history = currentMessages.map(m => ({ role: m.role, content: m.content }))
+    // Record user message to DB (non-blocking)
+    chatApi.recordMessage(sessionId, 'user', trimmed, model).catch(() => {})
+
+    // Build smart history: use server context (with summary) if available
+    let history: Array<{ role: string; content: string }>
+    const ctx = await chatApi.getContext(sessionId).catch(() => null)
+    if (ctx?.mode === 'summarized' && ctx.summary && ctx.recentMessages) {
+      history = [
+        { role: 'user', content: `[Previous conversation context: ${ctx.summary}]` },
+        { role: 'assistant', content: 'Understood, I have the context from our previous conversation.' },
+        ...ctx.recentMessages,
+      ]
+    } else if (ctx?.mode === 'full' && ctx.messages) {
+      history = ctx.messages
+    } else {
+      history = currentMessages.map(m => ({ role: m.role, content: m.content }))
+    }
 
     try {
       const res = await fetch('/api/chat', {
@@ -316,6 +384,14 @@ export default function JarvisChat() {
 
     setStreaming(false)
     inputRef.current?.focus()
+
+    // Record assistant response to DB (non-blocking)
+    const finalSessions = sessionsRef.current
+    const finalSession = finalSessions.find(s => s.id === sessionId)
+    const lastMsg = finalSession?.messages[finalSession.messages.length - 1]
+    if (lastMsg?.role === 'assistant' && lastMsg.content && !lastMsg.error) {
+      chatApi.recordMessage(sessionId, 'assistant', lastMsg.content, model).catch(() => {})
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

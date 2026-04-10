@@ -1,6 +1,64 @@
 import { create } from 'zustand'
 
-// ─── Multi-Conversation Persistence (localStorage) ─────────────────────────
+// ─── Conversations API (database-backed, source of truth) ──────────────────
+
+const API_CHANNEL = 'dashboard-godmode'
+
+const api = {
+  async listConversations(): Promise<ConversationMeta[]> {
+    try {
+      const res = await fetch(`/api/conversations?channel=${API_CHANNEL}`)
+      if (!res.ok) return []
+      return await res.json() as ConversationMeta[]
+    } catch { return [] }
+  },
+  async createConversation(title?: string): Promise<string | null> {
+    try {
+      const res = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ channel: API_CHANNEL, title }),
+      })
+      if (!res.ok) return null
+      const data = await res.json() as { id: string }
+      return data.id
+    } catch { return null }
+  },
+  async loadConversation(id: string): Promise<{ messages: Array<{ role: 'user' | 'assistant'; content: string }>; summary: string | null } | null> {
+    try {
+      const res = await fetch(`/api/conversations/${id}`)
+      if (!res.ok) return null
+      const data = await res.json() as { messages: Array<{ role: string; content: string }>; summary: string | null }
+      return {
+        messages: data.messages.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+        summary: data.summary,
+      }
+    } catch { return null }
+  },
+  async recordMessage(convId: string, role: 'user' | 'assistant', content: string, model?: string): Promise<void> {
+    try {
+      await fetch(`/api/conversations/${convId}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role, content, model }),
+      })
+    } catch { /* best-effort */ }
+  },
+  async deleteConversation(id: string): Promise<void> {
+    try {
+      await fetch(`/api/conversations/${id}`, { method: 'DELETE' })
+    } catch { /* best-effort */ }
+  },
+  async getContext(id: string): Promise<{ mode: string; summary: string | null; messages?: Array<{ role: 'user' | 'assistant'; content: string }>; recentMessages?: Array<{ role: 'user' | 'assistant'; content: string }> } | null> {
+    try {
+      const res = await fetch(`/api/conversations/${id}/context`)
+      if (!res.ok) return null
+      return await res.json()
+    } catch { return null }
+  },
+}
+
+// ─── Multi-Conversation Persistence (localStorage cache) ───────────────────
 
 const CONVERSATIONS_KEY = 'godmode-conversations'
 const ACTIVE_CONV_KEY = 'godmode-active'
@@ -150,6 +208,7 @@ interface GodmodeState {
   newConversation: () => void
   switchConversation: (id: string) => void
   deleteConversation: (id: string) => void
+  loadFromApi: () => Promise<void>  // hydrate from database
   clearSession: () => void // backward-compat alias for newConversation
   setArtifactViewMode: (mode: 'preview' | 'code') => void
   setModel: (model: string) => void
@@ -248,6 +307,26 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
 
   // ─── Conversation Management ─────────────────────────────────
 
+  loadFromApi: async () => {
+    const convs = await api.listConversations()
+    if (convs.length > 0) {
+      // API has data — use it as source of truth
+      saveConversationList(convs)
+      set({ conversations: convs })
+
+      // Load active conversation from API
+      const activeId = get().currentConversationId
+      const targetId = activeId && convs.find(c => c.id === activeId) ? activeId : convs[0].id
+      const data = await api.loadConversation(targetId)
+      if (data) {
+        const msgs: GodmodeMessage[] = data.messages.map(m => ({ role: m.role, content: m.content }))
+        saveConversationData(targetId, { messages: msgs, artifactHistory: [], currentArtifact: null, model: get().model })
+        saveActiveConversationId(targetId)
+        set({ currentConversationId: targetId, messages: msgs })
+      }
+    }
+  },
+
   newConversation: () => {
     const state = get()
     if (state.streaming) return
@@ -255,21 +334,21 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
     // Persist current conversation first
     persistCurrentConversation(state, set)
 
-    // Create new empty conversation
-    const id = generateId()
+    // Create new empty conversation (optimistic with local ID, API syncs in background)
+    const localId = generateId()
     const meta: ConversationMeta = {
-      id,
+      id: localId,
       title: 'New chat',
       updatedAt: new Date().toISOString(),
       messageCount: 0,
     }
     const updated = [meta, ...state.conversations]
     saveConversationList(updated)
-    saveActiveConversationId(id)
+    saveActiveConversationId(localId)
 
     set({
       conversations: updated,
-      currentConversationId: id,
+      currentConversationId: localId,
       messages: [],
       streaming: false,
       activeSurfaces: ['chat'],
@@ -282,6 +361,22 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
       codeContent: '',
       toolLog: [],
     })
+
+    // Create on server in background; update ID if server returns a different one
+    api.createConversation('New chat').then(serverId => {
+      if (serverId && serverId !== localId) {
+        const cur = get()
+        // Remap local ID to server ID
+        const remapped = cur.conversations.map(c => c.id === localId ? { ...c, id: serverId } : c)
+        saveConversationList(remapped)
+        saveActiveConversationId(serverId)
+        if (cur.currentConversationId === localId) {
+          set({ conversations: remapped, currentConversationId: serverId })
+        } else {
+          set({ conversations: remapped })
+        }
+      }
+    }).catch(() => { /* offline — localStorage is fine */ })
   },
 
   switchConversation: (id: string) => {
@@ -291,16 +386,16 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
     // Persist current first
     persistCurrentConversation(state, set)
 
-    // Load target
-    const data = loadConversationData(id)
+    // Load from localStorage cache first (instant)
+    const cached = loadConversationData(id)
     saveActiveConversationId(id)
 
     set({
       currentConversationId: id,
-      messages: data?.messages ?? [],
-      currentArtifact: data?.currentArtifact ?? null,
-      artifactHistory: data?.artifactHistory ?? [],
-      model: data?.model || state.model,
+      messages: cached?.messages ?? [],
+      currentArtifact: cached?.currentArtifact ?? null,
+      artifactHistory: cached?.artifactHistory ?? [],
+      model: cached?.model || state.model,
       activeSurfaces: ['chat'],
       toolLog: [],
       coworkSteps: [],
@@ -308,6 +403,15 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
       researchSources: [],
       codeContent: '',
     })
+
+    // Then hydrate from API (may have newer data from another session)
+    api.loadConversation(id).then(data => {
+      if (data && get().currentConversationId === id) {
+        const msgs: GodmodeMessage[] = data.messages.map(m => ({ role: m.role, content: m.content }))
+        saveConversationData(id, { messages: msgs, artifactHistory: get().artifactHistory, currentArtifact: get().currentArtifact, model: get().model })
+        set({ messages: msgs })
+      }
+    }).catch(() => { /* offline — cached data is fine */ })
   },
 
   deleteConversation: (id: string) => {
@@ -317,6 +421,9 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
     removeConversationData(id)
     const updated = state.conversations.filter(c => c.id !== id)
     saveConversationList(updated)
+
+    // Delete on server in background
+    api.deleteConversation(id).catch(() => {})
 
     if (state.currentConversationId === id) {
       const nextId = updated.length > 0 ? updated[0].id : null
@@ -360,7 +467,23 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
       saveConversationList(updated)
       saveActiveConversationId(convId)
       set({ conversations: updated, currentConversationId: convId })
+
+      // Create on server
+      api.createConversation(meta.title).then(serverId => {
+        if (serverId && serverId !== convId) {
+          const cur = get()
+          const remapped = cur.conversations.map(c => c.id === convId ? { ...c, id: serverId } : c)
+          saveConversationList(remapped)
+          saveActiveConversationId(serverId)
+          set({ conversations: remapped, currentConversationId: serverId })
+          convId = serverId
+        }
+      }).catch(() => {})
     }
+
+    // Record user message to API (non-blocking)
+    const activeConvId = convId
+    api.recordMessage(activeConvId, 'user', text.trim(), model).catch(() => {})
 
     const userMsg: GodmodeMessage = { role: 'user', content: text.trim() }
     const assistantMsg: GodmodeMessage = { role: 'assistant', content: '', tools: [] }
@@ -376,7 +499,22 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
       codeContent: '',
     })
 
-    const history = messages.map(m => ({ role: m.role, content: m.content }))
+    // Build smart history: use server context (with summary) if available, fall back to local
+    let history: Array<{ role: string; content: string }>
+    const ctx = await api.getContext(activeConvId).catch(() => null)
+    if (ctx?.mode === 'summarized' && ctx.summary && ctx.recentMessages) {
+      // Inject summary as context, then recent messages
+      history = [
+        { role: 'user', content: `[Previous conversation context: ${ctx.summary}]` },
+        { role: 'assistant', content: 'Understood, I have the context from our previous conversation.' },
+        ...ctx.recentMessages,
+      ]
+    } else if (ctx?.mode === 'full' && ctx.messages) {
+      history = ctx.messages
+    } else {
+      // Offline fallback: use local messages
+      history = messages.map(m => ({ role: m.role, content: m.content }))
+    }
 
     try {
       const res = await fetch('/api/godmode', {
@@ -425,6 +563,8 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
         })
         set({ streaming: false })
         persistCurrentConversation(get(), set)
+        // Record assistant response to API
+        if (reply) api.recordMessage(activeConvId, 'assistant', reply, get().model).catch(() => {})
         return
       }
 
@@ -622,7 +762,14 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
     set({ streaming: false })
 
     // Persist to localStorage
-    persistCurrentConversation(get())
+    persistCurrentConversation(get(), set)
+
+    // Record assistant response to API (non-blocking)
+    const finalMsgs = get().messages
+    const lastAssistant = finalMsgs[finalMsgs.length - 1]
+    if (lastAssistant?.role === 'assistant' && lastAssistant.content && !lastAssistant.error) {
+      api.recordMessage(get().currentConversationId ?? activeConvId, 'assistant', lastAssistant.content, get().model).catch(() => {})
+    }
   },
 
   setArtifactViewMode: (mode) => set({ artifactViewMode: mode }),
