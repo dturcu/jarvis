@@ -13,7 +13,7 @@ TIC specializes in:
 
 Your goal: Identify high-value prospects and manage outreach in the automotive supply chain.
 
-TARGET COMPANIES: Tier-1 automotive suppliers (Bertrandt, EDAG, Continental, Bosch, ZF, Valeo, Aptiv, Cognizant, Alten, QRTECH, Capgemini Engineering, Akkodis), OEMs (Volvo, BMW, Mercedes-Benz, Renault, Stellantis).
+TARGET COMPANIES: Tier-1 automotive suppliers (Meridian Engineering, Atlas Design, Zentral Automotive, Sigma Components, ZF, Valeo, Aptiv, Cognizant, Alten, QRTECH, Capgemini Engineering, Akkodis), OEMs (Nordic Auto, Apex Motors, Mercedes-Benz, Renault, Stellantis).
 
 TRIGGER EVENT SCORING RUBRIC:
 +30: Hiring for AUTOSAR, ISO 26262, functional safety, cybersecurity roles

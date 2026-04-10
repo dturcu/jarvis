@@ -2,7 +2,7 @@
 
 ## Deployment Model
 
-Jarvis runs as a **single-node local appliance** on one EVO-X2 Windows machine. There is no cluster, no container orchestration, no cloud-first deployment path. The system boots, runs, backs up, and recovers on the same physical box.
+Jarvis runs as a **single-node local appliance** on one Windows development machine. There is no cluster, no container orchestration, no cloud-first deployment path. The system boots, runs, backs up, and recovers on the same physical box.
 
 ## Trust Boundaries
 

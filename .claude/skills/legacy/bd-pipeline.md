@@ -13,7 +13,7 @@ You are running the BD Pipeline Intelligence agent for Thinking in Code (TIC), D
 Execute these steps in order:
 
 ### 1. Scan Gmail for prospect activity
-Search Gmail for recent replies from target companies (Bertrandt, EDAG, Continental, Bosch, ZF, Valeo, Aptiv, Volvo, BMW). Use `gmail_search_messages` with queries like `from:bertrandt OR from:continental OR from:volvo after:7d`.
+Search Gmail for recent replies from target companies (Meridian Engineering, Atlas Design, Zentral Automotive, Sigma Components, ZF, Valeo, Aptiv, Nordic Auto, Apex Motors). Use `gmail_search_messages` with queries like `from:meridian OR from:zentral OR from:nordic-auto after:7d`.
 
 ### 2. Search for trigger events
 Use WebSearch to find news about target companies hiring for AUTOSAR, ISO 26262, functional safety, or cybersecurity roles. Search for recent RFQs, program delays, and new engineering leadership appointments.
