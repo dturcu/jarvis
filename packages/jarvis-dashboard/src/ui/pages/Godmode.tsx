@@ -33,10 +33,12 @@ export default function Godmode() {
   const switchConversation = useGodmodeStore(s => s.switchConversation)
   const deleteConversation = useGodmodeStore(s => s.deleteConversation)
 
+  const loadFromApi = useGodmodeStore(s => s.loadFromApi)
+
   const [rightPanelWidth, setRightPanelWidth] = useState(45) // percentage
   const [sidebarOpen, setSidebarOpen] = useState(true)
 
-  // Fetch available models
+  // Fetch available models + hydrate conversations from database
   useEffect(() => {
     fetch('/api/godmode/models')
       .then(r => r.json())
@@ -45,6 +47,7 @@ export default function Godmode() {
         if (d.default && !model) setModel(d.default)
       })
       .catch(() => {})
+    loadFromApi()
   }, [])
 
   const handleResize = useCallback((deltaX: number) => {

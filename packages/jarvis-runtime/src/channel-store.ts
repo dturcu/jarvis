@@ -396,4 +396,34 @@ export class ChannelStore {
       "SELECT * FROM channel_threads WHERE channel = ? ORDER BY updated_at DESC LIMIT ?",
     ).all(channel, limit) as ChannelThread[];
   }
+
+  // ─── Thread summaries (#106) ─────────────────────────────────────────
+
+  /** Update the compressed conversation summary for a thread. */
+  updateThreadSummary(threadId: string, summary: string): void {
+    const now = new Date().toISOString();
+    try {
+      this.db.prepare(
+        "UPDATE channel_threads SET summary = ?, updated_at = ? WHERE thread_id = ?",
+      ).run(summary, now, threadId);
+    } catch { /* summary column may not exist yet */ }
+  }
+
+  /** Get the current compressed summary for a thread (null if none). */
+  getThreadSummary(threadId: string): string | null {
+    try {
+      const row = this.db.prepare(
+        "SELECT summary FROM channel_threads WHERE thread_id = ?",
+      ).get(threadId) as { summary: string | null } | undefined;
+      return row?.summary ?? null;
+    } catch { return null; }
+  }
+
+  /** Count messages in a thread. */
+  getThreadMessageCount(threadId: string): number {
+    const row = this.db.prepare(
+      "SELECT COUNT(*) as cnt FROM channel_messages WHERE thread_id = ?",
+    ).get(threadId) as { cnt: number } | undefined;
+    return row?.cnt ?? 0;
+  }
 }
