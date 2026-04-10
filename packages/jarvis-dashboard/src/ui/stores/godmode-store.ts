@@ -456,29 +456,33 @@ export const useGodmodeStore = create<GodmodeState>((set, get) => {
     // Auto-create conversation if none active
     let convId = state.currentConversationId
     if (!convId) {
-      convId = generateId()
+      const localId = generateId()
+      convId = localId
       const meta: ConversationMeta = {
-        id: convId,
+        id: localId,
         title: text.trim().length > 50 ? text.trim().slice(0, 47) + '...' : text.trim(),
         updatedAt: new Date().toISOString(),
         messageCount: 0,
       }
       const updated = [meta, ...state.conversations]
       saveConversationList(updated)
-      saveActiveConversationId(convId)
-      set({ conversations: updated, currentConversationId: convId })
+      saveActiveConversationId(localId)
+      set({ conversations: updated, currentConversationId: localId })
 
-      // Create on server
-      api.createConversation(meta.title).then(serverId => {
-        if (serverId && serverId !== convId) {
-          const cur = get()
-          const remapped = cur.conversations.map(c => c.id === convId ? { ...c, id: serverId } : c)
+      // Create on server synchronously so we can record messages against the real ID
+      try {
+        const serverId = await api.createConversation(meta.title)
+        if (serverId) {
+          convId = serverId
+          const remapped = get().conversations.map(c => c.id === localId ? { ...c, id: serverId } : c)
           saveConversationList(remapped)
           saveActiveConversationId(serverId)
+          // Also remap localStorage data key
+          const localData = loadConversationData(localId)
+          if (localData) { saveConversationData(serverId, localData); removeConversationData(localId) }
           set({ conversations: remapped, currentConversationId: serverId })
-          convId = serverId
         }
-      }).catch(() => {})
+      } catch { /* offline — use local ID */ }
     }
 
     // Record user message to API (non-blocking)

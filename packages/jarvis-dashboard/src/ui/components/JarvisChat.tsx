@@ -268,8 +268,9 @@ export default function JarvisChat() {
 
     // Create session if none active
     if (!activeId) {
+      const localId = generateId()
       const newSession: ChatSession = {
-        id: generateId(),
+        id: localId,
         title: trimmed.length > 50 ? trimmed.slice(0, 47) + '...' : trimmed,
         messages: [],
         model,
@@ -277,9 +278,20 @@ export default function JarvisChat() {
         updatedAt: new Date().toISOString(),
       }
       setSessions(prev => [newSession, ...prev])
-      setActiveId(newSession.id)
-      // We need to wait a tick for state to settle, so use the ID directly
-      await sendToSession(newSession.id, trimmed, [])
+      setActiveId(localId)
+
+      // Create on server synchronously so messages record against real ID
+      let sessionId = localId
+      try {
+        const serverId = await chatApi.createConversation(newSession.title)
+        if (serverId) {
+          sessionId = serverId
+          setSessions(prev => prev.map(s => s.id === localId ? { ...s, id: serverId } : s))
+          setActiveId(serverId)
+        }
+      } catch { /* offline */ }
+
+      await sendToSession(sessionId, trimmed, [])
       return
     }
 
