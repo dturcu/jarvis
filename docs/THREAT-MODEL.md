@@ -66,7 +66,7 @@ approval before execution.
 
 **Approval bypass.** Defense-in-depth: the orchestrator enforces approval checks
 before dispatching jobs, and the worker registry has a secondary approval guard
-that rejects unapproved envelopes for critical job types. Of 143 job types, 17
+that rejects unapproved envelopes for critical job types. Of 144 job types, 17
 always require approval and 33 are conditionally gated.
 
 **Action classification.** The action classifier defaults unknown action suffixes

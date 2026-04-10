@@ -88,7 +88,7 @@ Each gate has objective pass criteria. A gate is either passed or not -- no part
 
 **Pass criteria**:
 
-- [ ] Contract validation passes for all 143 job types (`npm run validate:contracts`).
+- [ ] Contract validation passes for all 144 job types (`npm run validate:contracts`).
 - [ ] Security posture smoke tests pass (`tests/smoke/security-posture.test.ts`).
 - [ ] No `run_command` or `write_file` tool handlers exist in chat surfaces (`packages/jarvis-dashboard/src/api/chat.ts`, `packages/jarvis-telegram/src/`). Grep CI step confirms zero matches.
 - [ ] Auth middleware rate limiting is exercised: IP blocked after 10 failed auth attempts within 5 minutes.

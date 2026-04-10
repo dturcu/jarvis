@@ -12,13 +12,13 @@ Canonical vocabulary for the Jarvis system. Every document and code comment shou
 
 **Tool** -- A function agents call via the plugin SDK; returns structured results (e.g., `email_search`). Tools are the agent-visible surface of a plugin. Each tool call produces a deterministic job spec submitted to the job queue.
 
-**Job** -- A queued unit of work with a type, input payload, and expected output (e.g., `email.send`). Jobs are the atomic unit of execution. There are 143 defined job types across 23 schema families.
+**Job** -- A queued unit of work with a type, input payload, and expected output (e.g., `email.send`). Jobs are the atomic unit of execution. There are 144 defined job types across 27 schema families.
 
 **Run** -- A single execution of an agent, tracked from planning through completion. Runs progress through a state machine (queued, planning, executing, awaiting_approval, completed, failed, cancelled) and emit events to the `run_events` table for audit.
 
 **Command** -- An operator instruction to start an agent run, stored in the `agent_commands` table. Commands flow from channels (Telegram, dashboard, CLI) into the runtime kernel, which creates a run.
 
-**Approval** -- A human-gated decision point for high-stakes actions. Approvals are created in `pending` state and transition to `approved`, `rejected`, `expired`, or `cancelled`. Of 143 job types, 17 always require approval and 33 are conditionally gated.
+**Approval** -- A human-gated decision point for high-stakes actions. Approvals are created in `pending` state and transition to `approved`, `rejected`, `expired`, or `cancelled`. Of 144 job types, 17 always require approval and 33 are conditionally gated.
 
 ## Outputs and Delivery
 
