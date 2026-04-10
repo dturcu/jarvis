@@ -158,11 +158,11 @@ describe("Document Worker Workflows", () => {
     // 4. Generate report
     const report = await executeDocumentJob(
       envelope("document.generate_report", {
-        title: "NDA Review: Bertrandt AG",
+        title: "NDA Review: Meridian Engineering GmbH",
         template: "nda_analysis",
         data: { compliance_score: 85, issues: 2 },
         output_format: "pdf",
-        output_path: "/tmp/nda-review-bertrandt",
+        output_path: "/tmp/nda-review-meridian",
       }),
       doc,
     );
@@ -218,10 +218,10 @@ describe("Calendar Worker Workflows", () => {
     // 2. Create event
     const create = await executeCalendarJob(
       envelope("calendar.create_event", {
-        title: "ISO 26262 Gap Analysis — Bertrandt",
+        title: "ISO 26262 Gap Analysis — Meridian Engineering",
         start: "2026-04-10T10:00:00",
         end: "2026-04-10T12:00:00",
-        attendees: ["f.sagnely@bertrandt.com", "daniel@thinkingincode.com"],
+        attendees: ["l.bianchi@meridian-eng.example.com", "daniel@thinkingincode.com"],
         description: "Review current work products against ISO 26262 Part 6 requirements",
       }),
       cal,
@@ -234,7 +234,7 @@ describe("Calendar Worker Workflows", () => {
     const update = await executeCalendarJob(
       envelope("calendar.update_event", {
         event_id: eventId,
-        title: "ISO 26262 Gap Analysis — Bertrandt AG (Updated)",
+        title: "ISO 26262 Gap Analysis — Meridian Engineering GmbH (Updated)",
       }),
       cal,
     );

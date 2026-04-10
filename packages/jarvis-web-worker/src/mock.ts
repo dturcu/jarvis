@@ -19,56 +19,56 @@ import type {
 
 const MOCK_ARTICLES: NewsArticle[] = [
   {
-    title: "Bertrandt AG Expands AUTOSAR Software Team Amid Safety Push",
-    url: "https://www.automotive-engineering.de/bertrandt-autosar-expansion",
+    title: "Meridian Engineering GmbH Expands AUTOSAR Software Team Amid Safety Push",
+    url: "https://www.automotive-engineering.example.com/meridian-autosar-expansion",
     source: "Automotive Engineering Today",
     published_at: "2026-03-28T09:00:00Z",
-    snippet: "Bertrandt AG has announced a significant hiring push in its AUTOSAR and functional safety division, targeting ISO 26262 ASIL-D expertise across Munich and Stuttgart.",
+    snippet: "Meridian Engineering GmbH has announced a significant hiring push in its AUTOSAR and functional safety division, targeting ISO 26262 ASIL-D expertise across Munich and Stuttgart.",
     relevance_score: 0.95
   },
   {
-    title: "EDAG Group Wins Chassis Safety Validation Contract for Tier 1",
+    title: "Atlas Design Engineering Group Wins Chassis Safety Validation Contract for Tier 1",
     url: "https://www.automotiveworld.de/edag-chassis-safety-contract",
     source: "AutomotiveWorld DE",
     published_at: "2026-03-25T14:30:00Z",
-    snippet: "EDAG Group secured a multi-year chassis validation program with a major German Tier 1 supplier, focused on ISO 26262 compliance and automated FMEA tooling integration.",
+    snippet: "Atlas Design Engineering Group secured a multi-year chassis validation program with a major German Tier 1 supplier, focused on ISO 26262 compliance and automated FMEA tooling integration.",
     relevance_score: 0.88
   },
   {
-    title: "Continental Doubles Down on Autonomous Safety Architecture Hiring",
-    url: "https://www.continental-careers.com/news/safety-architecture-2026",
-    source: "Continental Careers",
+    title: "Zentral Automotive Doubles Down on Autonomous Safety Architecture Hiring",
+    url: "https://zentral-auto-careers.example.com/news/safety-architecture-2026",
+    source: "Zentral Automotive Careers",
     published_at: "2026-03-20T11:00:00Z",
-    snippet: "Continental AG is targeting 200 additional safety architecture engineers for its ADAS unit, with a focus on AUTOSAR Adaptive, SOTIF, and cybersecurity per UN R155.",
+    snippet: "Zentral Automotive GmbH is targeting 200 additional safety architecture engineers for its ADAS unit, with a focus on AUTOSAR Adaptive, SOTIF, and cybersecurity per UN R155.",
     relevance_score: 0.82
   }
 ];
 
 const MOCK_JOB_POSTINGS: JobPosting[] = [
   {
-    company: "Bertrandt AG",
+    company: "Meridian Engineering GmbH",
     title: "Safety Engineer AUTOSAR (m/w/d)",
     location: "Munich, Germany",
     posted_at: "2026-03-30T08:00:00Z",
-    url: "https://jobs.bertrandt.com/safety-engineer-autosar-munich",
+    url: "https://jobs.example-meridian.com/safety-engineer-autosar-munich",
     keywords_matched: ["AUTOSAR", "ISO 26262", "safety"],
     relevance_score: 0.97
   },
   {
-    company: "EDAG Engineering Group",
+    company: "Atlas Design Engineering Group",
     title: "Functional Safety Consultant ISO 26262",
     location: "Fulda, Germany",
     posted_at: "2026-03-29T10:00:00Z",
-    url: "https://www.edag.com/careers/functional-safety-consultant",
+    url: "https://www.example-atlas.com/careers/functional-safety-consultant",
     keywords_matched: ["ISO 26262", "safety"],
     relevance_score: 0.91
   },
   {
-    company: "Robert Bosch GmbH",
+    company: "Sigma Components GmbH",
     title: "AUTOSAR Software Integration Engineer",
     location: "Stuttgart, Germany",
     posted_at: "2026-03-27T09:30:00Z",
-    url: "https://karriere.bosch.com/autosar-software-integration",
+    url: "https://careers.example-sigma.com/autosar-software-integration",
     keywords_matched: ["AUTOSAR"],
     relevance_score: 0.85
   }
@@ -118,20 +118,20 @@ export class MockWebAdapter implements WebAdapter {
 
     if (input.profile_type === "company") {
       data = {
-        name: "Bertrandt AG",
+        name: "Meridian Engineering GmbH",
         industry: "Engineering Services",
         employees: "13000+",
         headquarters: "Ehningen, Germany",
         founded: "1974",
         specializations: ["AUTOSAR", "ISO 26262", "Functional Safety", "Chassis Development"],
-        clients: ["BMW", "Mercedes-Benz", "Volkswagen Group", "Continental"],
+        clients: ["Apex Motors", "Mercedes-Benz", "Volkswagen Group", "Zentral Automotive"],
         website: input.url
       };
     } else if (input.profile_type === "person") {
       data = {
-        name: "Dr. Klaus Weber",
+        name: "Dr. Stefan Braun",
         title: "Head of Functional Safety",
-        company: "Bertrandt AG",
+        company: "Meridian Engineering GmbH",
         location: "Munich, Germany",
         experience_years: 18,
         certifications: ["ISO 26262 Functional Safety Engineer", "AUTOSAR Expert"],
@@ -140,7 +140,7 @@ export class MockWebAdapter implements WebAdapter {
     } else {
       data = {
         title: "Senior Safety Engineer AUTOSAR (m/w/d)",
-        company: "Continental AG",
+        company: "Zentral Automotive GmbH",
         location: "Regensburg, Germany",
         salary_range: "70000-95000 EUR",
         requirements: ["AUTOSAR Classic", "ISO 26262 ASIL-D", "5+ years experience"],
@@ -204,24 +204,24 @@ export class MockWebAdapter implements WebAdapter {
 
     // Known contacts return full enrichment; others throw
     const knownContacts: Record<string, WebEnrichContactOutput> = {
-      "Klaus Weber": {
-        name: "Klaus Weber",
-        email: "k.weber@bertrandt.com",
-        company: "Bertrandt AG",
+      "Stefan Braun": {
+        name: "Stefan Braun",
+        email: "s.braun@meridian-eng.example.com",
+        company: "Meridian Engineering GmbH",
         role: "Head of Functional Safety",
-        linkedin_url: "https://linkedin.com/in/klausweber-autosar",
+        linkedin_url: "https://linkedin.com/in/stefanbraun-autosar",
         company_size: "10001+",
         industry: "Engineering Services",
         location: "Munich, Germany",
         enriched_at: enrichedAt,
         confidence: 0.92
       },
-      "Anna Müller": {
-        name: "Anna Müller",
-        email: "a.mueller@edag.com",
-        company: "EDAG Engineering Group",
+      "Ingrid Dahl": {
+        name: "Ingrid Dahl",
+        email: "i.dahl@example-atlas.com",
+        company: "Atlas Design Engineering Group",
         role: "Senior Functional Safety Engineer",
-        linkedin_url: "https://linkedin.com/in/annamueller-safety",
+        linkedin_url: "https://linkedin.com/in/ingriddahl-safety",
         company_size: "5001-10000",
         industry: "Engineering Services",
         location: "Fulda, Germany",
@@ -288,9 +288,9 @@ export class MockWebAdapter implements WebAdapter {
     const intelGatheredAt = new Date().toISOString();
 
     const knownCompanies: Record<string, Omit<WebCompetitiveIntelOutput, "intel_gathered_at">> = {
-      "Bertrandt": {
-        company_name: "Bertrandt AG",
-        summary: "Bertrandt AG is a leading German engineering services company with deep expertise in AUTOSAR, functional safety (ISO 26262), and chassis development. The company serves all major German OEMs and is aggressively expanding its safety software competency center.",
+      "Meridian Engineering": {
+        company_name: "Meridian Engineering GmbH",
+        summary: "Meridian Engineering GmbH is a leading German engineering services company with deep expertise in AUTOSAR, functional safety (ISO 26262), and chassis development. The company serves all major German OEMs and is aggressively expanding its safety software competency center.",
         key_facts: [
           "13,000+ employees across 50+ locations",
           "Strong focus on ISO 26262 ASIL-D certification services",
@@ -298,18 +298,18 @@ export class MockWebAdapter implements WebAdapter {
           "Strategic partnership with Vector Informatik for AUTOSAR tooling",
           "Revenue ~1.2B EUR in FY2025"
         ],
-        recent_news: MOCK_ARTICLES.filter((a) => a.title.includes("Bertrandt"))
+        recent_news: MOCK_ARTICLES.filter((a) => a.title.includes("Meridian Engineering"))
       },
-      "EDAG": {
-        company_name: "EDAG Engineering Group",
-        summary: "EDAG is a global automotive engineering partner specializing in vehicle development, production solutions, and electrification. Strong competitor in functional safety validation and homologation services.",
+      "Atlas Design": {
+        company_name: "Atlas Design Engineering Group",
+        summary: "Atlas Design is a global automotive engineering partner specializing in vehicle development, production solutions, and electrification. Strong competitor in functional safety validation and homologation services.",
         key_facts: [
           "8,000+ engineers in 50+ locations worldwide",
           "Specialized FMEA automation and hazard analysis tooling",
           "Growing autonomous vehicle validation practice",
           "Recent Tier 1 chassis safety validation win"
         ],
-        recent_news: MOCK_ARTICLES.filter((a) => a.title.includes("EDAG"))
+        recent_news: MOCK_ARTICLES.filter((a) => a.title.includes("Atlas Design"))
       }
     };
 

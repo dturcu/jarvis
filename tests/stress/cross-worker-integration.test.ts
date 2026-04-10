@@ -61,7 +61,7 @@ describe("Cross-Worker Integration", () => {
 
     // Step 2: Web intel — scrape company profile
     const profileResult = await executeWebJob(
-      envelope("web.scrape_profile", { url: "https://bertrandt.com", profile_type: "company" }),
+      envelope("web.scrape_profile", { url: "https://example-meridian.com", profile_type: "company" }),
       web,
     );
     expect(profileResult.status).toBe("completed");
@@ -247,13 +247,13 @@ describe("Cross-Worker Integration", () => {
     // BD pipeline discovers a contact
     memory.upsertEntity({
       agent_id: "bd-pipeline", entity_type: "contact",
-      name: "Anna Lindström", data: { company: "Volvo", role: "Safety Architect", score: 90 },
+      name: "Ingrid Dahl", data: { company: "Nordic Auto", role: "Safety Architect", score: 90 },
     });
 
     // Proposal engine references same contact
     memory.upsertEntity({
       agent_id: "proposal-engine", entity_type: "contact",
-      name: "Anna Lindström", data: { company: "Volvo", engagement: "RFQ-2026-003" },
+      name: "Ingrid Dahl", data: { company: "Nordic Auto", engagement: "RFQ-2026-003" },
     });
 
     // Each agent sees their own version

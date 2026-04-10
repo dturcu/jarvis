@@ -154,7 +154,7 @@ describe("Planning Stress", () => {
     expect(plan.steps[0].action).toBe("email.search");
   });
 
-  it("LLM returns empty array → empty plan", async () => {
+  it("LLM returns empty array -> empty plan", async () => {
     const plan = await buildPlanWithInference({
       agent_id: "empty-response",
       run_id: "run-empty",
@@ -169,7 +169,7 @@ describe("Planning Stress", () => {
     expect(plan.steps).toHaveLength(0);
   });
 
-  it("LLM returns steps with missing fields → filtered out", async () => {
+  it("LLM returns steps with missing fields -> filtered out", async () => {
     const partialSteps = JSON.stringify([
       { step: 1, action: "email.search", input: { q: "test" }, reasoning: "Valid step with all fields" },
       { step: 2, reasoning: "Missing action field" },                    // no action
@@ -255,7 +255,7 @@ describe("Planning Stress", () => {
     const plan = await buildPlanWithInference({
       agent_id: "special-chars",
       run_id: "run-special",
-      goal: 'Analyze "ISO 26262" & ASPICE compliance — check <requirements> for "Bertrandt AG"',
+      goal: 'Analyze "ISO 26262" & ASPICE compliance — check <requirements> for "Meridian Engineering GmbH"',
       system_prompt: "Agent prompt",
       context: "Context with special chars: <>&\"'",
       capabilities: ["email", "document"],

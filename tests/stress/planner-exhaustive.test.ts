@@ -340,7 +340,7 @@ describe("buildPlanWithInference exhaustive", () => {
   });
 
   it("special characters in goal are preserved", async () => {
-    const specialGoal = 'Analyze "ISO 26262" & ASPICE compliance — check <requirements> for "Bertrandt AG"';
+    const specialGoal = 'Analyze "ISO 26262" & ASPICE compliance — check <requirements> for "Meridian Engineering GmbH"';
 
     const plan = await buildPlanWithInference({
       ...baseParams({ goal: specialGoal }),

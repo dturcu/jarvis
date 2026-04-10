@@ -20,17 +20,17 @@ const SEED_EVENTS: CalendarEvent[] = [
   {
     event_id: "evt-autosar-001",
     calendar_id: "primary",
-    title: "AUTOSAR safety review with Volvo",
+    title: "AUTOSAR safety review with Nordic Auto",
     description: "Review AUTOSAR adaptive platform safety requirements for next model year ECU integration.",
     start: "2026-04-05T09:00:00.000Z",
     end: "2026-04-05T10:30:00.000Z",
-    location: "Volvo Cars HQ, Gothenburg (Room 4B)",
+    location: "Nordic Auto AB HQ, Gothenburg (Room 4B)",
     attendees: [
-      { email: "h.lindqvist@volvo.com", name: "Henrik Lindqvist", response: "accepted" },
-      { email: "a.mäkinen@volvo.com", name: "Anna Mäkinen", response: "accepted" },
+      { email: "e.johansson@nordic-auto.example.com", name: "Erik Johansson", response: "accepted" },
+      { email: "m.lindgren@nordic-auto.example.com", name: "Maria Lindgren", response: "accepted" },
       { email: "consultant@jarvis.local", name: "Jarvis Consultant", response: "accepted" }
     ],
-    organizer: "h.lindqvist@volvo.com",
+    organizer: "e.johansson@nordic-auto.example.com",
     status: "confirmed",
     is_all_day: false
   },
@@ -38,13 +38,13 @@ const SEED_EVENTS: CalendarEvent[] = [
     event_id: "evt-tier1-002",
     calendar_id: "primary",
     title: "Proposal presentation - Tier 1 supplier",
-    description: "Present functional safety consulting proposal to Continental AG powertrain division.",
+    description: "Present functional safety consulting proposal to Zentral Automotive GmbH powertrain division.",
     start: "2026-04-07T13:00:00.000Z",
     end: "2026-04-07T14:00:00.000Z",
     location: "Teams call",
     attendees: [
-      { email: "m.schmidt@continental.com", name: "Markus Schmidt", response: "accepted" },
-      { email: "l.weber@continental.com", name: "Laura Weber", response: "tentative" },
+      { email: "f.hartmann@zentral-auto.example.com", name: "Felix Hartmann", response: "accepted" },
+      { email: "n.schreiber@zentral-auto.example.com", name: "Nina Schreiber", response: "tentative" },
       { email: "consultant@jarvis.local", name: "Jarvis Consultant", response: "accepted" }
     ],
     organizer: "consultant@jarvis.local",
@@ -55,17 +55,17 @@ const SEED_EVENTS: CalendarEvent[] = [
     event_id: "evt-iso26262-003",
     calendar_id: "primary",
     title: "ISO 26262 evidence audit kick-off",
-    description: "Kick-off meeting for the Part 4/Part 6 software evidence audit for the BMW iX3 project.",
+    description: "Kick-off meeting for the Part 4/Part 6 software evidence audit for the Apex Motors iX3 project.",
     start: "2026-04-08T10:00:00.000Z",
     end: "2026-04-08T12:00:00.000Z",
-    location: "BMW Group Munich, Petuelring 130",
+    location: "Apex Motors AG Munich, Petuelring 130",
     attendees: [
-      { email: "t.hofmann@bmw.com", name: "Thomas Hofmann", response: "accepted" },
-      { email: "s.bauer@bmw.com", name: "Sabine Bauer", response: "accepted" },
-      { email: "p.chen@bmw.com", name: "Peter Chen", response: "needsAction" },
+      { email: "a.richter@apex-motors.example.com", name: "Andreas Richter", response: "accepted" },
+      { email: "c.werner@apex-motors.example.com", name: "Claudia Werner", response: "accepted" },
+      { email: "k.tanaka@apex-motors.example.com", name: "Kenji Tanaka", response: "needsAction" },
       { email: "consultant@jarvis.local", name: "Jarvis Consultant", response: "accepted" }
     ],
-    organizer: "t.hofmann@bmw.com",
+    organizer: "a.richter@apex-motors.example.com",
     status: "confirmed",
     is_all_day: false
   },
@@ -90,10 +90,10 @@ const SEED_EVENTS: CalendarEvent[] = [
     event_id: "evt-training-005",
     calendar_id: "primary",
     title: "Functional safety training delivery - ASIL decomposition",
-    description: "Full-day training module on ASIL decomposition and safety goal allocation for Bosch engineers.",
+    description: "Full-day training module on ASIL decomposition and safety goal allocation for Sigma Components engineers.",
     start: "2026-04-11T09:00:00.000Z",
     end: "2026-04-11T17:00:00.000Z",
-    location: "Bosch Engineering GmbH, Stuttgart",
+    location: "Sigma Components GmbH, Stuttgart",
     attendees: [
       { email: "r.fischer@bosch.com", name: "Roland Fischer", response: "accepted" },
       { email: "i.nowak@bosch.com", name: "Irena Nowak", response: "accepted" },
@@ -305,11 +305,11 @@ export class MockCalendarAdapter implements CalendarAdapter {
     const briefAttendees = event.attendees.map((a) => ({
       email: a.email,
       name: a.name,
-      company: a.email.includes("volvo") ? "Volvo Cars" :
-               a.email.includes("continental") ? "Continental AG" :
-               a.email.includes("bmw") ? "BMW Group" :
+      company: a.email.includes("nordic-auto") ? "Nordic Auto AB" :
+               a.email.includes("zentral-auto") ? "Zentral Automotive GmbH" :
+               a.email.includes("apex-motors") ? "Apex Motors AG" :
                a.email.includes("zf") ? "ZF Friedrichshafen" :
-               a.email.includes("bosch") ? "Bosch Engineering" :
+               a.email.includes("sigma") ? "Sigma Components" :
                undefined
     }));
 

@@ -3,7 +3,7 @@
     "fixture_id": "con-001",
     "agent_id": "contract-reviewer",
     "description": "Clean NDA with standard terms — should SIGN",
-    "input": { "goal": "Review NDA from Volvo", "documents": ["volvo-nda-standard.pdf"] },
+    "input": { "goal": "Review NDA from Nordic Auto", "documents": ["nordic-nda-standard.pdf"] },
     "expected": { "artifacts": ["clause_analysis", "recommendation"], "must_contain": ["SIGN"], "must_not_contain": ["RED FLAG"], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
   },
   {
@@ -66,7 +66,7 @@
     "fixture_id": "con-010",
     "agent_id": "contract-reviewer",
     "description": "Past contract history referenced",
-    "input": { "goal": "Review follow-up NDA from Bosch", "knowledge_available": { "contracts": ["bosch-nda-2025.json", "bosch-msa-2024.json"] } },
-    "expected": { "artifacts": ["clause_analysis", "recommendation"], "must_contain": ["prior", "Bosch"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
+    "input": { "goal": "Review follow-up NDA from Sigma Components", "knowledge_available": { "contracts": ["sigma-nda-2025.json", "sigma-msa-2024.json"] } },
+    "expected": { "artifacts": ["clause_analysis", "recommendation"], "must_contain": ["prior", "Sigma Components"], "must_not_contain": [], "approval_gates_triggered": ["document.generate_report"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 2 }
   }
 ]

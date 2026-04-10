@@ -97,20 +97,20 @@ describe("Memory System Stress", () => {
       store.upsertEntity({
         agent_id: "bd-pipeline",
         entity_type: "contact",
-        name: "François Sagnely",
-        data: { company: "Bertrandt", role: "VP Engineering", score: 75 },
+        name: "Luca Bianchi",
+        data: { company: "Meridian Engineering", role: "VP Engineering", score: 75 },
       });
 
       store.upsertEntity({
         agent_id: "bd-pipeline",
         entity_type: "company",
-        name: "Bertrandt AG",
+        name: "Meridian Engineering GmbH",
         data: { industry: "Automotive", employees: 12000 },
       });
 
       const contacts = store.getEntities("bd-pipeline", "contact");
       expect(contacts).toHaveLength(1);
-      expect(contacts[0].name).toBe("François Sagnely");
+      expect(contacts[0].name).toBe("Luca Bianchi");
 
       const companies = store.getEntities("bd-pipeline", "company");
       expect(companies).toHaveLength(1);
@@ -122,14 +122,14 @@ describe("Memory System Stress", () => {
       const first = store.upsertEntity({
         agent_id: "bd-pipeline",
         entity_type: "contact",
-        name: "François Sagnely",
+        name: "Luca Bianchi",
         data: { score: 50 },
       });
 
       const second = store.upsertEntity({
         agent_id: "bd-pipeline",
         entity_type: "contact",
-        name: "François Sagnely",
+        name: "Luca Bianchi",
         data: { score: 85, status: "hot" },
       });
 
@@ -160,8 +160,8 @@ describe("Memory System Stress", () => {
     it("same name different types are separate entities", () => {
       const store = new AgentMemoryStore();
 
-      store.upsertEntity({ agent_id: "bd-pipeline", entity_type: "contact", name: "Bertrandt", data: { person: true } });
-      store.upsertEntity({ agent_id: "bd-pipeline", entity_type: "company", name: "Bertrandt", data: { company: true } });
+      store.upsertEntity({ agent_id: "bd-pipeline", entity_type: "contact", name: "Meridian Engineering", data: { person: true } });
+      store.upsertEntity({ agent_id: "bd-pipeline", entity_type: "company", name: "Meridian Engineering", data: { company: true } });
 
       expect(store.getEntities("bd-pipeline")).toHaveLength(2);
     });

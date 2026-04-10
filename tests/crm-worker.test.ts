@@ -166,19 +166,19 @@ describe("CrmStore", () => {
   });
 
   it("searchContacts finds by name", () => {
-    store.addContact({ name: "François Sagnely", company: "Bertrandt" });
-    store.addContact({ name: "Anna Lindström", company: "Volvo" });
-    const results = store.searchContacts("Sagnely", ["name"], undefined);
+    store.addContact({ name: "Luca Bianchi", company: "Meridian Engineering" });
+    store.addContact({ name: "Ingrid Dahl", company: "Nordic Auto" });
+    const results = store.searchContacts("Bianchi", ["name"], undefined);
     expect(results.length).toBe(1);
-    expect(results[0]!.name).toBe("François Sagnely");
+    expect(results[0]!.name).toBe("Luca Bianchi");
   });
 
   it("searchContacts finds by company", () => {
-    store.addContact({ name: "Test", company: "Continental" });
-    store.addContact({ name: "Other", company: "Volvo" });
-    const results = store.searchContacts("Continental", ["company"], undefined);
+    store.addContact({ name: "Test", company: "Zentral Automotive" });
+    store.addContact({ name: "Other", company: "Nordic Auto" });
+    const results = store.searchContacts("Zentral Automotive", ["company"], undefined);
     expect(results.length).toBe(1);
-    expect(results[0]!.company).toBe("Continental");
+    expect(results[0]!.company).toBe("Zentral Automotive");
   });
 
   it("searchContacts returns empty when no match", () => {
@@ -212,20 +212,20 @@ describe("MockCrmAdapter", () => {
     expect(contacts.length).toBe(5);
   });
 
-  it("François Sagnely is in contacted stage", () => {
+  it("Luca Bianchi is in contacted stage", () => {
     const contacts = adapter.store.listContacts({ stage: "contacted" });
-    const sagnely = contacts.find((c) => c.name === "François Sagnely");
-    expect(sagnely).toBeDefined();
-    expect(sagnely!.company).toBe("Bertrandt");
-    expect(sagnely!.score).toBe(75);
-    expect(sagnely!.tags).toContain("AUTOSAR");
+    const bianchi = contacts.find((c) => c.name === "Luca Bianchi");
+    expect(bianchi).toBeDefined();
+    expect(bianchi!.company).toBe("Meridian Engineering");
+    expect(bianchi!.score).toBe(75);
+    expect(bianchi!.tags).toContain("AUTOSAR");
   });
 
-  it("Anna Lindström is in won stage with score 90", () => {
+  it("Ingrid Dahl is in won stage with score 90", () => {
     const contacts = adapter.store.listContacts({ stage: "won" });
-    const anna = contacts.find((c) => c.name === "Anna Lindström");
+    const anna = contacts.find((c) => c.name === "Ingrid Dahl");
     expect(anna).toBeDefined();
-    expect(anna!.company).toBe("Volvo Cars");
+    expect(anna!.company).toBe("Nordic Auto AB");
     expect(anna!.score).toBe(90);
   });
 
@@ -237,11 +237,11 @@ describe("MockCrmAdapter", () => {
     expect(keller!.tags).toContain("ISO 26262");
   });
 
-  it("Radu Ionescu is in prospect stage", () => {
+  it("Mihai Popov is in prospect stage", () => {
     const contacts = adapter.store.listContacts({ stage: "prospect" });
-    const radu = contacts.find((c) => c.name === "Radu Ionescu");
+    const radu = contacts.find((c) => c.name === "Mihai Popov");
     expect(radu).toBeDefined();
-    expect(radu!.company).toBe("Continental");
+    expect(radu!.company).toBe("Zentral Automotive");
   });
 
   it("Marie Chen is in meeting stage", () => {
@@ -364,14 +364,14 @@ describe("MockCrmAdapter", () => {
 
   describe("search", () => {
     it("finds contacts by name", async () => {
-      const result = await adapter.search({ query: "Sagnely", fields: ["name"] });
+      const result = await adapter.search({ query: "Bianchi", fields: ["name"] });
       expect(result.structured_output.total_matches).toBeGreaterThan(0);
-      expect(result.structured_output.contacts.some((c) => c.name === "François Sagnely")).toBe(true);
+      expect(result.structured_output.contacts.some((c) => c.name === "Luca Bianchi")).toBe(true);
     });
 
     it("finds contacts by company", async () => {
-      const result = await adapter.search({ query: "Bertrandt", fields: ["company"] });
-      expect(result.structured_output.contacts.every((c) => c.company === "Bertrandt")).toBe(true);
+      const result = await adapter.search({ query: "Meridian Engineering", fields: ["company"] });
+      expect(result.structured_output.contacts.every((c) => c.company === "Meridian Engineering")).toBe(true);
     });
 
     it("returns empty array when no match", async () => {
@@ -381,8 +381,8 @@ describe("MockCrmAdapter", () => {
     });
 
     it("returns the query string in output", async () => {
-      const result = await adapter.search({ query: "Volvo" });
-      expect(result.structured_output.query).toBe("Volvo");
+      const result = await adapter.search({ query: "Nordic Auto" });
+      expect(result.structured_output.query).toBe("Nordic Auto");
     });
   });
 
@@ -443,8 +443,8 @@ describe("executeCrmJob", () => {
 
   it("produces a completed JobResult for crm.add_contact with default stage prospect", async () => {
     const envelope = makeEnvelope("crm.add_contact", {
-      name: "Klaus Berger",
-      company: "Bertrandt"
+      name: "Martin Fischer",
+      company: "Meridian Engineering"
     });
     const result = await executeCrmJob(envelope, adapter);
     expect(result.contract_version).toBe(CONTRACT_VERSION);
@@ -453,7 +453,7 @@ describe("executeCrmJob", () => {
     const out = result.structured_output as Record<string, unknown>;
     const contact = out.contact as Record<string, unknown>;
     expect(contact.stage).toBe("prospect");
-    expect(contact.name).toBe("Klaus Berger");
+    expect(contact.name).toBe("Martin Fischer");
   });
 
   it("produces a completed JobResult for crm.add_contact with custom stage", async () => {
@@ -562,12 +562,12 @@ describe("executeCrmJob", () => {
   });
 
   it("produces a completed JobResult for crm.search finding by name", async () => {
-    const envelope = makeEnvelope("crm.search", { query: "Sagnely" });
+    const envelope = makeEnvelope("crm.search", { query: "Bianchi" });
     const result = await executeCrmJob(envelope, adapter);
     expect(result.status).toBe("completed");
     const out = result.structured_output as Record<string, unknown>;
     expect((out.total_matches as number)).toBeGreaterThan(0);
-    expect(out.query).toBe("Sagnely");
+    expect(out.query).toBe("Bianchi");
   });
 
   it("produces a completed JobResult for crm.search returning empty", async () => {

@@ -80,7 +80,7 @@ export function createWebTools(
       "Web Search News",
       "Search news and web for a company or topic. Returns ranked news articles with relevance scores.",
       Type.Object({
-        query: Type.String({ minLength: 1, description: "Search query, e.g. 'Bertrandt AUTOSAR safety'" }),
+        query: Type.String({ minLength: 1, description: "Search query, e.g. 'Meridian Engineering AUTOSAR safety'" }),
         max_results: Type.Optional(Type.Integer({ minimum: 1, maximum: 100, description: "Maximum number of results to return (default 10)." })),
         date_from: Type.Optional(Type.String({ description: "ISO date to filter articles published after this date." })),
         sources: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { description: "Preferred news sources." }))
@@ -240,7 +240,7 @@ export function createIntelCommand() {
     handler: (ctx: PluginCommandContext) => {
       const args = parseJsonArgs<IntelCommandArgs>(ctx);
       if (!args || !args.company_name) {
-        return toCommandReply(`Usage: /intel {"company_name": "Bertrandt", "aspects": ["news", "team"]}`, true);
+        return toCommandReply(`Usage: /intel {"company_name": "Meridian Engineering", "aspects": ["news", "team"]}`, true);
       }
       const toolCtx = toToolContext(ctx);
       const response = submitWebCompetitiveIntel(toolCtx, {

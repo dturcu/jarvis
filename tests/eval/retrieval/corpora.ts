@@ -11,8 +11,8 @@ export const CONTRACT_CORPUS: BenchmarkCorpus = {
   domain: "contracts",
   documents: [
     { doc_id: "c-nda-baseline", collection: "contracts", text: "Jurisdiction: Romania or EU member state. Confidentiality: 3 years post-engagement, not indefinite. IP assignment: customer owns deliverables explicitly listed in SOW, not background IP. Liability cap: total fees paid in preceding 12 months. Indemnity: mutual and symmetric. Non-compete: 6 months, product-line specific. Payment: Net 30." },
-    { doc_id: "c-volvo-nda", collection: "contracts", text: "NDA between Thinking in Code and Volvo Cars. Swedish law jurisdiction. Confidentiality period: 5 years. IP assignment: all deliverables created for the project. Mutual indemnity. Liability capped at 12-month fees. Non-compete: specific product line, 6 months." },
-    { doc_id: "c-bosch-msa", collection: "contracts", text: "Master Service Agreement with Robert Bosch GmbH. German law jurisdiction. Payment terms: Net 45. IP: customer owns work product, TIC retains background IP license. Non-compete: automotive division only, 12 months. Termination: 60 days written notice." },
+    { doc_id: "c-nordic-nda", collection: "contracts", text: "NDA between Thinking in Code and Nordic Auto AB. Swedish law jurisdiction. Confidentiality period: 5 years. IP assignment: all deliverables created for the project. Mutual indemnity. Liability capped at 12-month fees. Non-compete: specific product line, 6 months." },
+    { doc_id: "c-sigma-msa", collection: "contracts", text: "Master Service Agreement with Sigma Components GmbH. German law jurisdiction. Payment terms: Net 45. IP: customer owns work product, TIC retains background IP license. Non-compete: automotive division only, 12 months. Termination: 60 days written notice." },
     { doc_id: "c-us-msa", collection: "contracts", text: "MSA with US-based client under Delaware law. Unlimited indemnity clause. No liability cap specified. Perpetual confidentiality. Customer-only termination right. Payment contingent on customer satisfaction approval." },
     { doc_id: "c-standard-sow", collection: "contracts", text: "Statement of Work for ASIL-D safety analysis. Fixed price EUR 85,000. Deliverables: HARA report, safety concept, TSR set, DIA. Timeline: 12 weeks. Acceptance criteria: formal review with customer safety team." },
   ],
@@ -20,10 +20,10 @@ export const CONTRACT_CORPUS: BenchmarkCorpus = {
     { query_id: "cq-1", query: "What are the standard liability terms for TIC contracts?", relevant_doc_ids: ["c-nda-baseline"] },
     { query_id: "cq-2", query: "Find contracts with non-EU jurisdiction", relevant_doc_ids: ["c-us-msa"] },
     { query_id: "cq-3", query: "Which contracts have unlimited indemnity or no liability cap?", relevant_doc_ids: ["c-us-msa"] },
-    { query_id: "cq-4", query: "Volvo NDA confidentiality terms", relevant_doc_ids: ["c-volvo-nda"] },
+    { query_id: "cq-4", query: "Nordic Auto NDA confidentiality terms", relevant_doc_ids: ["c-nordic-nda"] },
     { query_id: "cq-5", query: "ASIL-D safety analysis scope and deliverables", relevant_doc_ids: ["c-standard-sow"] },
-    { query_id: "cq-6", query: "Non-compete clause comparison across clients", relevant_doc_ids: ["c-nda-baseline", "c-volvo-nda", "c-bosch-msa", "c-us-msa"] },
-    { query_id: "cq-7", query: "Payment terms longer than Net 30", relevant_doc_ids: ["c-bosch-msa"] },
+    { query_id: "cq-6", query: "Non-compete clause comparison across clients", relevant_doc_ids: ["c-nda-baseline", "c-nordic-nda", "c-sigma-msa", "c-us-msa"] },
+    { query_id: "cq-7", query: "Payment terms longer than Net 30", relevant_doc_ids: ["c-sigma-msa"] },
   ],
 };
 
@@ -50,18 +50,18 @@ export const PROPOSAL_CORPUS: BenchmarkCorpus = {
   domain: "proposals",
   documents: [
     { doc_id: "p-rate-card", collection: "proposals", text: "Thinking in Code 2026 rate card. Senior Safety Engineer: EUR 130-180/h. Safety Architect ASIL-D: EUR 160-200/h. Cyber Security Engineer: EUR 120-160/h. AUTOSAR Architect: EUR 140-180/h. Standard engagement: T&M with 3-month minimum. Fixed price only for well-scoped work products." },
-    { doc_id: "p-volvo-proposal", collection: "proposals", text: "Proposal for Volvo ASIL-D E/E architecture safety analysis. Phase 1: 2-week diagnostic at EUR 12,000 fixed. Phase 2: 12-week delivery, 2 senior engineers, milestone-based pricing. Deliverables: HARA, FSC, TSR, DIA with 3 Tier-1s." },
+    { doc_id: "p-nordic-proposal", collection: "proposals", text: "Proposal for Nordic Auto ASIL-D E/E architecture safety analysis. Phase 1: 2-week diagnostic at EUR 12,000 fixed. Phase 2: 12-week delivery, 2 senior engineers, milestone-based pricing. Deliverables: HARA, FSC, TSR, DIA with 3 Tier-1s." },
     { doc_id: "p-garrett-proposal", collection: "proposals", text: "Proposal for Garrett Motion E-Axle timing closure. Phase 1: 3-week diagnostic at EUR 15,000 fixed. Key risk: timing analysis tool compatibility. Phase 2: workstream ownership with dedicated timing specialist. 4 engineers assigned." },
     { doc_id: "p-scope-lesson", collection: "lessons", text: "Every proposal that omitted explicit out-of-scope statements led to scope creep disputes. Include EXCLUSIONS section listing: validation of third-party components, tool qualification, production software delivery, acceptance testing unless specified." },
     { doc_id: "p-phase1-lesson", collection: "lessons", text: "Phase 1 diagnostic for new clients prevents failed engagements. 3 of 5 proposals that skipped Phase 1 resulted in scope disputes. Always recommend Phase 1 for first-time clients. Fixed price EUR 5-15k depending on complexity." },
   ],
   queries: [
     { query_id: "pq-1", query: "What is the standard rate for an ASIL-D safety architect?", relevant_doc_ids: ["p-rate-card"] },
-    { query_id: "pq-2", query: "Past proposals for Volvo", relevant_doc_ids: ["p-volvo-proposal"] },
+    { query_id: "pq-2", query: "Past proposals for Nordic Auto", relevant_doc_ids: ["p-nordic-proposal"] },
     { query_id: "pq-3", query: "Timing analysis engagement examples", relevant_doc_ids: ["p-garrett-proposal"] },
     { query_id: "pq-4", query: "How to avoid scope creep in proposals", relevant_doc_ids: ["p-scope-lesson"] },
     { query_id: "pq-5", query: "Should we always include a Phase 1 diagnostic?", relevant_doc_ids: ["p-phase1-lesson"] },
-    { query_id: "pq-6", query: "Fixed price quote for safety analysis", relevant_doc_ids: ["p-rate-card", "p-volvo-proposal"] },
+    { query_id: "pq-6", query: "Fixed price quote for safety analysis", relevant_doc_ids: ["p-rate-card", "p-nordic-proposal"] },
   ],
 };
 

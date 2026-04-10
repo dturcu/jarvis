@@ -36,7 +36,7 @@ describe("CRM Add Contact Variations", () => {
   it("add contact with minimal fields: name, company, role", async () => {
     const result = await executeCrmJob(
       envelope("crm.add_contact", {
-        name: "Klaus Weber",
+        name: "Stefan Braun",
         company: "BMW AG",
         role: "Safety Director",
       }),
@@ -45,7 +45,7 @@ describe("CRM Add Contact Variations", () => {
     expect(result.status).toBe("completed");
     const contact = result.structured_output?.contact as any;
     expect(contact.contact_id).toBeTruthy();
-    expect(contact.name).toBe("Klaus Weber");
+    expect(contact.name).toBe("Stefan Braun");
   });
 
   it("add contact with email", async () => {
@@ -678,7 +678,7 @@ describe("CRM Add Note", () => {
     const result = await executeCrmJob(
       envelope("crm.add_note", {
         contact_id: contactId,
-        content: "EDAG needs ASPICE Level 2 assessment by end of year.",
+        content: "Atlas Design needs ASPICE Level 2 assessment by end of year.",
       }),
       crm,
     );
@@ -697,7 +697,7 @@ describe("CRM Add Note", () => {
       const result = await executeCrmJob(
         envelope("crm.add_note", {
           contact_id: contactId,
-          content: `Follow-up note #${i + 1}: Continental cybersecurity review progress.`,
+          content: `Follow-up note #${i + 1}: Zentral Automotive cybersecurity review progress.`,
         }),
         crm,
       );
@@ -783,9 +783,9 @@ describe("CRM Search Exhaustive", () => {
     expect((result.structured_output?.contacts as any[]).length).toBeGreaterThan(0);
   });
 
-  it("search by company: Bertrandt", async () => {
+  it("search by company: Meridian Engineering", async () => {
     const result = await executeCrmJob(
-      envelope("crm.search", { query: "Bertrandt" }),
+      envelope("crm.search", { query: "Meridian Engineering" }),
       crm,
     );
     expect(result.status).toBe("completed");
@@ -802,18 +802,18 @@ describe("CRM Search Exhaustive", () => {
     expect((result.structured_output?.contacts as any[]).length).toBeGreaterThan(0);
   });
 
-  it("search by company: Continental", async () => {
+  it("search by company: Zentral Automotive", async () => {
     const result = await executeCrmJob(
-      envelope("crm.search", { query: "Continental" }),
+      envelope("crm.search", { query: "Zentral Automotive" }),
       crm,
     );
     expect(result.status).toBe("completed");
     expect((result.structured_output?.contacts as any[]).length).toBeGreaterThan(0);
   });
 
-  it("search by company: EDAG", async () => {
+  it("search by company: Atlas Design", async () => {
     const result = await executeCrmJob(
-      envelope("crm.search", { query: "EDAG" }),
+      envelope("crm.search", { query: "Atlas Design" }),
       crm,
     );
     expect(result.status).toBe("completed");
@@ -1042,7 +1042,7 @@ describe("CRM Concurrent Operations", () => {
 
   it("10 parallel search operations", async () => {
     const queries = [
-      "Bertrandt", "Volvo", "EDAG", "Continental", "Garrett",
+      "Meridian Engineering", "Volvo", "Atlas Design", "Zentral Automotive", "Garrett",
       "Anna", "Thomas", "Radu", "Marie", "Sagnely",
     ];
 
@@ -1067,8 +1067,8 @@ describe("CRM Concurrent Operations", () => {
       executeCrmJob(envelope("crm.list_pipeline", { min_score: 70 }), crm),
       // 3 search
       executeCrmJob(envelope("crm.search", { query: "Volvo" }), crm),
-      executeCrmJob(envelope("crm.search", { query: "Continental" }), crm),
-      executeCrmJob(envelope("crm.search", { query: "EDAG" }), crm),
+      executeCrmJob(envelope("crm.search", { query: "Zentral Automotive" }), crm),
+      executeCrmJob(envelope("crm.search", { query: "Atlas Design" }), crm),
       // 2 digest
       executeCrmJob(envelope("crm.digest", {}), crm),
       executeCrmJob(envelope("crm.digest", { include_parked: true }), crm),
@@ -1156,7 +1156,7 @@ describe("CRM Edge Cases", () => {
     const result = await executeCrmJob(
       envelope("crm.add_contact", {
         name: "Muller",
-        company: "Bosch",
+        company: "Sigma Components",
         role: "Ingenieur",
       }),
       crm,

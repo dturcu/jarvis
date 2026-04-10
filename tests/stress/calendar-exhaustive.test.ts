@@ -102,7 +102,7 @@ describe("Calendar Exhaustive — create_event", () => {
         title: "ISO 26262 Review",
         start: "2026-04-11T10:00:00",
         end: "2026-04-11T12:00:00",
-        attendees: ["alice@bertrandt.com", "bob@edag.com", "carol@continental.com"],
+        attendees: ["alice@meridian-eng.example.com", "bob@example-atlas.com", "carol@example-zentral.com"],
       }),
       cal,
     );
@@ -129,7 +129,7 @@ describe("Calendar Exhaustive — create_event", () => {
         title: "On-site Audit",
         start: "2026-04-14T08:00:00",
         end: "2026-04-14T17:00:00",
-        location: "Bertrandt AG, Ehningen, Germany",
+        location: "Meridian Engineering GmbH, Ehningen, Germany",
       }),
       cal,
     );
@@ -272,7 +272,7 @@ describe("Calendar Exhaustive — find_free", () => {
   it("find free slots basic", async () => {
     const result = await executeCalendarJob(
       envelope("calendar.find_free", {
-        attendees: ["consultant@jarvis.local", "client@bertrandt.com"],
+        attendees: ["consultant@jarvis.local", "client@meridian-eng.example.com"],
         duration_minutes: 60,
         start_search: "2026-04-07T08:00:00",
         end_search: "2026-04-11T18:00:00",
@@ -467,7 +467,7 @@ describe("Calendar Exhaustive — full lifecycle", () => {
       envelope("calendar.update_event", {
         event_id: eventId,
         title: "Lifecycle Event (Updated)",
-        attendees: ["daniel@thinkingincode.com", "reviewer@bertrandt.com"],
+        attendees: ["daniel@thinkingincode.com", "reviewer@meridian-eng.example.com"],
       }),
       cal,
     );

@@ -3,14 +3,14 @@
     "fixture_id": "orch-001",
     "agent_id": "orchestrator",
     "description": "Simple single-agent RFQ workflow",
-    "input": { "goal": "Analyze the attached RFQ from Continental and produce a proposal", "documents": ["continental-rfq-2026.pdf"] },
+    "input": { "goal": "Analyze the attached RFQ from Zentral Automotive and produce a proposal", "documents": ["zentral-automotive-rfq-2026.pdf"] },
     "expected": { "artifacts": ["execution_plan", "execution_log", "deliverable"], "must_contain": ["proposal-engine", "DAG"], "must_not_contain": [], "approval_gates_triggered": [], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
   },
   {
     "fixture_id": "orch-002",
     "agent_id": "orchestrator",
     "description": "Multi-agent workflow: RFQ + contract review",
-    "input": { "goal": "We received an RFQ and NDA from Bosch. Analyze both.", "documents": ["bosch-rfq.pdf", "bosch-nda.pdf"] },
+    "input": { "goal": "We received an RFQ and NDA from Sigma Components. Analyze both.", "documents": ["sigma-rfq.pdf", "sigma-nda.pdf"] },
     "expected": { "artifacts": ["execution_plan", "execution_log", "deliverable"], "must_contain": ["proposal-engine", "contract-reviewer"], "must_not_contain": [], "approval_gates_triggered": ["workflow.execute_multi"], "escalation_expected": false, "abort_expected": false, "min_retrieval_queries": 1 }
   },
   {

@@ -24,9 +24,9 @@ function envelope(type: string, input: Record<string, unknown>): JobEnvelope {
 }
 
 // ── Mock data references ───────────────────────────────────────────────────
-// Known contacts: Klaus Weber (Bertrandt), Anna Müller (EDAG)
-// Known companies: Bertrandt AG, EDAG
-// Articles about: Bertrandt, EDAG, Continental
+// Known contacts: Stefan Braun (Meridian Engineering), Ingrid Dahl (Atlas Design)
+// Known companies: Meridian Engineering GmbH, Atlas Design
+// Articles about: Meridian Engineering, Atlas Design, Zentral Automotive
 
 describe("Web Exhaustive — search_news", () => {
   let web: MockWebAdapter;
@@ -51,7 +51,7 @@ describe("Web Exhaustive — search_news", () => {
 
   it("respects max_results=1", async () => {
     const result = await executeWebJob(
-      envelope("web.search_news", { query: "Bertrandt automotive", max_results: 1 }),
+      envelope("web.search_news", { query: "Meridian Engineering automotive", max_results: 1 }),
       web,
     );
     expect(result.status).toBe("completed");
@@ -61,7 +61,7 @@ describe("Web Exhaustive — search_news", () => {
 
   it("respects max_results=3", async () => {
     const result = await executeWebJob(
-      envelope("web.search_news", { query: "EDAG engineering", max_results: 3 }),
+      envelope("web.search_news", { query: "Atlas Design engineering", max_results: 3 }),
       web,
     );
     expect(result.status).toBe("completed");
@@ -71,7 +71,7 @@ describe("Web Exhaustive — search_news", () => {
 
   it("respects max_results=10", async () => {
     const result = await executeWebJob(
-      envelope("web.search_news", { query: "Continental safety", max_results: 10 }),
+      envelope("web.search_news", { query: "Zentral Automotive safety", max_results: 10 }),
       web,
     );
     expect(result.status).toBe("completed");
@@ -104,26 +104,26 @@ describe("Web Exhaustive — search_news", () => {
     expect(web.getSearchCount()).toBe(3);
   });
 
-  it("returns articles about Bertrandt", async () => {
+  it("returns articles about Meridian Engineering", async () => {
     const result = await executeWebJob(
-      envelope("web.search_news", { query: "Bertrandt", max_results: 10 }),
+      envelope("web.search_news", { query: "Meridian Engineering", max_results: 10 }),
       web,
     );
     expect(result.status).toBe("completed");
     expect(result.structured_output?.articles).toBeDefined();
   });
 
-  it("returns articles about EDAG", async () => {
+  it("returns articles about Atlas Design", async () => {
     const result = await executeWebJob(
-      envelope("web.search_news", { query: "EDAG engineering services", max_results: 5 }),
+      envelope("web.search_news", { query: "Atlas Design engineering services", max_results: 5 }),
       web,
     );
     expect(result.status).toBe("completed");
   });
 
-  it("returns articles about Continental", async () => {
+  it("returns articles about Zentral Automotive", async () => {
     const result = await executeWebJob(
-      envelope("web.search_news", { query: "Continental automotive safety", max_results: 5 }),
+      envelope("web.search_news", { query: "Zentral Automotive automotive safety", max_results: 5 }),
       web,
     );
     expect(result.status).toBe("completed");
@@ -139,7 +139,7 @@ describe("Web Exhaustive — scrape_profile", () => {
 
   it("scrapes company profile", async () => {
     const result = await executeWebJob(
-      envelope("web.scrape_profile", { url: "https://bertrandt.com", profile_type: "company" }),
+      envelope("web.scrape_profile", { url: "https://example-meridian.com", profile_type: "company" }),
       web,
     );
     expect(result.status).toBe("completed");
@@ -158,7 +158,7 @@ describe("Web Exhaustive — scrape_profile", () => {
 
   it("scrapes job_posting profile", async () => {
     const result = await executeWebJob(
-      envelope("web.scrape_profile", { url: "https://bertrandt.com/careers/safety-engineer", profile_type: "job_posting" }),
+      envelope("web.scrape_profile", { url: "https://example-meridian.com/careers/safety-engineer", profile_type: "job_posting" }),
       web,
     );
     expect(result.status).toBe("completed");
@@ -168,7 +168,7 @@ describe("Web Exhaustive — scrape_profile", () => {
   it("scrapes with extract_fields parameter", async () => {
     const result = await executeWebJob(
       envelope("web.scrape_profile", {
-        url: "https://edag.com",
+        url: "https://example-atlas.com",
         profile_type: "company",
         extract_fields: ["name", "industry", "location", "employees"],
       }),
@@ -247,25 +247,25 @@ describe("Web Exhaustive — enrich_contact", () => {
     web = new MockWebAdapter();
   });
 
-  it("enriches known contact Klaus Weber at Bertrandt", async () => {
+  it("enriches known contact Stefan Braun at Meridian Engineering", async () => {
     const result = await executeWebJob(
-      envelope("web.enrich_contact", { name: "Klaus Weber", company: "Bertrandt" }),
+      envelope("web.enrich_contact", { name: "Stefan Braun", company: "Meridian Engineering" }),
       web,
     );
     expect(result.status).toBe("completed");
     const data = result.structured_output as any;
-    expect(data.name).toBe("Klaus Weber");
+    expect(data.name).toBe("Stefan Braun");
     expect(data.confidence).toBeGreaterThan(0);
   });
 
-  it("enriches known contact Anna Muller at EDAG", async () => {
+  it("enriches known contact Ingrid Dahl at Atlas Design", async () => {
     const result = await executeWebJob(
-      envelope("web.enrich_contact", { name: "Anna Müller", company: "EDAG" }),
+      envelope("web.enrich_contact", { name: "Ingrid Dahl", company: "Atlas Design" }),
       web,
     );
     expect(result.status).toBe("completed");
     const data = result.structured_output as any;
-    expect(data.name).toBe("Anna Müller");
+    expect(data.name).toBe("Ingrid Dahl");
     expect(data.confidence).toBeGreaterThan(0);
   });
 
@@ -279,7 +279,7 @@ describe("Web Exhaustive — enrich_contact", () => {
 
   it("enriches with email provided", async () => {
     const result = await executeWebJob(
-      envelope("web.enrich_contact", { name: "Klaus Weber", company: "Bertrandt", email: "k.weber@bertrandt.com" }),
+      envelope("web.enrich_contact", { name: "Stefan Braun", company: "Meridian Engineering", email: "s.braun@meridian-eng.example.com" }),
       web,
     );
     expect(result.status).toBe("completed");
@@ -287,7 +287,7 @@ describe("Web Exhaustive — enrich_contact", () => {
 
   it("enriches with linkedin_url provided", async () => {
     const result = await executeWebJob(
-      envelope("web.enrich_contact", { name: "Anna Müller", company: "EDAG", linkedin_url: "https://linkedin.com/in/anna-muller" }),
+      envelope("web.enrich_contact", { name: "Ingrid Dahl", company: "Atlas Design", linkedin_url: "https://linkedin.com/in/anna-muller" }),
       web,
     );
     expect(result.status).toBe("completed");
@@ -303,7 +303,7 @@ describe("Web Exhaustive — track_jobs", () => {
 
   it("tracks jobs for a single company", async () => {
     const result = await executeWebJob(
-      envelope("web.track_jobs", { company_names: ["Bertrandt"], keywords: ["safety"] }),
+      envelope("web.track_jobs", { company_names: ["Meridian Engineering"], keywords: ["safety"] }),
       web,
     );
     expect(result.status).toBe("completed");
@@ -318,7 +318,7 @@ describe("Web Exhaustive — track_jobs", () => {
   it("tracks jobs for multiple companies", async () => {
     const result = await executeWebJob(
       envelope("web.track_jobs", {
-        company_names: ["Bertrandt", "EDAG", "Continental"],
+        company_names: ["Meridian Engineering", "Atlas Design", "Zentral Automotive"],
         keywords: ["safety", "AUTOSAR"],
       }),
       web,
@@ -331,7 +331,7 @@ describe("Web Exhaustive — track_jobs", () => {
   it("tracks jobs with specific keywords", async () => {
     const result = await executeWebJob(
       envelope("web.track_jobs", {
-        company_names: ["Bertrandt"],
+        company_names: ["Meridian Engineering"],
         keywords: ["ISO 26262", "ASPICE", "functional safety"],
       }),
       web,
@@ -342,7 +342,7 @@ describe("Web Exhaustive — track_jobs", () => {
   it("respects max_per_company limit", async () => {
     const result = await executeWebJob(
       envelope("web.track_jobs", {
-        company_names: ["Bertrandt", "EDAG"],
+        company_names: ["Meridian Engineering", "Atlas Design"],
         keywords: ["safety"],
         max_per_company: 2,
       }),
@@ -351,14 +351,14 @@ describe("Web Exhaustive — track_jobs", () => {
     expect(result.status).toBe("completed");
     const postings = result.structured_output?.postings as any[];
     // Each company capped at 2
-    const bertrandtCount = postings.filter((p: any) => p.company?.includes("Bertrandt")).length;
-    expect(bertrandtCount).toBeLessThanOrEqual(2);
+    const meridianCount = postings.filter((p: any) => p.company?.includes("Meridian Engineering")).length;
+    expect(meridianCount).toBeLessThanOrEqual(2);
   });
 
   it("handles no matching keywords", async () => {
     const result = await executeWebJob(
       envelope("web.track_jobs", {
-        company_names: ["Bertrandt"],
+        company_names: ["Meridian Engineering"],
         keywords: ["quantum computing", "blockchain"],
       }),
       web,
@@ -376,7 +376,7 @@ describe("Web Exhaustive — track_jobs", () => {
 
   it("handles empty keywords array", async () => {
     const result = await executeWebJob(
-      envelope("web.track_jobs", { company_names: ["Bertrandt"], keywords: [] }),
+      envelope("web.track_jobs", { company_names: ["Meridian Engineering"], keywords: [] }),
       web,
     );
     expect(result.status).toBeDefined();
@@ -390,18 +390,18 @@ describe("Web Exhaustive — competitive_intel", () => {
     web = new MockWebAdapter();
   });
 
-  it("returns intel for Bertrandt with canonical name", async () => {
+  it("returns intel for Meridian Engineering with canonical name", async () => {
     const result = await executeWebJob(
-      envelope("web.competitive_intel", { company_name: "Bertrandt", aspects: ["products"] }),
+      envelope("web.competitive_intel", { company_name: "Meridian Engineering", aspects: ["products"] }),
       web,
     );
     expect(result.status).toBe("completed");
-    expect(result.structured_output?.company_name).toBe("Bertrandt AG");
+    expect(result.structured_output?.company_name).toBe("Meridian Engineering GmbH");
   });
 
-  it("returns intel for EDAG", async () => {
+  it("returns intel for Atlas Design", async () => {
     const result = await executeWebJob(
-      envelope("web.competitive_intel", { company_name: "EDAG", aspects: ["products"] }),
+      envelope("web.competitive_intel", { company_name: "Atlas Design", aspects: ["products"] }),
       web,
     );
     expect(result.status).toBe("completed");
@@ -417,7 +417,7 @@ describe("Web Exhaustive — competitive_intel", () => {
 
   it("gathers products aspect", async () => {
     const result = await executeWebJob(
-      envelope("web.competitive_intel", { company_name: "Bertrandt", aspects: ["products"] }),
+      envelope("web.competitive_intel", { company_name: "Meridian Engineering", aspects: ["products"] }),
       web,
     );
     expect(result.status).toBe("completed");
@@ -425,7 +425,7 @@ describe("Web Exhaustive — competitive_intel", () => {
 
   it("gathers pricing aspect", async () => {
     const result = await executeWebJob(
-      envelope("web.competitive_intel", { company_name: "Bertrandt", aspects: ["pricing"] }),
+      envelope("web.competitive_intel", { company_name: "Meridian Engineering", aspects: ["pricing"] }),
       web,
     );
     expect(result.status).toBe("completed");
@@ -433,7 +433,7 @@ describe("Web Exhaustive — competitive_intel", () => {
 
   it("gathers team aspect", async () => {
     const result = await executeWebJob(
-      envelope("web.competitive_intel", { company_name: "Bertrandt", aspects: ["team"] }),
+      envelope("web.competitive_intel", { company_name: "Meridian Engineering", aspects: ["team"] }),
       web,
     );
     expect(result.status).toBe("completed");
@@ -441,7 +441,7 @@ describe("Web Exhaustive — competitive_intel", () => {
 
   it("gathers news aspect", async () => {
     const result = await executeWebJob(
-      envelope("web.competitive_intel", { company_name: "Bertrandt", aspects: ["news"] }),
+      envelope("web.competitive_intel", { company_name: "Meridian Engineering", aspects: ["news"] }),
       web,
     );
     expect(result.status).toBe("completed");
@@ -449,7 +449,7 @@ describe("Web Exhaustive — competitive_intel", () => {
 
   it("gathers customers aspect", async () => {
     const result = await executeWebJob(
-      envelope("web.competitive_intel", { company_name: "Bertrandt", aspects: ["customers"] }),
+      envelope("web.competitive_intel", { company_name: "Meridian Engineering", aspects: ["customers"] }),
       web,
     );
     expect(result.status).toBe("completed");
@@ -458,7 +458,7 @@ describe("Web Exhaustive — competitive_intel", () => {
   it("gathers multiple aspects at once", async () => {
     const result = await executeWebJob(
       envelope("web.competitive_intel", {
-        company_name: "Bertrandt",
+        company_name: "Meridian Engineering",
         aspects: ["products", "pricing", "team", "news", "customers"],
       }),
       web,
@@ -486,13 +486,13 @@ describe("Web Exhaustive — concurrency and pipelines", () => {
         executeWebJob(envelope("web.monitor_page", { url: `https://page-${i}.com`, page_id: `pg-${i}` }), web),
       ),
       ...range(5).map(i =>
-        executeWebJob(envelope("web.enrich_contact", { name: i % 2 === 0 ? "Klaus Weber" : "Anna Müller", company: i % 2 === 0 ? "Bertrandt" : "EDAG" }), web),
+        executeWebJob(envelope("web.enrich_contact", { name: i % 2 === 0 ? "Stefan Braun" : "Ingrid Dahl", company: i % 2 === 0 ? "Meridian Engineering" : "Atlas Design" }), web),
       ),
       ...range(4).map(() =>
-        executeWebJob(envelope("web.track_jobs", { company_names: ["Bertrandt"], keywords: ["safety"] }), web),
+        executeWebJob(envelope("web.track_jobs", { company_names: ["Meridian Engineering"], keywords: ["safety"] }), web),
       ),
       ...range(4).map(() =>
-        executeWebJob(envelope("web.competitive_intel", { company_name: "EDAG", aspects: ["news"] }), web),
+        executeWebJob(envelope("web.competitive_intel", { company_name: "Atlas Design", aspects: ["news"] }), web),
       ),
     ];
     const results = await Promise.all(ops);
@@ -512,33 +512,33 @@ describe("Web Exhaustive — concurrency and pipelines", () => {
 
     // Step 2 — Scrape company profile
     const profile = await executeWebJob(
-      envelope("web.scrape_profile", { url: "https://bertrandt.com", profile_type: "company" }),
+      envelope("web.scrape_profile", { url: "https://example-meridian.com", profile_type: "company" }),
       web,
     );
     expect(profile.status).toBe("completed");
 
     // Step 3 — Enrich a contact found during scrape
     const enriched = await executeWebJob(
-      envelope("web.enrich_contact", { name: "Klaus Weber", company: "Bertrandt" }),
+      envelope("web.enrich_contact", { name: "Stefan Braun", company: "Meridian Engineering" }),
       web,
     );
     expect(enriched.status).toBe("completed");
-    expect((enriched.structured_output as any).name).toBe("Klaus Weber");
+    expect((enriched.structured_output as any).name).toBe("Stefan Braun");
 
     // Step 4 — Track job openings
     const jobs = await executeWebJob(
-      envelope("web.track_jobs", { company_names: ["Bertrandt", "EDAG"], keywords: ["safety", "AUTOSAR"] }),
+      envelope("web.track_jobs", { company_names: ["Meridian Engineering", "Atlas Design"], keywords: ["safety", "AUTOSAR"] }),
       web,
     );
     expect(jobs.status).toBe("completed");
 
     // Step 5 — Competitive intelligence
     const intel = await executeWebJob(
-      envelope("web.competitive_intel", { company_name: "Bertrandt", aspects: ["products", "team", "news", "customers"] }),
+      envelope("web.competitive_intel", { company_name: "Meridian Engineering", aspects: ["products", "team", "news", "customers"] }),
       web,
     );
     expect(intel.status).toBe("completed");
-    expect(intel.structured_output?.company_name).toBe("Bertrandt AG");
+    expect(intel.structured_output?.company_name).toBe("Meridian Engineering GmbH");
 
     // Verify cumulative adapter state
     expect(web.getSearchCount()).toBe(1);
@@ -563,7 +563,7 @@ describe("Web Exhaustive — edge cases", () => {
 
   it("empty keywords in track_jobs", async () => {
     const result = await executeWebJob(
-      envelope("web.track_jobs", { company_names: ["Bertrandt"], keywords: [] }),
+      envelope("web.track_jobs", { company_names: ["Meridian Engineering"], keywords: [] }),
       web,
     );
     expect(result.status).toBeDefined();
@@ -581,7 +581,7 @@ describe("Web Exhaustive — edge cases", () => {
   it("scrape_profile with all extract_fields", async () => {
     const result = await executeWebJob(
       envelope("web.scrape_profile", {
-        url: "https://bertrandt.com",
+        url: "https://example-meridian.com",
         profile_type: "company",
         extract_fields: ["name", "industry", "location", "employees", "revenue", "founded"],
       }),
@@ -593,9 +593,9 @@ describe("Web Exhaustive — edge cases", () => {
   it("enrich_contact with both email and linkedin_url", async () => {
     const result = await executeWebJob(
       envelope("web.enrich_contact", {
-        name: "Klaus Weber",
-        company: "Bertrandt",
-        email: "k.weber@bertrandt.com",
+        name: "Stefan Braun",
+        company: "Meridian Engineering",
+        email: "s.braun@meridian-eng.example.com",
         linkedin_url: "https://linkedin.com/in/klaus-weber",
       }),
       web,
@@ -605,7 +605,7 @@ describe("Web Exhaustive — edge cases", () => {
 
   it("competitive_intel with single aspect", async () => {
     const result = await executeWebJob(
-      envelope("web.competitive_intel", { company_name: "Bertrandt", aspects: ["products"] }),
+      envelope("web.competitive_intel", { company_name: "Meridian Engineering", aspects: ["products"] }),
       web,
     );
     expect(result.status).toBe("completed");

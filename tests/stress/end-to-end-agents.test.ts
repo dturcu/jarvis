@@ -66,18 +66,18 @@ describe("End-to-End Agent Lifecycles", () => {
       store.emitEvent(runId, agentId, "step_completed", { step_no: 1, action: "web.search_news" });
 
       // Step 2: web.enrich_contact
-      const enrich = await executeWebJob(envelope("web.enrich_contact", { name: "Klaus Weber", company: "Bertrandt" }, agentId), web);
+      const enrich = await executeWebJob(envelope("web.enrich_contact", { name: "Stefan Braun", company: "Meridian Engineering" }, agentId), web);
       expect(enrich.status).toBe("completed");
       store.emitEvent(runId, agentId, "step_completed", { step_no: 2, action: "web.enrich_contact" });
 
       // Step 3: crm.add_contact
       const addContact = await executeCrmJob(envelope("crm.add_contact", {
-        name: "Klaus Weber", company: "Bertrandt AG", role: "VP Engineering",
-        email: "k.weber@bertrandt.com", tags: ["oem", "iso26262"],
+        name: "Stefan Braun", company: "Meridian Engineering GmbH", role: "VP Engineering",
+        email: "s.braun@meridian-eng.example.com", tags: ["oem", "iso26262"],
       }, agentId), crm);
       expect(addContact.status).toBe("completed");
       store.emitEvent(runId, agentId, "step_completed", { step_no: 3, action: "crm.add_contact" });
-      memory.upsertEntity({ agent_id: agentId, entity_type: "contact", name: "Klaus Weber", data: { company: "Bertrandt AG" } });
+      memory.upsertEntity({ agent_id: agentId, entity_type: "contact", name: "Stefan Braun", data: { company: "Meridian Engineering GmbH" } });
 
       // Step 4: crm.move_stage
       const contactId = (addContact.structured_output?.contact as any)?.contact_id;
@@ -89,7 +89,7 @@ describe("End-to-End Agent Lifecycles", () => {
 
       // Step 5: email.draft
       const draft = await executeEmailJob(envelope("email.draft", {
-        to: ["k.weber@bertrandt.com"], subject: "ISO 26262 Consulting", body: "Consulting proposal",
+        to: ["s.braun@meridian-eng.example.com"], subject: "ISO 26262 Consulting", body: "Consulting proposal",
       }, agentId), email);
       expect(draft.status).toBe("completed");
       store.emitEvent(runId, agentId, "step_completed", { step_no: 5, action: "email.draft" });
@@ -97,7 +97,7 @@ describe("End-to-End Agent Lifecycles", () => {
       // Step 6: Approval gate
       const approvalId = requestApproval(db, {
         agent_id: agentId, run_id: runId, action: "email.send",
-        severity: "critical", payload: JSON.stringify({ to: "k.weber@bertrandt.com" }),
+        severity: "critical", payload: JSON.stringify({ to: "s.braun@meridian-eng.example.com" }),
       });
       store.emitEvent(runId, agentId, "approval_requested", { step_no: 6, action: "email.send" });
       resolveApproval(db, approvalId, "approved", "operator");
@@ -105,13 +105,13 @@ describe("End-to-End Agent Lifecycles", () => {
 
       // Step 7: email.send
       const send = await executeEmailJob(envelope("email.send", {
-        to: ["k.weber@bertrandt.com"], subject: "ISO 26262 Consulting", body: "Consulting proposal",
+        to: ["s.braun@meridian-eng.example.com"], subject: "ISO 26262 Consulting", body: "Consulting proposal",
       }, agentId), email);
       expect(send.status).toBe("completed");
       store.emitEvent(runId, agentId, "step_completed", { step_no: 7, action: "email.send" });
 
       store.transition(runId, agentId, "completed", "run_completed", { step_no: 7 });
-      memory.addLongTerm(agentId, runId, "Contacted Bertrandt re ISO 26262");
+      memory.addLongTerm(agentId, runId, "Contacted Meridian Engineering re ISO 26262");
 
       expect(store.getStatus(runId)).toBe("completed");
       expect(store.getRunEvents(runId).length).toBeGreaterThanOrEqual(9);
@@ -240,12 +240,12 @@ describe("End-to-End Agent Lifecycles", () => {
       store.emitEvent(runId, agentId, "step_completed", { step_no: 3, action: "document.analyze_compliance" });
 
       const draft = await executeEmailJob(envelope("email.draft", {
-        to: ["legal@thinkingincode.com"], subject: "NDA Review: Bertrandt AG",
+        to: ["legal@thinkingincode.com"], subject: "NDA Review: Meridian Engineering GmbH",
         body: "Recommendation: Sign with minor amendments.",
       }, agentId), email);
       expect(draft.status).toBe("completed");
       store.emitEvent(runId, agentId, "step_completed", { step_no: 4, action: "email.draft" });
-      memory.upsertEntity({ agent_id: agentId, entity_type: "document", name: "NDA Bertrandt", data: { recommendation: "sign" } });
+      memory.upsertEntity({ agent_id: agentId, entity_type: "document", name: "NDA Meridian Engineering", data: { recommendation: "sign" } });
 
       store.transition(runId, agentId, "completed", "run_completed", { step_no: 4 });
 
@@ -582,21 +582,21 @@ describe("End-to-End Agent Lifecycles", () => {
       const runId = store.startRun(agentId, "manual");
       store.transition(runId, agentId, "executing", "plan_built");
 
-      const search = await executeCrmJob(envelope("crm.search", { query: "Bertrandt" }, agentId), crm);
+      const search = await executeCrmJob(envelope("crm.search", { query: "Meridian Engineering" }, agentId), crm);
       expect(search.status).toBe("completed");
       store.emitEvent(runId, agentId, "step_completed", { step_no: 1, action: "crm.search" });
 
       const report = await executeDocumentJob(envelope("document.generate_report", {
-        title: "Invoice: Bertrandt AG", template: "invoice",
+        title: "Invoice: Meridian Engineering GmbH", template: "invoice",
         data: { amount: 18000, currency: "EUR", hours: 15 },
-        output_format: "pdf", output_path: "/tmp/invoice-bertrandt",
+        output_format: "pdf", output_path: "/tmp/invoice-meridian",
       }, agentId), doc);
       expect(report.status).toBe("completed");
       store.emitEvent(runId, agentId, "step_completed", { step_no: 2, action: "document.generate_report" });
-      memory.upsertEntity({ agent_id: agentId, entity_type: "document", name: "Invoice Bertrandt", data: { amount: 18000 } });
+      memory.upsertEntity({ agent_id: agentId, entity_type: "document", name: "Invoice Meridian Engineering", data: { amount: 18000 } });
 
       const draft = await executeEmailJob(envelope("email.draft", {
-        to: ["billing@bertrandt.com"], subject: "Invoice: ISO 26262 Consulting",
+        to: ["billing@meridian-eng.example.com"], subject: "Invoice: ISO 26262 Consulting",
         body: "Please find the invoice attached.",
       }, agentId), email);
       expect(draft.status).toBe("completed");
@@ -605,14 +605,14 @@ describe("End-to-End Agent Lifecycles", () => {
       // Approval gate
       const approvalId = requestApproval(db, {
         agent_id: agentId, run_id: runId, action: "email.send",
-        severity: "critical", payload: JSON.stringify({ to: "billing@bertrandt.com" }),
+        severity: "critical", payload: JSON.stringify({ to: "billing@meridian-eng.example.com" }),
       });
       store.emitEvent(runId, agentId, "approval_requested", { step_no: 4, action: "email.send" });
       resolveApproval(db, approvalId, "approved", "operator");
       store.emitEvent(runId, agentId, "approval_resolved", { step_no: 4, action: "email.send" });
 
       const send = await executeEmailJob(envelope("email.send", {
-        to: ["billing@bertrandt.com"], subject: "Invoice: ISO 26262 Consulting",
+        to: ["billing@meridian-eng.example.com"], subject: "Invoice: ISO 26262 Consulting",
         body: "Please find the invoice attached.",
       }, agentId), email);
       expect(send.status).toBe("completed");

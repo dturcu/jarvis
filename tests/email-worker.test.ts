@@ -128,10 +128,10 @@ describe("MockEmailAdapter", () => {
     });
 
     it("filters by from: prefix", async () => {
-      const result = await adapter.search({ query: "from:automotech" });
+      const result = await adapter.search({ query: "from:example-automotech" });
       expect(result.structured_output.messages.length).toBeGreaterThan(0);
       for (const msg of result.structured_output.messages) {
-        expect(msg.from.toLowerCase()).toContain("automotech");
+        expect(msg.from.toLowerCase()).toContain("example-automotech");
       }
     });
 
@@ -174,7 +174,7 @@ describe("MockEmailAdapter", () => {
       const out = result.structured_output;
       expect(out.message_id).toBe("msg-002");
       expect(out.subject).toContain("RFQ");
-      expect(out.from).toBe("procurement@automotech.com");
+      expect(out.from).toBe("procurement@example-automotech.com");
       expect(out.body_text.length).toBeGreaterThan(0);
       expect(out.attachments.length).toBeGreaterThan(0);
       expect(out.labels).toContain("INBOX");
@@ -233,7 +233,7 @@ describe("MockEmailAdapter", () => {
 
     it("sets thread_id when reply_to_message_id is provided", async () => {
       const result = await adapter.draft({
-        to: ["hans.mueller@tier1-supplier.de"],
+        to: ["jan.krause@tier1.example.com"],
         subject: "Re: AUTOSAR migration scope",
         body: "Thank you for your inquiry.",
         reply_to_message_id: "msg-001"
@@ -254,7 +254,7 @@ describe("MockEmailAdapter", () => {
   describe("send", () => {
     it("sends a draft by draft_id and removes it from drafts", async () => {
       const draftResult = await adapter.draft({
-        to: ["procurement@automotech.com"],
+        to: ["procurement@example-automotech.com"],
         subject: "ISO 26262 proposal",
         body: "Please find attached."
       });
@@ -475,7 +475,7 @@ describe("executeEmailJob", () => {
 
   it("produces a completed result for email.draft", async () => {
     const envelope = makeEnvelope("email.draft", {
-      to: ["client@automotech.com"],
+      to: ["client@example-automotech.com"],
       subject: "Safety analysis kickoff",
       body: "Dear team, following up on the ISO 26262 engagement."
     });
