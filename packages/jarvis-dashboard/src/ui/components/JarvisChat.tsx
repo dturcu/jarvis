@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, type MutableRefObject } from 'react'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -135,14 +135,21 @@ export default function JarvisChat() {
   const [models, setModels] = useState<string[]>([])
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const sessionsRef = useRef(sessions) as MutableRefObject<ChatSession[]>
+  sessionsRef.current = sessions
 
   const activeSession = sessions.find(s => s.id === activeId) ?? null
   const messages = activeSession?.messages ?? []
 
-  // Persist
+  // Persist on every change (including mid-stream — partial messages beat lost messages)
   useEffect(() => {
-    if (!streaming) saveSessions(sessions)
-  }, [sessions, streaming])
+    saveSessions(sessions)
+  }, [sessions])
+
+  // Safety: persist on unmount via ref to avoid stale closure
+  useEffect(() => {
+    return () => { saveSessions(sessionsRef.current) }
+  }, [])
 
   useEffect(() => {
     if (activeId) saveActiveId(activeId)
