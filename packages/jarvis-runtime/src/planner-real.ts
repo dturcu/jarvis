@@ -1,5 +1,6 @@
 import type { AgentPlan, PlanStep } from "@jarvis/agent-framework";
 import type { Logger } from "./logger.js";
+import { formatAvailableJobTypes, normalizePlannedStep } from "./plan-actions.js";
 
 export type PlannerDeps = {
   /** Call inference.chat — accepts a prompt, returns completion text */
@@ -23,12 +24,14 @@ export async function buildPlanWithInference(params: {
   deps: PlannerDeps;
 }): Promise<AgentPlan> {
   const { deps } = params;
+  const availableJobTypes = formatAvailableJobTypes(params.capabilities);
 
   const userPrompt = `You are planning execution steps for the "${params.agent_id}" agent.
 
 GOAL: ${params.goal}
 
-AVAILABLE JOB TYPES (prefix families): ${params.capabilities.join(", ")}
+AVAILABLE JOB TYPES (use only these exact action strings):
+${availableJobTypes || "- none"}
 
 LIVE CONTEXT:
 ${params.context.slice(0, 6000)}
@@ -38,6 +41,10 @@ Output a JSON array of steps to accomplish the goal. Each step:
 
 Rules:
 - "action" MUST be a valid job type like "inference.chat", "email.search", "crm.list_pipeline", "web.search_news", "document.ingest", etc.
+- Never invent new action families such as "database.*", "collection.*", "entity.*", "file.*", "telegram.*", or "synthesis.*".
+- If you need analysis or synthesis, use "inference.chat".
+- If you need a local notification, use "device.notify".
+- Only use "document.ingest" when you have an actual "file_path".
 - Maximum ${params.max_steps} steps
 - Be specific and actionable — each step should do ONE thing
 - Output ONLY the JSON array, no markdown fences, no explanation`;
@@ -70,15 +77,30 @@ Rules:
   }
 
   // Validate and cap steps — input is optional (defaults to {})
-  const validated = steps
-    .filter(s => s.action && typeof s.action === "string")
-    .slice(0, params.max_steps)
-    .map((s, i) => ({
-      step: i + 1,
-      action: s.action,
-      input: s.input ?? {},
-      reasoning: s.reasoning ?? "",
-    }));
+  const validated: PlanStep[] = [];
+  for (const rawStep of steps.slice(0, params.max_steps)) {
+    if (!rawStep?.action || typeof rawStep.action !== "string") {
+      continue;
+    }
+
+    const normalized = normalizePlannedStep({
+      step: validated.length + 1,
+      action: rawStep.action,
+      input: rawStep.input ?? {},
+      reasoning: rawStep.reasoning ?? "",
+    }, params.capabilities);
+
+    if (!normalized) {
+      deps.logger.warn(`Planner produced unsupported action for ${params.agent_id}: ${rawStep.action}`);
+      continue;
+    }
+
+    if (normalized.action !== rawStep.action) {
+      deps.logger.info(`Normalized planner action for ${params.agent_id}: ${rawStep.action} -> ${normalized.action}`);
+    }
+
+    validated.push({ ...normalized, step: validated.length + 1 });
+  }
 
   deps.logger.info(`Plan for ${params.agent_id}: ${validated.length} steps`, {
     steps: validated.map(s => s.action),

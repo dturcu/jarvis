@@ -67,6 +67,19 @@ export class DbSchedulerStore {
     ).run(new Date().toISOString(), scheduleId);
   }
 
+  /** Get a schedule by ID. */
+  getSchedule(scheduleId: string): ScheduleRecord | null {
+    const row = this.db.prepare(`
+      SELECT schedule_id, job_type, input_json, cron_expression, next_fire_at,
+             enabled, scope_group, label, created_at, last_fired_at
+      FROM schedules
+      WHERE schedule_id = ?
+      LIMIT 1
+    `).get(scheduleId) as Record<string, unknown> | undefined;
+
+    return row ? this.rowToRecord(row) : null;
+  }
+
   /** Update the next fire time for a schedule. */
   updateNextFireAt(scheduleId: string, nextFireAt: string): void {
     this.db.prepare(
@@ -74,9 +87,22 @@ export class DbSchedulerStore {
     ).run(nextFireAt, scheduleId);
   }
 
+  /** Disable a schedule without deleting its history. */
+  disableSchedule(scheduleId: string): void {
+    this.db.prepare(
+      "UPDATE schedules SET enabled = 0 WHERE schedule_id = ?",
+    ).run(scheduleId);
+  }
+
   /** Count total schedules (for logging). */
   count(): number {
     const row = this.db.prepare("SELECT COUNT(*) as n FROM schedules").get() as { n: number };
+    return row.n;
+  }
+
+  /** Count currently enabled schedules. */
+  countEnabled(): number {
+    const row = this.db.prepare("SELECT COUNT(*) as n FROM schedules WHERE enabled = 1").get() as { n: number };
     return row.n;
   }
 

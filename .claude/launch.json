@@ -2,14 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "jarvis-dashboard",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", "--port", "4243"],
-      "port": 4243,
-      "cwd": "packages/jarvis-dashboard",
-      "env": {
-        "JARVIS_API_TOKEN": ""
-      }
+      "name": "jarvis",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["start"],
+      "port": 4242
     }
   ]
 }

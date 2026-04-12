@@ -74,14 +74,10 @@ export function createDbScheduleTrigger(
     markFired(scheduleId: string, now: Date): void {
       store.markFired(scheduleId);
 
-      // Recompute next fire time from the raw ScheduleRecord.
-      // getDueSchedules already filtered to enabled + past-due, so we
-      // reconstruct a minimal ScheduleRecord for the computation helper.
-      // The store's own getDueSchedules won't return it again until the
-      // new next_fire_at is reached.
-      const dueRecords = store.getDueSchedules(new Date(0)); // all enabled
-      const record = dueRecords.find((r) => r.schedule_id === scheduleId);
-      if (record) {
+      // Recompute next fire time from the stored record so due schedules
+      // are advanced immediately after firing instead of remaining overdue.
+      const record = store.getSchedule(scheduleId);
+      if (record?.enabled) {
         const nextFire = computeNextFireAt(record, now);
         store.updateNextFireAt(scheduleId, nextFire);
       }

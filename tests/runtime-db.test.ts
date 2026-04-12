@@ -33,7 +33,7 @@ describe("Runtime DB and Migration Framework", () => {
     it("records applied migrations", () => {
       runMigrations(db);
       const rows = db.prepare("SELECT id, name FROM schema_migrations ORDER BY id").all() as Array<{ id: string; name: string }>;
-      expect(rows).toHaveLength(11);
+      expect(rows).toHaveLength(12);
       expect(rows[0]!.id).toBe("0001");
       expect(rows[0]!.name).toBe("runtime_core");
       expect(rows[1]!.id).toBe("0002");
@@ -56,13 +56,27 @@ describe("Runtime DB and Migration Framework", () => {
       expect(rows[9]!.name).toBe("provenance_trace_index");
       expect(rows[10]!.id).toBe("0011");
       expect(rows[10]!.name).toBe("jobs_table");
+      expect(rows[11]!.id).toBe("0012");
+      expect(rows[11]!.name).toBe("thread_summary");
     });
 
     it("is idempotent — repeated runs do not fail", () => {
       runMigrations(db);
       runMigrations(db);
       const rows = db.prepare("SELECT id FROM schema_migrations").all();
-      expect(rows).toHaveLength(11);
+      expect(rows).toHaveLength(12);
+    });
+
+    it("records an already-present schema migration without re-running it", () => {
+      runMigrations(db);
+      db.prepare("DELETE FROM schema_migrations WHERE id = ?").run("0012");
+
+      expect(() => runMigrations(db)).not.toThrow();
+
+      const latest = db.prepare(
+        "SELECT id FROM schema_migrations ORDER BY id DESC LIMIT 1",
+      ).get() as { id: string } | undefined;
+      expect(latest?.id).toBe("0012");
     });
   });
 

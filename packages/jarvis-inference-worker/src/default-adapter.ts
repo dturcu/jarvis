@@ -399,46 +399,95 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
   }
 
   async embed(input: InferenceEmbedInput): Promise<ExecutionOutcome<InferenceEmbedOutput>> {
+    type LocalModelInfo = ModelInfo & { runtime: "ollama" | "lmstudio" };
+
+    const runtimes = await detectRuntimes();
+    const availableRuntimes = runtimes.filter((runtime) => runtime.available);
+    if (availableRuntimes.length === 0) {
+      throw new InferenceWorkerError(
+        "RUNTIME_UNAVAILABLE",
+        "No local LLM runtimes are available. Ensure Ollama or LM Studio is running.",
+        true,
+      );
+    }
+
+    const reachableRuntimeNames = new Set<string>(availableRuntimes.map((runtime) => runtime.name));
+    const localAvailableRuntimes = availableRuntimes.filter(
+      (runtime): runtime is typeof runtime & { name: "ollama" | "lmstudio" } =>
+        runtime.name === "ollama" || runtime.name === "lmstudio",
+    );
+    const localRuntimeByName = new Map(localAvailableRuntimes.map((runtime) => [runtime.name, runtime]));
+    const discoverReachableModels = async (): Promise<LocalModelInfo[]> => {
+      const discovered = await Promise.all(
+        localAvailableRuntimes.map(async (runtime) => {
+          const ids = await listModels(runtime.baseUrl);
+          return ids.map((id) => buildModelInfo(id, runtime.name));
+        }),
+      );
+      return discovered.flat() as LocalModelInfo[];
+    };
+
     let modelId: string;
     let runtimeUrl: string;
     let runtimeName: "ollama" | "lmstudio" | "openclaw";
 
-    // Primary path: registry
-    if (this.runtimeDb && input.model) {
-      const registered = loadRegisteredModels(this.runtimeDb);
-      const match = registered.find(m => m.id === input.model);
-      if (match) {
-        // OpenClaw path for embeddings
-        if (match.runtime === "openclaw") {
-          return this.embedViaOpenClaw(input, match.id);
+    // Explicit model selection: trust the caller, but only on reachable runtimes.
+    if (input.model) {
+      const registered = this.runtimeDb
+        ? loadRegisteredModels(this.runtimeDb).filter((model) => reachableRuntimeNames.has(model.runtime))
+        : [];
+      const registeredMatch = registered.find((model) => model.id === input.model);
+
+      if (registeredMatch) {
+        if (registeredMatch.runtime === "openclaw") {
+          return this.embedViaOpenClaw(input, registeredMatch.id);
         }
-        modelId = match.id;
-        runtimeUrl = await this.resolveRuntimeUrl(match.runtime);
-        runtimeName = match.runtime;
+        const localRuntime = registeredMatch.runtime;
+        modelId = registeredMatch.id;
+        runtimeUrl = localRuntimeByName.get(localRuntime)!.baseUrl;
+        runtimeName = localRuntime;
       } else {
-        const discovered = await this.discoverAndSelect({ objective: "extract" }, input.model);
-        modelId = discovered.model.id;
-        runtimeUrl = discovered.runtimeUrl;
-        runtimeName = discovered.model.runtime;
-      }
-    } else if (this.runtimeDb) {
-      const registered = loadRegisteredModels(this.runtimeDb);
-      const selected = selectEmbeddingModel(registered);
-      if (selected) {
-        modelId = selected.id;
-        runtimeUrl = await this.resolveRuntimeUrl(selected.runtime);
-        runtimeName = selected.runtime;
-      } else {
-        const discovered = await this.discoverAndSelect({ objective: "extract" });
-        modelId = discovered.model.id;
-        runtimeUrl = discovered.runtimeUrl;
-        runtimeName = discovered.model.runtime;
+        const discovered = await discoverReachableModels();
+        const discoveredMatch = discovered.find((model) => model.id === input.model);
+        if (!discoveredMatch) {
+          throw new InferenceWorkerError(
+            "MODEL_NOT_FOUND",
+            `Embedding model '${input.model}' is not available on any reachable runtime.`,
+            false,
+          );
+        }
+        modelId = discoveredMatch.id;
+        runtimeUrl = localRuntimeByName.get(discoveredMatch.runtime)!.baseUrl;
+        runtimeName = discoveredMatch.runtime;
       }
     } else {
-      const discovered = await this.discoverAndSelect({ objective: "extract" }, input.model);
-      modelId = discovered.model.id;
-      runtimeUrl = discovered.runtimeUrl;
-      runtimeName = discovered.model.runtime;
+      const registered = this.runtimeDb
+        ? loadRegisteredModels(this.runtimeDb).filter((model) => reachableRuntimeNames.has(model.runtime))
+        : [];
+      const selectedRegistered = selectEmbeddingModel(registered);
+
+      if (selectedRegistered) {
+        if (selectedRegistered.runtime === "openclaw") {
+          return this.embedViaOpenClaw(input, selectedRegistered.id);
+        }
+        const localRuntime = selectedRegistered.runtime;
+        modelId = selectedRegistered.id;
+        runtimeUrl = localRuntimeByName.get(localRuntime)!.baseUrl;
+        runtimeName = localRuntime;
+      } else {
+        const discovered = await discoverReachableModels();
+        const selectedDiscovered = selectEmbeddingModel(discovered) as LocalModelInfo | null;
+        if (!selectedDiscovered) {
+          throw new InferenceWorkerError(
+            "NO_EMBEDDING_MODEL",
+            "No reachable embedding-capable model is available. Start LM Studio or install an embedding model in Ollama.",
+            true,
+          );
+        }
+        modelId = selectedDiscovered.id;
+        runtimeUrl = localRuntimeByName.get(selectedDiscovered.runtime)!.baseUrl;
+        runtimeName = selectedDiscovered.runtime;
+      }
     }
 
     const result = await embedTexts({

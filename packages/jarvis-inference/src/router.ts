@@ -240,6 +240,7 @@ export function selectEmbeddingModel(available: ModelInfo[]): ModelInfo | null {
   const dedicated = available.find((m) => m.capabilities.includes("embedding"));
   if (dedicated) return dedicated;
 
-  // Fall back to any chat model (most can also embed)
-  return available[0] ?? null;
+  // Do not silently fall back to chat models: many local runtimes expose
+  // chat-only models that do not implement embeddings at all.
+  return null;
 }
