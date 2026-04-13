@@ -2,6 +2,10 @@ node_modules/
 coverage/
 packages/*/dist/
 packages/*/*.tsbuildinfo
+# Stale build artifacts (tsc output accidentally emitted into src/)
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts.map
+!packages/*/src/**/*.config.js
 .artifacts/runtime-smoke/
 .claude/plans/
 ~/

@@ -4,6 +4,7 @@ export { runMigrations, RUNTIME_MIGRATIONS, CRM_MIGRATIONS, KNOWLEDGE_MIGRATIONS
 export { Logger, type LogContext } from "./logger.js";
 export { createWorkerRegistry, buildEnvelope, type WorkerRegistry } from "./worker-registry.js";
 export { buildPlanWithInference } from "./planner-real.js";
+export { normalizePlannedStep, getAvailableJobTypes, formatAvailableJobTypes } from "./plan-actions.js";
 export { buildPlanWithCritic, type CritiqueResult } from "./planner-critic.js";
 export { buildPlanMultiViewpoint, type MultiPlanResult } from "./planner-multi.js";
 export { scorePlan, rankPlans, detectDisagreement, type PlanScore } from "./plan-evaluator.js";

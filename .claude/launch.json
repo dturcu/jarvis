@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "jarvis",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["start"],
+      "name": "jarvis-dashboard",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "packages/jarvis-dashboard/src/api/server.ts"],
       "port": 4242
     }
   ]

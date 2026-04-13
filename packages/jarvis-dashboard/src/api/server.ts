@@ -248,9 +248,11 @@ if (hasUI) {
   const serveIndex = (req: express.Request, res: express.Response) => {
     const dashboardToken = getPreferredDashboardToken()
     if (dashboardToken && shouldAttachDashboardCookie(req.hostname)) {
+      const isProduction = process.env.JARVIS_MODE === 'production'
       res.cookie(DASHBOARD_AUTH_COOKIE, dashboardToken.token, {
         httpOnly: true,
         sameSite: 'strict',
+        secure: isProduction,
         path: '/api',
       })
     } else {
