@@ -53,10 +53,31 @@ import {
   isReadOnlyTool,
   detectLlm,
   listAllModels,
+  listLocalModels,
 } from './tool-infra.js'
 
 const FALLBACK_LMS_URL = process.env.LMS_URL ?? 'http://localhost:1234'
 const DEFAULT_MODEL = process.env.LMS_MODEL ?? 'qwen/qwen3.5-35b-a3b'
+
+/**
+ * Pick a model appropriate for the detected provider.
+ * When Ollama is detected, the LM Studio default model name won't exist,
+ * so we query Ollama's model list and pick the best available.
+ */
+async function resolveModel(explicitModel: string | undefined, detected: { baseUrl: string; provider: 'ollama' | 'lmstudio' }): Promise<string> {
+  if (explicitModel) return explicitModel
+  if (detected.provider === 'lmstudio') return DEFAULT_MODEL
+
+  // Ollama: pick a model that actually exists
+  const models = await listLocalModels(detected.baseUrl).catch(() => [] as string[])
+  if (models.length === 0) return DEFAULT_MODEL
+
+  return models.find(m => m.startsWith('qwen3.5-35b'))
+    ?? models.find(m => m.startsWith('qwen3.5-'))
+    ?? models.find(m => m.startsWith('qwen3:'))
+    ?? models.find(m => m.startsWith('gemma'))
+    ?? models[0]!
+}
 
 // Verify godmode tools are a subset of the shared registry
 const GODMODE_TOOLS = ["web_search", "web_fetch", "crm_search", "knowledge_search", "system_info", "file_read", "file_list"];
@@ -367,8 +388,8 @@ godmodeRouter.post('/', async (req, res) => {
 
   if (!message?.trim()) { res.status(400).json({ error: 'message is required' }); return }
 
-  const chosenModel = model ?? DEFAULT_MODEL
   const detected = await detectLlm().catch(() => ({ baseUrl: FALLBACK_LMS_URL, provider: 'lmstudio' as const }))
+  const chosenModel = await resolveModel(model, detected)
 
   // SSE headers
   res.setHeader('Content-Type', 'text/event-stream')

@@ -370,12 +370,19 @@ export function createWorkerRegistry(
         if (prefix === "inference" && inferenceWorkerFn) {
           // Unknown inference.* subtype — route as inference.chat with the action name in the prompt
           logger.warn(`Unknown inference subtype "${envelope.type}" — routing to inference.chat`);
+          const rawInput = typeof envelope.input === "object" && envelope.input !== null
+            ? envelope.input as Record<string, unknown>
+            : {};
+          const existingMessages = Array.isArray(rawInput.messages) ? rawInput.messages : [];
+          const fallbackMessages = existingMessages.length > 0
+            ? existingMessages
+            : [{ role: "user", content: `Perform action "${envelope.type}": ${JSON.stringify(envelope.input ?? {})}` }];
           const chatEnvelope = {
             ...envelope,
             type: "inference.chat" as const,
             input: {
-              messages: [{ role: "user", content: `Perform action "${envelope.type}": ${JSON.stringify(envelope.input ?? {})}` }],
-              ...(typeof envelope.input === "object" && envelope.input !== null ? envelope.input : {}),
+              ...rawInput,
+              messages: fallbackMessages,
             },
           };
           return inferenceWorkerFn(chatEnvelope as JobEnvelope);

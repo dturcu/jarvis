@@ -409,7 +409,8 @@ async function setupLmStudio(): Promise<void> {
         console.log(`     - ${m.id}`);
       }
 
-      const model = await prompt(`\nDefault model [${data.data[0]?.id ?? "auto"}]: `) || data.data[0]?.id ?? "auto";
+      const enteredModel = await prompt(`\nDefault model [${data.data[0]?.id ?? "auto"}]: `);
+      const model = enteredModel || data.data[0]?.id || "auto";
       config.lmstudio_url = url;
       config.default_model = model;
     } else {

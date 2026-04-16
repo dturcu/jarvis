@@ -29,7 +29,7 @@ type TokenEntry = {
 };
 
 /** Load API tokens from config. Supports single token or role-based token map. */
-function loadTokens(): TokenEntry[] {
+export function loadTokens(): TokenEntry[] {
   // Check env first
   const envToken = process.env.JARVIS_API_TOKEN;
   if (envToken) {
@@ -62,6 +62,24 @@ function loadTokens(): TokenEntry[] {
   } catch { /* can't read config */ }
 
   return [];
+}
+
+/**
+ * Select the strongest available token for the locally-served dashboard.
+ * Prefer admin so full dashboard controls continue to work, then operator,
+ * then viewer.
+ */
+export function getPreferredDashboardToken(): TokenEntry | null {
+  const tokens = loadTokens();
+  if (tokens.length === 0) return null;
+
+  const priority: UserRole[] = ["admin", "operator", "viewer"];
+  for (const role of priority) {
+    const match = tokens.find((entry) => entry.role === role);
+    if (match) return match;
+  }
+
+  return tokens[0] ?? null;
 }
 
 function isValidRole(role: string): role is UserRole {
@@ -141,6 +159,21 @@ function getRequiredRole(path: string, method: string): UserRole {
 
   // Default: GET is viewer, everything else is operator
   return method.toUpperCase() === "GET" ? "viewer" : "operator";
+}
+
+function getCookieValue(req: Request, name: string): string | null {
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader) return null;
+
+  const cookies = cookieHeader.split(";");
+  for (const cookie of cookies) {
+    const [rawName, ...rawValue] = cookie.trim().split("=");
+    if (rawName === name) {
+      return decodeURIComponent(rawValue.join("="));
+    }
+  }
+
+  return null;
 }
 
 // ─── Secret Redaction ────────────────────────────────────────────────────
@@ -276,13 +309,13 @@ export function createAuthMiddleware() {
 
     // Extract Bearer token
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const providedToken = bearerToken ?? getCookieValue(req, "jarvis_api_token");
+    if (!providedToken) {
       recordFailure(clientIp);
       res.status(401).json({ error: "Missing or invalid Authorization header. Use: Bearer <token>" });
       return;
     }
-
-    const providedToken = authHeader.slice(7);
     const match = tokens.find(t => t.token === providedToken);
 
     if (!match) {

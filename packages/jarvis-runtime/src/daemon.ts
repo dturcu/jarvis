@@ -140,43 +140,60 @@ async function main() {
   const vectorStore = new VectorStore(KNOWLEDGE_DB_PATH);
   const sparseStore = new SparseStore(KNOWLEDGE_DB_PATH);
 
-  // Embedding model selection: check the model registry for a model tagged
-  // "embedding", fall back to well-known defaults for each runtime.
-  const EMBEDDING_DEFAULTS: Record<string, { url: string; model: string }> = {
-    lmstudio: { url: config.lmstudio_url ?? "http://localhost:1234", model: "nomic-embed-text" },
-    ollama:   { url: "http://localhost:11434", model: "nomic-embed-text" },
-  };
-  let embeddingBaseUrl = EMBEDDING_DEFAULTS.lmstudio.url;
-  let embeddingModel = EMBEDDING_DEFAULTS.lmstudio.model;
+  let embeddingBaseUrl: string | undefined;
+  let embeddingModel: string | undefined;
   try {
-    const { loadRegisteredModels } = await import("@jarvis/inference");
-    const models = loadRegisteredModels(runtimeDb);
-    const embeddingCapable = models.find(m =>
-      m.tags?.includes("embedding") && m.enabled,
-    );
-    if (embeddingCapable) {
-      embeddingBaseUrl = EMBEDDING_DEFAULTS[embeddingCapable.runtime]?.url ?? embeddingBaseUrl;
-      embeddingModel = embeddingCapable.model_id;
-      logger.info(`Embedding model: ${embeddingModel} (${embeddingCapable.runtime}, from registry)`);
+    const {
+      buildModelInfo,
+      detectRuntimes,
+      listModels,
+      loadRegisteredModels,
+      selectEmbeddingModel,
+    } = await import("@jarvis/inference");
+
+    const runtimes = await detectRuntimes();
+    const reachableRuntimes = runtimes.filter((runtime) => runtime.available);
+    const reachableRuntimeNames = new Set(reachableRuntimes.map((runtime) => runtime.name));
+    const runtimeByName = new Map(reachableRuntimes.map((runtime) => [runtime.name, runtime]));
+    const liveModels = (await Promise.all(
+      reachableRuntimes.map(async (runtime) => {
+        const ids = await listModels(runtime.baseUrl);
+        return ids.map((id) => buildModelInfo(id, runtime.name));
+      }),
+    )).flat();
+
+    const selected = selectEmbeddingModel(liveModels)
+      ?? selectEmbeddingModel(loadRegisteredModels(runtimeDb).filter((model) => reachableRuntimeNames.has(model.runtime)));
+
+    if (selected) {
+      embeddingBaseUrl = runtimeByName.get(selected.runtime)?.baseUrl;
+      embeddingModel = selected.id;
+      logger.info(`Embedding model: ${embeddingModel} (${selected.runtime})`);
     } else {
-      logger.info(`Embedding model: ${embeddingModel} (default — no embedding-tagged model in registry)`);
+      logger.warn("Embeddings unavailable: no reachable embedding-capable model found. RAG and auto-embedding are disabled until one is available.");
     }
-  } catch {
-    logger.info(`Embedding model: ${embeddingModel} (default — registry unavailable)`);
+  } catch (e) {
+    logger.warn(`Embeddings unavailable: ${e instanceof Error ? e.message : String(e)}`);
   }
 
   const embedFn: import("@jarvis/agent-framework").EmbedFn = async (params) => {
     const { embedTexts } = await import("@jarvis/inference");
     return embedTexts(params);
   };
-  const hybridRetriever = new HybridRetriever({
-    vectorStore,
-    sparseStore,
-    embeddingBaseUrl,
-    embeddingModel,
-    embedFn,
-  });
-  logger.info("Retrieval stores initialized (vector + sparse + hybrid)");
+  let hybridRetriever: HybridRetriever | undefined;
+  let ragPipeline: RagPipeline | undefined;
+  if (embeddingBaseUrl && embeddingModel) {
+    hybridRetriever = new HybridRetriever({
+      vectorStore,
+      sparseStore,
+      embeddingBaseUrl,
+      embeddingModel,
+      embedFn,
+    });
+    logger.info("Retrieval stores initialized (vector + sparse + hybrid)");
+  } else {
+    logger.info("Retrieval stores initialized (vector + sparse)");
+  }
 
   // Worker health monitor — tracks per-worker execution outcomes
   const healthMonitor = new WorkerHealthMonitor(WORKER_EXECUTION_POLICIES);
@@ -190,16 +207,20 @@ async function main() {
   // Created after registry (needs worker for embedding calls).
   // EmbeddingPipeline is attached to the knowledge store so new documents
   // are automatically chunked and embedded on ingestion.
-  const embeddingPipeline = new EmbeddingPipeline({
-    vectorStore,
-    sparseStore,
-    embeddingBaseUrl,
-    embeddingModel,
-    embedFn,
-  });
-  knowledgeStore.setEmbeddingPipeline(embeddingPipeline);
-  const ragPipeline = new RagPipeline(vectorStore, registry, logger, sparseStore);
-  logger.info("Embedding pipeline + RAG pipeline initialized");
+  if (embeddingBaseUrl && embeddingModel) {
+    const embeddingPipeline = new EmbeddingPipeline({
+      vectorStore,
+      sparseStore,
+      embeddingBaseUrl,
+      embeddingModel,
+      embedFn,
+    });
+    knowledgeStore.setEmbeddingPipeline(embeddingPipeline);
+    ragPipeline = new RagPipeline(vectorStore, registry, logger, sparseStore);
+    logger.info("Embedding pipeline + RAG pipeline initialized");
+  } else {
+    logger.info("Embedding pipeline + RAG pipeline disabled");
+  }
 
   // DB-backed scheduler — persists across restarts
   const scheduler = new DbSchedulerStore(runtimeDb);
@@ -253,6 +274,30 @@ async function main() {
   // Collect all agent definitions (built-in + plugins)
   const allAgentDefs = [...ALL_AGENTS, ...pluginManifests.map(m => m.agent)];
 
+  // Disable schedules that target agents no longer present in the runtime.
+  // This keeps legacy rows for audit/history without re-firing them forever.
+  const registeredAgentIds = new Set(allAgentDefs.map((def) => def.agent_id));
+  const orphanSchedules = runtimeDb.prepare(`
+    SELECT schedule_id, job_type
+    FROM schedules
+    WHERE enabled = 1 AND job_type LIKE 'agent.%'
+  `).all() as Array<{ schedule_id: string; job_type: string }>;
+
+  const disabledLegacyAgents = new Set<string>();
+  for (const schedule of orphanSchedules) {
+    const agentId = schedule.job_type.slice("agent.".length);
+    if (!registeredAgentIds.has(agentId)) {
+      scheduler.disableSchedule(schedule.schedule_id);
+      disabledLegacyAgents.add(agentId);
+    }
+  }
+
+  if (disabledLegacyAgents.size > 0) {
+    logger.info(
+      `Disabled ${disabledLegacyAgents.size} legacy schedule(s) for unregistered agents: ${Array.from(disabledLegacyAgents).sort().join(", ")}`,
+    );
+  }
+
   // Seed schedules from agent triggers (only inserts if not already in DB)
   // Maturity enforcement: experimental agents are seeded as disabled
   let scheduleCount = 0;
@@ -282,7 +327,8 @@ async function main() {
   }
 
   const totalSchedules = scheduler.count();
-  logger.info(`Schedules: ${totalSchedules} in DB (${scheduleCount} from agent definitions)`);
+  const enabledSchedules = scheduler.countEnabled();
+  logger.info(`Schedules: ${totalSchedules} in DB (${enabledSchedules} enabled, ${scheduleCount} from agent definitions)`);
 
   // Discover local models and populate registry
   try {
@@ -298,10 +344,12 @@ async function main() {
     logger.warn(`Model discovery failed: ${e instanceof Error ? e.message : String(e)}`);
   }
 
-  logger.info(`Jarvis daemon started: ${allAgentDefs.length} agents (${pluginManifests.length} plugins), ${totalSchedules} schedules`);
+  logger.info(
+    `Jarvis daemon started: ${allAgentDefs.length} agents (${pluginManifests.length} plugins), ${enabledSchedules} enabled schedule(s) (${totalSchedules} total)`,
+  );
 
   // Status writer — writes daemon heartbeat to runtime.db
-  const statusWriter = new StatusWriter(allAgentDefs.length, totalSchedules, logger, runtimeDb);
+  const statusWriter = new StatusWriter(allAgentDefs.length, () => scheduler.countEnabled(), logger, runtimeDb);
   statusWriter.start();
 
   // ─── Safe mode check ──────────────────────────────────────────────────────
@@ -439,8 +487,8 @@ async function main() {
       for (const schedule of due) {
         // Skip schedules for agents that are no longer registered (legacy/archived agents)
         if (!runtime.getDefinition(schedule.agent_id)) {
-          logger.warn(`Schedule skipped: agent "${schedule.agent_id}" is not registered (legacy schedule)`);
-          scheduleTrigger.markFired(schedule.schedule_id, now);
+          logger.warn(`Disabled legacy schedule for unregistered agent "${schedule.agent_id}"`);
+          scheduler.disableSchedule(schedule.schedule_id);
           continue;
         }
         const cronTrigger: AgentTrigger = { kind: "schedule", cron: schedule.cron_expression };

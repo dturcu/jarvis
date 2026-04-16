@@ -13,6 +13,7 @@
 import type { AgentPlan, PlanStep } from "@jarvis/agent-framework";
 import type { PlannerDeps } from "./planner-real.js";
 import { buildPlanWithInference } from "./planner-real.js";
+import { formatAvailableJobTypes, normalizePlannedStep } from "./plan-actions.js";
 
 export type CritiqueResult = {
   issues: string[];
@@ -81,7 +82,7 @@ async function critiquePlan(
   deps: PlannerDeps,
 ): Promise<CritiqueResult> {
   const planJson = JSON.stringify(plan.steps.map(s => ({
-    step: s.step, action: s.action, reasoning: s.reasoning,
+    step: s.step, action: s.action, input: s.input, reasoning: s.reasoning,
   })), null, 2);
 
   const prompt = `You are a plan critic reviewing an execution plan for the "${params.agent_id}" agent.
@@ -89,7 +90,8 @@ async function critiquePlan(
 PLAN:
 ${planJson}
 
-AVAILABLE CAPABILITIES: ${params.capabilities.join(", ")}
+AVAILABLE JOB TYPES (the plan must use only these exact actions):
+${formatAvailableJobTypes(params.capabilities) || "- none"}
 
 Review this plan and output a JSON object:
 {
@@ -103,7 +105,9 @@ Rules:
 - "approve" if the plan is solid and addresses the goal
 - "revise" if the plan has fixable issues
 - "reject" only if the plan is fundamentally wrong or dangerous
+- If the plan uses supported actions and is merely underspecified, choose "revise", not "reject".
 - Check for: missing steps, wrong action types, redundant steps, security risks
+- Any invented action family such as database.*, entity.*, file.*, collection.*, telegram.*, or synthesis.* is invalid.
 - Output ONLY the JSON object, no markdown fences`;
 
   try {
@@ -141,7 +145,7 @@ async function revisePlan(
   ].join("\n");
 
   const originalSteps = JSON.stringify(originalPlan.steps.map(s => ({
-    step: s.step, action: s.action, reasoning: s.reasoning,
+    step: s.step, action: s.action, input: s.input, reasoning: s.reasoning,
   })), null, 2);
 
   const prompt = `You previously planned steps for "${params.agent_id}" but a critic found issues.
@@ -152,7 +156,8 @@ ${originalSteps}
 CRITIC FEEDBACK:
 ${feedback}
 
-AVAILABLE JOB TYPES: ${params.capabilities.join(", ")}
+AVAILABLE JOB TYPES (use only these exact action strings):
+${formatAvailableJobTypes(params.capabilities) || "- none"}
 
 Output a REVISED JSON array of steps addressing the feedback.
 Maximum ${params.max_steps} steps. Output ONLY the JSON array.`;
@@ -161,15 +166,30 @@ Maximum ${params.max_steps} steps. Output ONLY the JSON array.`;
     const content = await deps.chat(prompt, params.system_prompt);
     const steps = JSON.parse(extractJsonArray(content)) as PlanStep[];
 
-    const validated = steps
-      .filter(s => s.action && typeof s.step === "number")
-      .slice(0, params.max_steps)
-      .map((s, i) => ({
-        step: i + 1,
-        action: s.action,
-        input: s.input ?? {},
-        reasoning: s.reasoning ?? "",
-      }));
+    const validated: PlanStep[] = [];
+    for (const rawStep of steps.slice(0, params.max_steps)) {
+      if (!rawStep?.action || typeof rawStep.action !== "string") {
+        continue;
+      }
+
+      const normalized = normalizePlannedStep({
+        step: validated.length + 1,
+        action: rawStep.action,
+        input: rawStep.input ?? {},
+        reasoning: rawStep.reasoning ?? "",
+      }, params.capabilities);
+
+      if (!normalized) {
+        deps.logger.warn(`Critic revision produced unsupported action for ${params.agent_id}: ${rawStep.action}`);
+        continue;
+      }
+
+      if (normalized.action !== rawStep.action) {
+        deps.logger.info(`Normalized critic action for ${params.agent_id}: ${rawStep.action} -> ${normalized.action}`);
+      }
+
+      validated.push({ ...normalized, step: validated.length + 1 });
+    }
 
     deps.logger.info(`Revised plan for ${params.agent_id}: ${validated.length} steps`);
 

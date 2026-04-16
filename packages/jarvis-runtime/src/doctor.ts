@@ -48,6 +48,17 @@ function fail(name: string, detail: string, fix?: string, fixCmd?: string) {
   results.push({ name, status: "fail", detail, fix, fixCmd });
 }
 
+function isProcessAlive(pid: number): boolean {
+  if (!pid || pid <= 0) return false;
+
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException | undefined)?.code === "EPERM";
+  }
+}
+
 // ─── Node Version ──────────────────────────────────────────────────────────
 
 function checkNodeVersion() {
@@ -121,7 +132,7 @@ function checkDaemon() {
     }
 
     const staleMs = Date.now() - new Date(row.last_seen_at).getTime();
-    if (staleMs < 30_000) {
+    if (staleMs < 30_000 && isProcessAlive(row.pid)) {
       pass("Daemon", `Running (PID ${row.pid}, last seen ${Math.round(staleMs / 1000)}s ago)`);
     } else {
       warn("Daemon", `Not running (PID ${row.pid}, last seen ${Math.round(staleMs / 60_000)}m ago)`,

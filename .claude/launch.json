@@ -4,12 +4,8 @@
     {
       "name": "jarvis-dashboard",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", "--port", "4243"],
-      "port": 4243,
-      "cwd": "packages/jarvis-dashboard",
-      "env": {
-        "JARVIS_API_TOKEN": ""
-      }
+      "runtimeArgs": ["tsx", "packages/jarvis-dashboard/src/api/server.ts"],
+      "port": 4242
     }
   ]
 }

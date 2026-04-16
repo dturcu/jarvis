@@ -47,17 +47,19 @@ export class StatusWriter {
   private logger: Logger;
   private daemonId: string;
   private db: DatabaseSync | null;
+  private getSchedulesActive: () => number;
 
-  constructor(agentsRegistered: number, schedulesActive: number, logger: Logger, db?: DatabaseSync) {
+  constructor(agentsRegistered: number, getSchedulesActive: () => number, logger: Logger, db?: DatabaseSync) {
     this.logger = logger;
     this.daemonId = `daemon-${process.pid}`;
     this.db = db ?? null;
+    this.getSchedulesActive = getSchedulesActive;
     this.state = {
       pid: process.pid,
       started_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       agents_registered: agentsRegistered,
-      schedules_active: schedulesActive,
+      schedules_active: getSchedulesActive(),
       safe_mode: false,
       safe_mode_reason: null,
       last_run: null,
@@ -172,6 +174,7 @@ export class StatusWriter {
   /** Write state to database (daemon_heartbeats table). */
   private flush(): void {
     this.state.updated_at = new Date().toISOString();
+    this.state.schedules_active = this.getSchedulesActive();
     if (!this.db) return;
 
     try {

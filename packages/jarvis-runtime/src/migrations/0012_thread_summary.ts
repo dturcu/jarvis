@@ -1,4 +1,5 @@
 import type { Migration } from "./runner.js";
+import { columnExists } from "./schema.js";
 
 export const migration0012: Migration = {
   id: "0012",
@@ -6,4 +7,5 @@ export const migration0012: Migration = {
   sql: `
 ALTER TABLE channel_threads ADD COLUMN summary TEXT;
 `,
+  isApplied: (db) => columnExists(db, "channel_threads", "summary"),
 };

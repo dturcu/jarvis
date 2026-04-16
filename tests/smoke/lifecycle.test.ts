@@ -62,7 +62,7 @@ describe("Smoke: Database Lifecycle", () => {
     runMigrations(db); // second time
     runMigrations(db); // third time
     const rows = db.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number };
-    expect(rows.n).toBe(11);
+    expect(rows.n).toBe(12);
   });
 });
 
@@ -164,7 +164,7 @@ describe("Smoke: Daemon Heartbeat", () => {
 
   it("writes and reads heartbeat data", () => {
     const logger = new Logger("warn", { logToFile: false, alertOnError: false });
-    const writer = new StatusWriter(5, 3, logger, db);
+    const writer = new StatusWriter(5, () => 3, logger, db);
 
     // Manual flush
     (writer as unknown as { flush: () => void }).flush();

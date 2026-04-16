@@ -21,6 +21,7 @@ import type { ChannelStore } from "./channel-store.js";
 import type { RagPipeline } from "./rag-pipeline.js";
 import type { Logger } from "./logger.js";
 import type { StatusWriter } from "./status-writer.js";
+import { normalizePlannedStep } from "./plan-actions.js";
 
 /** Outbound actions that are skipped in preview mode. Excludes document.generate_report
  *  since that's typically the main deliverable and should still execute in preview. */
@@ -261,10 +262,6 @@ export async function runAgent(
             .map((c, i) => `  Plan ${i + 1}: ${c.steps.map(s => s.action).join(" → ")}`),
         ].join("\n");
 
-        runStore?.transition(run.run_id, agentId, "awaiting_approval", "approval_requested", {
-          details: { reason: result.disagreement.reason },
-        });
-
         const approvalId = requestApproval(runtimeDb, {
           agent_id: agentId,
           run_id: run.run_id,
@@ -273,9 +270,9 @@ export async function runAgent(
           payload: approvalPayload,
         });
 
-        // Transition DB from planning → awaiting_approval
+        // Transition DB from planning → awaiting_approval exactly once.
         runStore?.transition(run.run_id, agentId, "awaiting_approval", "approval_requested", {
-          details: { reason: "plan_disagreement" },
+          details: { reason: result.disagreement.reason },
         });
         run.status = "awaiting_approval";
         run.updated_at = new Date().toISOString();
@@ -370,7 +367,23 @@ export async function runAgent(
     let fatalStepFailure: { step: number; action: string; error: string } | null = null;
 
     // 4. Execute steps sequentially
-    for (const step of plan.steps) {
+    for (const rawStep of plan.steps) {
+      const normalizedStep = normalizePlannedStep(rawStep, def.capabilities);
+      if (!normalizedStep) {
+        log.warn(`Skipping unsupported planned action: ${rawStep.action}`);
+        runStore?.emitEvent(run.run_id, agentId, "step_failed", {
+          step_no: rawStep.step,
+          action: rawStep.action,
+          details: { error: "unsupported_planned_action" },
+        });
+        decisionLog.logDecision({
+          agent_id: agentId, run_id: run.run_id, step: rawStep.step,
+          action: rawStep.action, reasoning: rawStep.reasoning, outcome: "unsupported_action_skipped",
+        });
+        continue;
+      }
+
+      const step = normalizedStep;
       // ── Check for external cancellation before each step ──
       // An operator may cancel the run via the dashboard while it's executing.
       // We check the durable status from the DB to detect this.
@@ -437,12 +450,6 @@ export async function runAgent(
       if (gate && runtimeDb) {
         stepLog.info(`Approval required (${gate.severity}, ${gate.source})`);
 
-        // Emit approval_requested event
-        runStore?.transition(run.run_id, agentId, "awaiting_approval", "approval_requested", {
-          step_no: step.step, action: step.action,
-          details: { severity: gate.severity, source: gate.source },
-        });
-
         const approvalId = requestApproval(runtimeDb, {
           agent_id: agentId,
           run_id: run.run_id,
@@ -451,9 +458,10 @@ export async function runAgent(
           payload: `Step ${step.step}: ${step.action}\n\nReasoning: ${step.reasoning}\n\nInput: ${JSON.stringify(step.input).slice(0, 500)}`,
         });
 
-        // Transition DB from executing → awaiting_approval
+        // Transition DB from executing → awaiting_approval exactly once.
         runStore?.transition(run.run_id, agentId, "awaiting_approval", "approval_requested", {
           step_no: step.step, action: step.action,
+          details: { severity: gate.severity, source: gate.source },
         });
         run.status = "awaiting_approval";
         run.updated_at = new Date().toISOString();

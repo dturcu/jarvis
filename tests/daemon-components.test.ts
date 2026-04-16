@@ -382,8 +382,8 @@ describe("Planner (buildPlanWithInference)", () => {
   it("buildPlanWithInference re-numbers steps sequentially", async () => {
     const chatFn = vi.fn().mockResolvedValue(
       JSON.stringify([
-        { step: 5, action: "a", input: {}, reasoning: "r" },
-        { step: 10, action: "b", input: {}, reasoning: "r" },
+        { step: 5, action: "crm.list_pipeline", input: {}, reasoning: "r" },
+        { step: 10, action: "email.search", input: { query: "test" }, reasoning: "r" },
       ])
     );
 

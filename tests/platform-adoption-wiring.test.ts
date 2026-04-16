@@ -249,7 +249,7 @@ describe("Runtime Wiring: OpenClaw infer in real inference execution path", () =
 
   it("embed() routes to OpenClaw when model runtime is openclaw", () => {
     const source = readSource("packages/jarvis-inference-worker/src/default-adapter.ts");
-    expect(source).toContain('match.runtime === "openclaw"');
+    expect(source).toContain('registeredMatch.runtime === "openclaw"');
     expect(source).toContain("embedViaOpenClaw");
   });
 

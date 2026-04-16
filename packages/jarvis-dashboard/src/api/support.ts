@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { existsSync } from 'node:fs'
 import os from 'os'
 import { join } from 'path'
+import { getFreshDaemonHeartbeat } from './daemon-status.js'
 
 function getRuntimeDb(): DatabaseSync {
   const dbPath = join(os.homedir(), '.jarvis', 'runtime.db')
@@ -49,10 +50,6 @@ supportRouter.get('/bundle', (_req, res) => {
       `SELECT approval_id, agent_id, action, severity, status, requested_at, run_id FROM approvals WHERE status = 'pending'`
     ).all() as Record<string, unknown>[]
 
-    const heartbeatRow = db.prepare(
-      'SELECT daemon_id, pid, host, status, last_seen_at FROM daemon_heartbeats ORDER BY last_seen_at DESC LIMIT 1'
-    ).get() as Record<string, unknown> | undefined
-
     res.json({
       generated_at: new Date().toISOString(),
       system: getSystemInfo(),
@@ -60,7 +57,7 @@ supportRouter.get('/bundle', (_req, res) => {
       failed_run_events: failedRunEvents,
       recent_audit: recentAudit,
       pending_approvals: pendingApprovals,
-      daemon_heartbeat: heartbeatRow ?? null,
+      daemon_heartbeat: getFreshDaemonHeartbeat(),
     })
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : String(e)

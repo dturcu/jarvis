@@ -1,4 +1,5 @@
 import type { Migration } from "./runner.js";
+import { columnExists, indexExists } from "./schema.js";
 
 export const migration0006: Migration = {
   id: "0006",
@@ -23,4 +24,13 @@ CREATE INDEX IF NOT EXISTS idx_runs_owner ON runs(owner);
 CREATE INDEX IF NOT EXISTS idx_runs_assignee ON runs(assignee);
 CREATE INDEX IF NOT EXISTS idx_approvals_assignee ON approvals(assignee);
 `,
+  isApplied: (db) =>
+    columnExists(db, "runs", "owner")
+    && columnExists(db, "runs", "assignee")
+    && columnExists(db, "approvals", "assignee")
+    && columnExists(db, "approvals", "delegated_by")
+    && columnExists(db, "approvals", "delegation_note")
+    && indexExists(db, "idx_runs_owner")
+    && indexExists(db, "idx_runs_assignee")
+    && indexExists(db, "idx_approvals_assignee"),
 };

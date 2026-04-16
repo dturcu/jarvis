@@ -39,7 +39,7 @@ import { conversationsRouter } from './conversations.js'
 import fs from 'fs'
 import { getHealthReport, getReadinessReport, loadConfig, writeTelegramQueue } from '@jarvis/runtime'
 import { getMetricsText, getMetricsContentType } from '@jarvis/observability'
-import { createAuthMiddleware, authRouter } from './middleware/auth.js'
+import { createAuthMiddleware, authRouter, getPreferredDashboardToken } from './middleware/auth.js'
 import { DatabaseSync } from 'node:sqlite'
 
 const app = express()
@@ -47,6 +47,30 @@ const PORT = Number(process.env.PORT ?? 4242)
 const ALLOWED_ORIGIN = process.env.JARVIS_CORS_ORIGIN ?? `http://localhost:${PORT}`
 const distPath = join(process.cwd(), 'packages', 'jarvis-dashboard', 'dist')
 const indexHtml = join(distPath, 'index.html')
+const ACCESS_LOG_MODE = process.env.JARVIS_HTTP_ACCESS_LOG ?? 'quiet'
+const QUIET_REQUEST_PATHS = new Set([
+  '/api/attention',
+  '/api/chat/models',
+  '/api/daemon/status',
+  '/api/health',
+  '/api/mode',
+  '/api/models/health',
+  '/api/safemode',
+  '/favicon.ico',
+])
+const DASHBOARD_AUTH_COOKIE = 'jarvis_api_token'
+
+function shouldLogRequest(pathname: string): boolean {
+  if (ACCESS_LOG_MODE === 'all') return true
+  if (QUIET_REQUEST_PATHS.has(pathname)) return false
+  if (pathname.startsWith('/assets/')) return false
+  return true
+}
+
+function shouldAttachDashboardCookie(hostname: string): boolean {
+  const normalized = hostname.toLowerCase()
+  return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1' || normalized === '[::1]'
+}
 
 // ─── Appliance Mode Checks ───────────────────────────────────────────────
 {
@@ -88,7 +112,9 @@ app.use(express.json({
   },
 }))
 app.use((req, _res, next) => {
-  console.log(`[${req.method}] ${req.path}`)
+  if (shouldLogRequest(req.path)) {
+    console.log(`[${req.method}] ${req.path}`)
+  }
   next()
 })
 
@@ -219,7 +245,19 @@ app.get('/api/ready', (_req, res) => {
 const hasUI = fs.existsSync(indexHtml)
 
 if (hasUI) {
-  const serveIndex = (_req: express.Request, res: express.Response) => {
+  const serveIndex = (req: express.Request, res: express.Response) => {
+    const dashboardToken = getPreferredDashboardToken()
+    if (dashboardToken && shouldAttachDashboardCookie(req.hostname)) {
+      const isProduction = process.env.JARVIS_MODE === 'production'
+      res.cookie(DASHBOARD_AUTH_COOKIE, dashboardToken.token, {
+        httpOnly: true,
+        sameSite: 'strict',
+        secure: isProduction,
+        path: '/api',
+      })
+    } else {
+      res.clearCookie(DASHBOARD_AUTH_COOKIE, { path: '/api' })
+    }
     res.setHeader('Content-Type', 'text/html; charset=utf-8')
     res.send(fs.readFileSync(indexHtml, 'utf8'))
   }

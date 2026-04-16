@@ -1,4 +1,5 @@
 import type { Migration } from "./runner.js";
+import { columnExists } from "./schema.js";
 
 export const migration0007: Migration = {
   id: "0007",
@@ -12,4 +13,5 @@ export const migration0007: Migration = {
 
 ALTER TABLE channel_messages ADD COLUMN content_full TEXT;
 `,
+  isApplied: (db) => columnExists(db, "channel_messages", "content_full"),
 };

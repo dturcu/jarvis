@@ -246,7 +246,7 @@ describe("Health report", () => {
 // ===========================================================================
 
 describe("Migration completeness", () => {
-  it("all 11 runtime migrations apply cleanly on fresh DB", () => {
+  it("all 12 runtime migrations apply cleanly on fresh DB", () => {
     const db = new DatabaseSync(":memory:");
     db.exec("PRAGMA journal_mode = WAL;");
     db.exec("PRAGMA foreign_keys = ON;");
@@ -257,12 +257,12 @@ describe("Migration completeness", () => {
     const migCount = (
       db.prepare("SELECT COUNT(*) as n FROM schema_migrations").get() as { n: number }
     ).n;
-    expect(migCount).toBe(11);
+    expect(migCount).toBe(12);
 
     db.close();
   });
 
-  it("migration IDs: 0001 through 0011", () => {
+  it("migration IDs: 0001 through 0012", () => {
     const db = freshDb();
 
     const rows = db
@@ -270,7 +270,7 @@ describe("Migration completeness", () => {
       .all() as Array<{ id: string }>;
     const ids = rows.map((r) => r.id);
 
-    expect(ids).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009", "0010", "0011"]);
+    expect(ids).toEqual(["0001", "0002", "0003", "0004", "0005", "0006", "0007", "0008", "0009", "0010", "0011", "0012"]);
     db.close();
   });
 

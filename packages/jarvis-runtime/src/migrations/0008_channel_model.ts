@@ -1,4 +1,5 @@
 import type { Migration } from "./runner.js";
+import { columnExists, indexExists, tableExists } from "./schema.js";
 
 export const migration0008: Migration = {
   id: "0008",
@@ -29,4 +30,12 @@ CREATE INDEX idx_delivery_attempts_delivery ON delivery_attempts(delivery_id);
 ALTER TABLE channel_messages ADD COLUMN approval_id TEXT;
 CREATE INDEX idx_channel_messages_approval ON channel_messages(approval_id);
 `,
+  isApplied: (db) =>
+    columnExists(db, "channel_threads", "status")
+    && indexExists(db, "idx_channel_threads_status")
+    && indexExists(db, "idx_channel_threads_channel_status")
+    && tableExists(db, "delivery_attempts")
+    && indexExists(db, "idx_delivery_attempts_delivery")
+    && columnExists(db, "channel_messages", "approval_id")
+    && indexExists(db, "idx_channel_messages_approval"),
 };

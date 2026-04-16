@@ -35,6 +35,7 @@ export type Migration = {
   id: string;        // e.g. "0001"
   name: string;      // e.g. "runtime_core"
   sql: string;       // DDL statements
+  isApplied?: (db: DatabaseSync) => boolean;
 };
 
 /** Runtime DB migrations — control plane tables. */
@@ -95,18 +96,18 @@ export function runMigrations(db: DatabaseSync, migrations: Migration[] = RUNTIM
   for (const migration of migrations) {
     if (applied.has(migration.id)) continue;
 
+    if (migration.isApplied?.(db)) {
+      recordMigration(db, migration);
+      applied.add(migration.id);
+      continue;
+    }
+
     try {
       db.exec("BEGIN IMMEDIATE");
       db.exec(migration.sql);
-      db.prepare(
-        "INSERT INTO schema_migrations (id, name, applied_at, checksum) VALUES (?, ?, ?, ?)",
-      ).run(
-        migration.id,
-        migration.name,
-        new Date().toISOString(),
-        simpleChecksum(migration.sql),
-      );
+      insertMigrationRow(db, migration);
       db.exec("COMMIT");
+      applied.add(migration.id);
     } catch (err) {
       try { db.exec("ROLLBACK"); } catch { /* best-effort rollback */ }
       throw new Error(
@@ -123,4 +124,28 @@ function simpleChecksum(sql: string): string {
     hash = ((hash << 5) - hash + sql.charCodeAt(i)) | 0;
   }
   return hash.toString(16);
+}
+
+function recordMigration(db: DatabaseSync, migration: Migration): void {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    insertMigrationRow(db, migration);
+    db.exec("COMMIT");
+  } catch (err) {
+    try { db.exec("ROLLBACK"); } catch { /* best-effort rollback */ }
+    throw new Error(
+      `Failed to record migration ${migration.id}_${migration.name}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+}
+
+function insertMigrationRow(db: DatabaseSync, migration: Migration): void {
+  db.prepare(
+    "INSERT INTO schema_migrations (id, name, applied_at, checksum) VALUES (?, ?, ?, ?)",
+  ).run(
+    migration.id,
+    migration.name,
+    new Date().toISOString(),
+    simpleChecksum(migration.sql),
+  );
 }
