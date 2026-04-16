@@ -346,15 +346,9 @@ const AGENT_TOOLS = [
       parameters: { type: 'object', properties: { query: { type: 'string', description: 'Search topic' }, collection: { type: 'string', description: 'Optional: lessons, playbooks, iso26262, contracts, proposals' } }, required: ['query'] }
     }
   },
-  {
-    type: 'function' as const, function: {
-      name: 'trigger_agent', description: 'Delegate a task to a Jarvis agent for background execution. Use this when the user asks you to CREATE files, documents, reports, or perform multi-step work that requires writing to disk, sending emails, or other mutations. The orchestrator decomposes complex tasks into sub-tasks.',
-      parameters: { type: 'object', properties: {
-        agent: { type: 'string', enum: ['orchestrator', 'proposal-engine', 'evidence-auditor', 'contract-reviewer', 'knowledge-curator', 'regulatory-watch', 'staffing-monitor'], description: 'Agent to trigger. Use orchestrator for complex multi-step tasks.' },
-        goal: { type: 'string', description: 'What the agent should accomplish. Be specific about deliverables, file formats, and where to save results.' }
-      }, required: ['agent', 'goal'] }
-    }
-  },
+  // trigger_agent REMOVED from legacy chat — queuing agent runs from an
+  // unauthenticated Telegram-facing surface bypassed the approval pipeline.
+  // Operators should use the dashboard Workflows page (approval-gated) instead.
   {
     type: 'function' as const, function: {
       name: 'agent_status', description: 'Get status of all Jarvis agents (last run, pending approvals). Read-only.',
@@ -417,25 +411,9 @@ async function executeAgentTool(name: string, params: Record<string, unknown>): 
       }
     }
     case 'trigger_agent': {
-      const agentId = params.agent as string ?? 'orchestrator'
-      const goal = params.goal as string ?? ''
-      try {
-        const { DatabaseSync } = await import('node:sqlite')
-        const { randomUUID } = await import('node:crypto')
-        const db = new DatabaseSync(join(os.homedir(), '.jarvis', 'runtime.db'))
-        db.exec("PRAGMA journal_mode = WAL;")
-        const commandId = randomUUID()
-        const payload = JSON.stringify({ goal, triggered_by: 'telegram-chat', source: 'telegram' })
-        db.prepare(`
-          INSERT OR IGNORE INTO agent_commands
-            (command_id, command_type, target_agent_id, payload_json, status, priority, created_at, created_by, idempotency_key)
-          VALUES (?, 'run_agent', ?, ?, 'queued', 5, ?, 'telegram-chat', ?)
-        `).run(commandId, agentId, payload, new Date().toISOString(), `telegram-chat-${agentId}-${Date.now()}`)
-        db.close()
-        return `Triggered ${agentId} (${commandId.slice(0, 8)}). Goal: "${goal.slice(0, 100)}". The agent will run in the background and you'll be notified when it completes.`
-      } catch (e) {
-        return `Failed to trigger ${agentId}: ${e instanceof Error ? e.message : String(e)}`
-      }
+      // Removed: queuing runs from legacy chat bypassed the approval gate.
+      // Direct the user to the dashboard workflow launcher instead.
+      return 'trigger_agent is disabled on the legacy chat surface. Open the dashboard Workflows page to launch an agent with approval.'
     }
     case 'agent_status': {
       try {
@@ -685,10 +663,10 @@ RULES:
 7. The Jarvis project root is C:/Users/DanielV2/Documents/Playground. When asked about project files, contracts, or code, use this as the base path.
 
 You can SEARCH and READ emails (gmail_search, gmail_read) but CANNOT send emails directly.
-When the user asks you to CREATE documents, files, reports, presentations, or do multi-step work —
-use trigger_agent to delegate to the orchestrator. The orchestrator will decompose the task and
-dispatch to workers (office-worker for Excel/Word/PPT, web-worker for research, etc.).
-Do NOT describe what you WOULD create — actually trigger the agent to do the work.
+This legacy chat surface is READ-ONLY: you can answer questions, summarize, and look things up,
+but you CANNOT trigger agents, create documents, send messages, or make changes.
+When the user asks for a CREATE/SEND/MODIFY action, tell them to open the dashboard Workflows
+page where the request goes through the approval pipeline.
 
 CRM/Knowledge:
 ${context.slice(0, 1500)}`
