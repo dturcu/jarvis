@@ -187,6 +187,7 @@ describe("Smoke: Config Validation", () => {
   it("validates a correct config", () => {
     const config: JarvisRuntimeConfig = {
       lmstudio_url: "http://localhost:1234",
+      llamacpp_url: "http://localhost:8080",
       default_model: "auto",
       adapter_mode: "mock",
       poll_interval_ms: 60000,

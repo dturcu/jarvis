@@ -202,11 +202,17 @@ describe("MockInferenceAdapter", () => {
       expect(result.structured_output.models.every((m) => m.runtime === "lmstudio")).toBe(true);
     });
 
+    it("filters by llamacpp runtime", async () => {
+      const result = await adapter.listModels({ runtime: "llamacpp" });
+      expect(result.structured_output.models.every((m) => m.runtime === "llamacpp")).toBe(true);
+      expect(result.structured_output.models.length).toBeGreaterThan(0);
+    });
+
     it("each model entry has required fields", async () => {
       const result = await adapter.listModels({});
       for (const model of result.structured_output.models) {
         expect(model.id).toBeTruthy();
-        expect(["ollama", "lmstudio"]).toContain(model.runtime);
+        expect(["ollama", "lmstudio", "llamacpp"]).toContain(model.runtime);
         expect(["small", "medium", "large"]).toContain(model.size_class);
         expect(Array.isArray(model.capabilities)).toBe(true);
       }

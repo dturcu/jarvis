@@ -24,6 +24,7 @@ const OAuthCredentials = Type.Object({
 
 const ConfigSchema = Type.Object({
   lmstudio_url: Type.String(),
+  llamacpp_url: Type.String(),
   default_model: Type.String(),
   adapter_mode: Type.Union([Type.Literal("mock"), Type.Literal("real")]),
   poll_interval_ms: Type.Number({ minimum: 1000 }),
@@ -114,6 +115,7 @@ export function validateConfig(config: JarvisRuntimeConfig): ConfigCheckResult {
 export function loadConfig(): JarvisRuntimeConfig {
   const defaults: JarvisRuntimeConfig = {
     lmstudio_url: process.env.LMS_URL ?? "http://localhost:1234",
+    llamacpp_url: process.env.LLAMACPP_URL ?? "http://localhost:8080",
     default_model: process.env.LMS_MODEL ?? "auto",
     adapter_mode: "real",
     poll_interval_ms: 60_000,
@@ -141,6 +143,7 @@ export function loadConfig(): JarvisRuntimeConfig {
   const config: JarvisRuntimeConfig = {
     ...defaults,
     lmstudio_url: typeof raw.lmstudio_url === "string" ? raw.lmstudio_url : defaults.lmstudio_url,
+    llamacpp_url: typeof raw.llamacpp_url === "string" ? raw.llamacpp_url : defaults.llamacpp_url,
     default_model: typeof raw.default_model === "string" ? raw.default_model : defaults.default_model,
     adapter_mode: raw.adapter_mode === "mock" || raw.adapter_mode === "real" ? raw.adapter_mode : defaults.adapter_mode,
     poll_interval_ms: typeof raw.poll_interval_ms === "number" ? raw.poll_interval_ms : defaults.poll_interval_ms,
@@ -188,6 +191,9 @@ export function loadConfig(): JarvisRuntimeConfig {
   }
   if (process.env.JARVIS_BIND_HOST) {
     config.bind_host = process.env.JARVIS_BIND_HOST;
+  }
+  if (process.env.LLAMACPP_URL) {
+    config.llamacpp_url = process.env.LLAMACPP_URL;
   }
 
   // Validate

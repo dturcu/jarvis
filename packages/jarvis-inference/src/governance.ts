@@ -80,7 +80,7 @@ export class InferenceGovernor {
     if (
       this.policy.min_local_percentage !== undefined &&
       this.totalRequests > 10 &&
-      runtime !== 'ollama' && runtime !== 'lmstudio'
+      runtime !== 'ollama' && runtime !== 'lmstudio' && runtime !== 'llamacpp'
     ) {
       const currentLocalPct = this.totalRequests > 0 ? this.localRequests / this.totalRequests : 1
       if (currentLocalPct < this.policy.min_local_percentage) {
@@ -103,7 +103,7 @@ export class InferenceGovernor {
     this.usageLog.push(record)
     this.dailyCostUsd += record.estimated_cost_usd
     this.totalRequests++
-    if (record.runtime === 'ollama' || record.runtime === 'lmstudio') {
+    if (record.runtime === 'ollama' || record.runtime === 'lmstudio' || record.runtime === 'llamacpp') {
       this.localRequests++
     }
   }

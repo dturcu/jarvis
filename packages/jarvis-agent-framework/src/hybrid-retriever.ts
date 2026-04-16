@@ -31,7 +31,7 @@ export type WikiRetrievalSource = {
 export type HybridRetrieverConfig = {
   vectorStore: VectorStore;
   sparseStore: SparseStore;
-  /** Ollama or LM Studio base URL */
+  /** Ollama, LM Studio, or llama.cpp base URL */
   embeddingBaseUrl: string;
   /** Embedding model ID (e.g. "nomic-embed-text") */
   embeddingModel: string;

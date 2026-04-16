@@ -116,7 +116,7 @@ export function createWorkerRegistry(
 
   // ─── Inference ──────────────────────────────────────────────────────────
   const inferenceAdapter = useReal
-    ? new DefaultInferenceAdapter(runtimeDb, config.lmstudio_url, opts?.embeddingPipeline, opts?.hybridRetriever)
+    ? new DefaultInferenceAdapter(runtimeDb, config.lmstudio_url, opts?.embeddingPipeline, opts?.hybridRetriever, config.llamacpp_url)
     : new MockInferenceAdapter();
   const inferenceWorker = createInferenceWorker({ adapter: inferenceAdapter });
 

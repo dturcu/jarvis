@@ -225,7 +225,7 @@ describe("Runtime Wiring: OpenClaw model discovery in daemon", () => {
 describe("Runtime Wiring: ModelInfo.runtime includes openclaw", () => {
   it("router.ts ModelInfo type includes openclaw runtime", () => {
     const source = readSource("packages/jarvis-inference/src/router.ts");
-    expect(source).toMatch(/runtime:\s*"ollama"\s*\|\s*"lmstudio"\s*\|\s*"openclaw"/);
+    expect(source).toMatch(/runtime:\s*"ollama"\s*\|\s*"lmstudio"\s*\|\s*"llamacpp"\s*\|\s*"openclaw"/);
   });
 });
 

@@ -2,7 +2,7 @@
 
 **Autonomous agent system for [Thinking in Code](https://thinking-in-code.com)** — an automotive safety consulting firm specializing in ISO 26262, ASPICE, AUTOSAR, and cybersecurity.
 
-Jarvis runs 14 domain agents that handle business development, proposal generation, compliance auditing, contract review, staffing, content creation, portfolio management, and more. It runs on [OpenClaw](https://openclaw.dev) as a plugin pack, with local LLM inference via Ollama or LM Studio.
+Jarvis runs 14 domain agents that handle business development, proposal generation, compliance auditing, contract review, staffing, content creation, portfolio management, and more. It runs on [OpenClaw](https://openclaw.dev) as a plugin pack, with local LLM inference via Ollama, LM Studio, or llama.cpp.
 
 ## Quick Start
 

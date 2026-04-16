@@ -1,9 +1,9 @@
 /**
  * Model Registry — discovers and tracks locally available models.
  *
- * Probes Ollama (localhost:11434) and LM Studio (configurable) to discover
- * models, classifies their capabilities and size, and persists to the
- * model_registry table in runtime.db.
+ * Probes Ollama (localhost:11434), LM Studio (configurable), and llama.cpp
+ * (configurable) to discover models, classifies their capabilities and size,
+ * and persists to the model_registry table in runtime.db.
  */
 
 import type { DatabaseSync } from "node:sqlite";
@@ -68,20 +68,45 @@ async function discoverLmStudio(baseUrl = "http://localhost:1234", timeoutMs = 5
 }
 
 /**
- * Discover all locally available models from Ollama and LM Studio.
+ * Discover models from llama.cpp server (OpenAI-compatible).
  */
-export async function discoverModels(lmStudioUrl?: string): Promise<DiscoveryResult> {
-  const [ollama, lmstudio] = await Promise.all([
+async function discoverLlamaCpp(baseUrl = "http://localhost:8080", timeoutMs = 5000): Promise<{ models: ModelInfo[]; error?: string }> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const resp = await fetch(`${baseUrl}/v1/models`, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!resp.ok) {
+      return { models: [], error: `llama.cpp returned ${resp.status}` };
+    }
+
+    const data = await resp.json() as { data?: Array<{ id: string }> };
+    const models = (data.data ?? []).map(m => buildModelInfo(m.id, "llamacpp"));
+
+    return { models };
+  } catch (e) {
+    return { models: [], error: `llama.cpp unreachable: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
+/**
+ * Discover all locally available models from Ollama, LM Studio, and llama.cpp.
+ */
+export async function discoverModels(lmStudioUrl?: string, llamaCppUrl?: string): Promise<DiscoveryResult> {
+  const [ollama, lmstudio, llamacpp] = await Promise.all([
     discoverOllama(),
     discoverLmStudio(lmStudioUrl),
+    discoverLlamaCpp(llamaCppUrl),
   ]);
 
   const errors: string[] = [];
   if (ollama.error) errors.push(ollama.error);
   if (lmstudio.error) errors.push(lmstudio.error);
+  if (llamacpp.error) errors.push(llamacpp.error);
 
   return {
-    discovered: [...ollama.models, ...lmstudio.models],
+    discovered: [...ollama.models, ...lmstudio.models, ...llamacpp.models],
     errors,
   };
 }
@@ -147,7 +172,7 @@ export function loadRegisteredModels(db: DatabaseSync): ModelInfo[] {
     const limits = JSON.parse(row.limits_json) as { size_class?: string; parameter_count?: string };
     return {
       id: row.model_id,
-      runtime: row.runtime as "ollama" | "lmstudio",
+      runtime: row.runtime as "ollama" | "lmstudio" | "llamacpp",
       size_class: (limits.size_class ?? "medium") as ModelInfo["size_class"],
       capabilities: caps as ModelInfo["capabilities"],
       parameterCount: limits.parameter_count,
