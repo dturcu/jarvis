@@ -241,10 +241,35 @@ async function waitForLlamaCpp(timeoutMs = 15_000): Promise<boolean> {
   return false;
 }
 
-async function llamacppLoadModel(modelPath: string): Promise<void> {
+function resolveGgufPath(modelPath: string): string {
   if (!fs.existsSync(modelPath)) {
     throw new Error(`GGUF file not found: ${modelPath}`);
   }
+  const real = fs.realpathSync(modelPath);
+  const dirs = getGgufDirs();
+  if (dirs.length === 0) {
+    throw new Error("No gguf_dirs configured. Set LLAMACPP_GGUF_DIRS or configure runtimes.llamacpp.gguf_dirs.");
+  }
+  const allowed = dirs.some(dir => {
+    try {
+      const realDir = fs.realpathSync(dir);
+      const rel = path.relative(realDir, real);
+      return rel && !rel.startsWith("..") && !path.isAbsolute(rel);
+    } catch {
+      return false;
+    }
+  });
+  if (!allowed) {
+    throw new Error(`GGUF path ${modelPath} is outside configured gguf_dirs`);
+  }
+  if (!real.toLowerCase().endsWith(".gguf")) {
+    throw new Error(`Only .gguf files may be loaded`);
+  }
+  return real;
+}
+
+async function llamacppLoadModel(modelPath: string): Promise<void> {
+  const real = resolveGgufPath(modelPath);
 
   const binary = findLlamaCppBinary();
   if (!binary) throw new Error("llama-server binary not found");
@@ -263,12 +288,13 @@ async function llamacppLoadModel(modelPath: string): Promise<void> {
     // For now, we spawn our own
   }
 
+  const ngl = process.env.JARVIS_LLAMACPP_NGL ?? "99";
   llamacppChild = spawn(binary, [
     "--host", "127.0.0.1",
     "--port", new URL(getRuntimeUrl("llamacpp")).port || "8080",
-    "-m", modelPath,
+    "-m", real,
     "--ctx-size", "4096",
-    "-ngl", "99",
+    "-ngl", ngl,
   ], {
     stdio: ["ignore", "pipe", "pipe"],
     detached: false,
