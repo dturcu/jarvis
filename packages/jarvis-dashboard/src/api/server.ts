@@ -39,7 +39,7 @@ import { modeRouter } from './settings.js'
 import { conversationsRouter } from './conversations.js'
 import fs from 'fs'
 import { getHealthReport, getReadinessReport, loadConfig, writeTelegramQueue } from '@jarvis/runtime'
-import { getMetricsText, getMetricsContentType } from '@jarvis/observability'
+import { getMetricsText, getMetricsContentType, initTelemetry, shutdownTelemetry } from '@jarvis/observability'
 import { createAuthMiddleware, authRouter, getPreferredDashboardToken } from './middleware/auth.js'
 import { DatabaseSync } from 'node:sqlite'
 
@@ -309,7 +309,20 @@ if (hasUI) {
 // Production appliance must not accidentally listen on 0.0.0.0.
 const BIND_HOST = process.env.JARVIS_BIND_HOST ?? '127.0.0.1'
 
-app.listen(PORT, BIND_HOST, () => {
+// Initialize OpenTelemetry before accepting requests so HTTP spans and
+// metrics are captured for every route. Daemon uses port 9464, so the
+// dashboard defaults to 9465; override via DASHBOARD_OTEL_PROMETHEUS_PORT.
+if (process.env.JARVIS_DISABLE_OTEL !== '1') {
+  try {
+    const otelPort = Number(process.env.DASHBOARD_OTEL_PROMETHEUS_PORT ?? 9465)
+    initTelemetry({ prometheusPort: otelPort, serviceName: 'jarvis-dashboard' })
+    console.log(`  OTel:       Prometheus on :${otelPort}`)
+  } catch (e) {
+    console.warn(`  OTel:       init failed: ${e instanceof Error ? e.message : String(e)}`)
+  }
+}
+
+const server = app.listen(PORT, BIND_HOST, () => {
   console.log('')
   console.log(`  Jarvis Dashboard`)
   console.log(`  ─────────────────────────────────────`)
@@ -321,3 +334,12 @@ app.listen(PORT, BIND_HOST, () => {
   }
   console.log('')
 })
+
+async function shutdownDashboard(signal: NodeJS.Signals): Promise<void> {
+  console.log(`\n  Received ${signal}, shutting down dashboard...`)
+  server.close()
+  try { await shutdownTelemetry() } catch { /* best-effort */ }
+  process.exit(0)
+}
+process.on('SIGTERM', shutdownDashboard)
+process.on('SIGINT', shutdownDashboard)

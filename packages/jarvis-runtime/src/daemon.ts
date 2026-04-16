@@ -35,7 +35,7 @@ import { setWorkerHealthProvider } from "./health.js";
 import { resolveApproval } from "./approval-bridge.js";
 import { createNotificationDispatcher } from "./notify.js";
 import { sendSessionMessage } from "@jarvis/shared";
-import { taskflowRunsTotal, dreamingRunsTotal, dreamingSynthesisTotal } from "@jarvis/observability";
+import { taskflowRunsTotal, dreamingRunsTotal, dreamingSynthesisTotal, initTelemetry, shutdownTelemetry } from "@jarvis/observability";
 import { DreamingOrchestrator, PILOT_DREAMING_CONFIG, DEFAULT_DREAMING_CONFIG } from "./dreaming.js";
 import { OpenClawInferAdapter } from "@jarvis/inference";
 
@@ -104,6 +104,18 @@ async function main() {
   const logger = new Logger(config.log_level);
 
   logger.info("Jarvis daemon starting...");
+
+  // Initialize OpenTelemetry before any spans/metrics get recorded. Disabled
+  // via JARVIS_DISABLE_OTEL=1 for test runs or constrained environments.
+  if (process.env.JARVIS_DISABLE_OTEL !== "1") {
+    try {
+      const otelPort = Number(process.env.OTEL_PROMETHEUS_PORT ?? 9464);
+      initTelemetry({ prometheusPort: otelPort, serviceName: "jarvis-daemon" });
+      logger.info(`OpenTelemetry initialized (Prometheus on :${otelPort})`);
+    } catch (e) {
+      logger.warn(`Failed to initialize OpenTelemetry: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
 
   // Ensure ~/.jarvis exists
   if (!fs.existsSync(JARVIS_DIR)) {
@@ -786,6 +798,9 @@ async function main() {
     knowledgeStore.close();
     entityGraph.close();
     decisionLog.close();
+
+    // Flush OpenTelemetry
+    try { await shutdownTelemetry(); } catch { /* best-effort */ }
 
     logger.info("Daemon stopped cleanly");
     process.exit(0);
