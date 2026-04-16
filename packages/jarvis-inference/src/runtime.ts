@@ -55,13 +55,14 @@ function httpRequest(
 // Types
 // ---------------------------------------------------------------------------
 export type LlmRuntime = {
-  name: "ollama" | "lmstudio";
+  name: "ollama" | "lmstudio" | "llamacpp";
   baseUrl: string;
   available: boolean;
 };
 
 const OLLAMA_DEFAULT_URL = "http://localhost:11434";
 const LMSTUDIO_DEFAULT_URL = "http://localhost:1234";
+export const LLAMACPP_DEFAULT_URL = "http://localhost:8080";
 const PROBE_TIMEOUT_MS = 3000;
 
 // ---------------------------------------------------------------------------
@@ -77,9 +78,10 @@ async function probeUrl(url: string, timeoutMs?: number): Promise<boolean> {
 }
 
 export async function detectRuntimes(): Promise<LlmRuntime[]> {
-  const [ollamaAvailable, lmstudioAvailable] = await Promise.all([
+  const [ollamaAvailable, lmstudioAvailable, llamacppAvailable] = await Promise.all([
     probeUrl(`${OLLAMA_DEFAULT_URL}/api/tags`, PROBE_TIMEOUT_MS),
     probeUrl(`${LMSTUDIO_DEFAULT_URL}/v1/models`, PROBE_TIMEOUT_MS),
+    probeUrl(`${LLAMACPP_DEFAULT_URL}/health`, PROBE_TIMEOUT_MS),
   ]);
 
   return [
@@ -88,6 +90,11 @@ export async function detectRuntimes(): Promise<LlmRuntime[]> {
       name: "lmstudio",
       baseUrl: LMSTUDIO_DEFAULT_URL,
       available: lmstudioAvailable,
+    },
+    {
+      name: "llamacpp",
+      baseUrl: LLAMACPP_DEFAULT_URL,
+      available: llamacppAvailable,
     },
   ];
 }

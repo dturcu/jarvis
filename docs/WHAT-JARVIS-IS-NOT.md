@@ -8,7 +8,7 @@ Jarvis is a single-operator appliance. There is one operator (Daniel), one set o
 
 ## Not a Cloud-First Platform
 
-Jarvis is local-first. LLM inference runs on local hardware via Ollama or LM Studio. State lives in SQLite files on disk at `~/.jarvis/`. The dashboard binds to localhost. There is no cloud deployment target, no managed infrastructure, no serverless functions. It can run on a single machine with no internet connection (aside from the APIs it integrates with).
+Jarvis is local-first. LLM inference runs on local hardware via Ollama, LM Studio, or llama.cpp. State lives in SQLite files on disk at `~/.jarvis/`. The dashboard binds to localhost. There is no cloud deployment target, no managed infrastructure, no serverless functions. It can run on a single machine with no internet connection (aside from the APIs it integrates with).
 
 ## Not a General-Purpose AI Assistant
 

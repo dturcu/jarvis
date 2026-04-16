@@ -53,10 +53,11 @@ const batchStore = new Map<
   { jobs: InferenceBatchJobStatus[]; submittedAt: string }
 >();
 
-/** Well-known runtime URLs. LM Studio URL can be overridden via config. */
+/** Well-known runtime URLs. LM Studio and llama.cpp URLs can be overridden via config. */
 const DEFAULT_RUNTIME_URLS: Record<string, string> = {
   ollama: "http://localhost:11434",
   lmstudio: "http://localhost:1234",
+  llamacpp: "http://localhost:8080",
 };
 
 export class DefaultInferenceAdapter implements InferenceAdapter {
@@ -70,11 +71,13 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
     lmStudioUrl?: string,
     embeddingPipeline?: EmbeddingPipeline,
     hybridRetriever?: HybridRetriever,
+    llamaCppUrl?: string,
   ) {
     this.runtimeDb = runtimeDb;
     this.runtimeUrls = {
       ...DEFAULT_RUNTIME_URLS,
       ...(lmStudioUrl ? { lmstudio: lmStudioUrl } : {}),
+      ...(llamaCppUrl ? { llamacpp: llamaCppUrl } : {}),
     };
     this.embeddingPipeline = embeddingPipeline;
     this.hybridRetriever = hybridRetriever;
@@ -138,7 +141,7 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
     if (available.length === 0) {
       throw new InferenceWorkerError(
         "RUNTIME_UNAVAILABLE",
-        "No local LLM runtimes are available. Ensure Ollama or LM Studio is running.",
+        "No local LLM runtimes are available. Ensure Ollama, LM Studio, or llama.cpp is running.",
         true,
       );
     }
@@ -178,7 +181,7 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
     const profile: TaskProfile = { objective: "answer" };
     let modelId: string;
     let runtimeUrl: string;
-    let selectedRuntime: "ollama" | "lmstudio" | "openclaw" = "lmstudio";
+    let selectedRuntime: "ollama" | "lmstudio" | "llamacpp" | "openclaw" = "lmstudio";
 
     // Primary path: registry + evidence-backed selection
     const fromRegistry = this.selectFromRegistry(profile, input.model);
@@ -197,7 +200,7 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
       const discovered = await this.discoverAndSelect(profile, input.model);
       modelId = discovered.model.id;
       runtimeUrl = discovered.runtimeUrl;
-      selectedRuntime = runtimeUrl.includes("11434") ? "ollama" : "lmstudio";
+      selectedRuntime = discovered.model.runtime;
     }
 
     const result = await chatCompletion({
@@ -333,6 +336,7 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
     const profile: TaskProfile = { objective: "answer", constraints: { require_vision: true } };
     let modelId: string;
     let runtimeUrl: string;
+    let discovered: Awaited<ReturnType<typeof this.discoverAndSelect>> | undefined;
 
     const fromRegistry = this.selectFromRegistry(profile, input.model);
     if (fromRegistry) {
@@ -345,7 +349,7 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
 
       runtimeUrl = await this.resolveRuntimeUrl(fromRegistry.model.runtime);
     } else {
-      const discovered = await this.discoverAndSelect(profile, input.model);
+      discovered = await this.discoverAndSelect(profile, input.model);
       modelId = discovered.model.id;
       runtimeUrl = discovered.runtimeUrl;
     }
@@ -380,7 +384,7 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
       maxTokens: input.max_tokens,
     });
 
-    const runtimeName: "ollama" | "lmstudio" | "openclaw" = runtimeUrl.includes("11434") ? "ollama" : "lmstudio";
+    const runtimeName = fromRegistry ? fromRegistry.model.runtime : discovered!.model.runtime;
     const output: InferenceVisionChatOutput = {
       content: result.content,
       model: result.model,
@@ -399,22 +403,22 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
   }
 
   async embed(input: InferenceEmbedInput): Promise<ExecutionOutcome<InferenceEmbedOutput>> {
-    type LocalModelInfo = ModelInfo & { runtime: "ollama" | "lmstudio" };
+    type LocalModelInfo = ModelInfo & { runtime: "ollama" | "lmstudio" | "llamacpp" };
 
     const runtimes = await detectRuntimes();
     const availableRuntimes = runtimes.filter((runtime) => runtime.available);
     if (availableRuntimes.length === 0) {
       throw new InferenceWorkerError(
         "RUNTIME_UNAVAILABLE",
-        "No local LLM runtimes are available. Ensure Ollama or LM Studio is running.",
+        "No local LLM runtimes are available. Ensure Ollama, LM Studio, or llama.cpp is running.",
         true,
       );
     }
 
     const reachableRuntimeNames = new Set<string>(availableRuntimes.map((runtime) => runtime.name));
     const localAvailableRuntimes = availableRuntimes.filter(
-      (runtime): runtime is typeof runtime & { name: "ollama" | "lmstudio" } =>
-        runtime.name === "ollama" || runtime.name === "lmstudio",
+      (runtime): runtime is typeof runtime & { name: "ollama" | "lmstudio" | "llamacpp" } =>
+        runtime.name === "ollama" || runtime.name === "lmstudio" || runtime.name === "llamacpp",
     );
     const localRuntimeByName = new Map(localAvailableRuntimes.map((runtime) => [runtime.name, runtime]));
     const discoverReachableModels = async (): Promise<LocalModelInfo[]> => {
@@ -429,7 +433,7 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
 
     let modelId: string;
     let runtimeUrl: string;
-    let runtimeName: "ollama" | "lmstudio" | "openclaw";
+    let runtimeName: "ollama" | "lmstudio" | "llamacpp" | "openclaw";
 
     // Explicit model selection: trust the caller, but only on reachable runtimes.
     if (input.model) {
@@ -480,7 +484,7 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
         if (!selectedDiscovered) {
           throw new InferenceWorkerError(
             "NO_EMBEDDING_MODEL",
-            "No reachable embedding-capable model is available. Start LM Studio or install an embedding model in Ollama.",
+            "No reachable embedding-capable model is available. Start LM Studio, llama.cpp, or install an embedding model in Ollama.",
             true,
           );
         }
@@ -516,7 +520,7 @@ export class DefaultInferenceAdapter implements InferenceAdapter {
 
     const filtered = filter === "all" ? all : all.filter((r) => r.name === filter);
     const available = filtered.filter((r) => r.available);
-    const availableNames: Array<"ollama" | "lmstudio" | "openclaw"> = available.map((r) => r.name);
+    const availableNames: Array<"ollama" | "lmstudio" | "llamacpp" | "openclaw"> = available.map((r) => r.name as "ollama" | "lmstudio" | "llamacpp");
 
     const allModelEntries = await Promise.all(
       available.map(async (runtime) => {

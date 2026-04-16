@@ -332,7 +332,7 @@ async function main() {
 
   // Discover local models and populate registry
   try {
-    const discovery = await discoverModels(config.lmstudio_url);
+    const discovery = await discoverModels(config.lmstudio_url, config.llamacpp_url);
     if (discovery.discovered.length > 0) {
       const sync = syncModelRegistry(runtimeDb, discovery.discovered);
       logger.info(`Model discovery: ${discovery.discovered.length} models (${sync.added} new, ${sync.updated} updated)`);
@@ -563,7 +563,7 @@ async function main() {
     // ─── Periodic model re-discovery (every 5 min) ───────────────────────────
     const modelRediscoveryInterval = setInterval(async () => {
       try {
-        const discovery = await discoverModels(config.lmstudio_url);
+        const discovery = await discoverModels(config.lmstudio_url, config.llamacpp_url);
         if (discovery.discovered.length > 0) {
           const sync = syncModelRegistry(runtimeDb, discovery.discovered);
           if (sync.added > 0 || sync.updated > 0) {

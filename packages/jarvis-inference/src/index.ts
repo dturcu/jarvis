@@ -35,7 +35,7 @@ function asLiteralUnion<const Values extends readonly [string, ...string[]]>(
   return Type.Union(values.map((value) => Type.Literal(value)) as [any, any, ...any[]]);
 }
 
-const runtimeSchema = asLiteralUnion(["ollama", "lmstudio", "all"] as const);
+const runtimeSchema = asLiteralUnion(["ollama", "lmstudio", "llamacpp", "all"] as const);
 
 const messageSchema = Type.Object({
   role: asLiteralUnion(["system", "user", "assistant"] as const),
@@ -65,7 +65,7 @@ export function createInferenceTools(ctx: OpenClawPluginToolContext): AnyAgentTo
       ctx,
       "inference_chat",
       "Inference Chat",
-      "Send a chat completion request to a local LLM runtime (Ollama or LM Studio) with intelligent profile-based routing.",
+      "Send a chat completion request to a local LLM runtime (Ollama, LM Studio, or llama.cpp) with intelligent profile-based routing.",
       Type.Object({
         messages: Type.Array(messageSchema, { minItems: 1 }),
         model: Type.Optional(Type.String({ minLength: 1 })),

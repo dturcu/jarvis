@@ -25,6 +25,7 @@ function getDb(): DatabaseSync {
 const RUNTIME_ENDPOINTS: Array<{ name: string; url: string; probe: string }> = [
   { name: "lmstudio", url: "http://localhost:1234", probe: "http://localhost:1234/v1/models" },
   { name: "ollama", url: "http://localhost:11434", probe: "http://localhost:11434/api/tags" },
+  { name: "llamacpp", url: "http://localhost:8080", probe: "http://localhost:8080/health" },
 ];
 
 /** Check if a runtime endpoint is reachable (3s timeout). */

@@ -50,6 +50,12 @@ const MOCK_MODELS = [
     runtime: "ollama" as const,
     size_class: "medium" as const,
     capabilities: ["chat", "vision"] as string[]
+  },
+  {
+    id: "mistral:7b-instruct",
+    runtime: "llamacpp" as const,
+    size_class: "medium" as const,
+    capabilities: ["chat", "code"] as string[]
   }
 ];
 

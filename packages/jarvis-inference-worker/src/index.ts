@@ -9,8 +9,8 @@ import type { InferenceAdapter } from "./adapter.js";
 import { DefaultInferenceAdapter } from "./default-adapter.js";
 import { MockInferenceAdapter } from "./mock.js";
 
-export function createInferenceAdapter(mode: "mock" | "real", runtimeDb?: DatabaseSync, lmStudioUrl?: string): InferenceAdapter {
+export function createInferenceAdapter(mode: "mock" | "real", runtimeDb?: DatabaseSync, lmStudioUrl?: string, llamaCppUrl?: string): InferenceAdapter {
   return mode === "real"
-    ? new DefaultInferenceAdapter(runtimeDb, lmStudioUrl)
+    ? new DefaultInferenceAdapter(runtimeDb, lmStudioUrl, undefined, undefined, llamaCppUrl)
     : new MockInferenceAdapter();
 }

@@ -25,7 +25,7 @@
     },
     "runtime_name": {
       "type": "string",
-      "enum": ["ollama", "lmstudio"]
+      "enum": ["ollama", "lmstudio", "llamacpp"]
     },
     "model_capability": {
       "type": "string",
@@ -147,7 +147,7 @@
       "properties": {
         "runtime": {
           "type": "string",
-          "enum": ["ollama", "lmstudio", "all"]
+          "enum": ["ollama", "lmstudio", "llamacpp", "all"]
         }
       },
       "additionalProperties": false

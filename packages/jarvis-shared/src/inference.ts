@@ -20,7 +20,7 @@ export type InferenceEmbedParams = {
 };
 
 export type InferenceListModelsParams = {
-  runtime?: "ollama" | "lmstudio" | "all";
+  runtime?: "ollama" | "lmstudio" | "llamacpp" | "all";
 };
 
 export type InferenceRagIndexParams = {

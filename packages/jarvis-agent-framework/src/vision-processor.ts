@@ -17,7 +17,7 @@ export type VisionProcessorConfig = {
  *
  * Accepts multimodal messages (text + image_url content parts) and returns
  * a text response. Must be backed by a vision-capable model (llava, minicpm-v,
- * moondream, etc.) via Ollama or LM Studio.
+ * moondream, etc.) via Ollama, LM Studio, or llama.cpp.
  */
 export type VisionChatFn = (params: {
   baseUrl: string;

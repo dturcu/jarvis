@@ -8,7 +8,7 @@ export type ModelSizeClass = "small" | "medium" | "large";
 
 export type ModelInfo = {
   id: string;
-  runtime: "ollama" | "lmstudio" | "openclaw";
+  runtime: "ollama" | "lmstudio" | "llamacpp" | "openclaw";
   size_class: ModelSizeClass;
   capabilities: ModelCapability[];
   parameterCount?: string;
@@ -55,7 +55,7 @@ export function inferCapabilities(modelId: string): ModelCapability[] {
 
 export function buildModelInfo(
   id: string,
-  runtime: "ollama" | "lmstudio",
+  runtime: "ollama" | "lmstudio" | "llamacpp",
 ): ModelInfo {
   return {
     id,
@@ -69,6 +69,15 @@ export function buildModelInfo(
  * Select a model based on a SelectionPolicy.
  * Maps policy to size preference and capability requirements.
  */
+/** Runtime preference order — llamacpp is preferred when models are otherwise equivalent. */
+const RUNTIME_PREFERENCE: Record<string, number> = { llamacpp: 0, ollama: 1, lmstudio: 2, openclaw: 3 };
+
+function preferLlamaCpp(models: ModelInfo[]): ModelInfo[] {
+  return [...models].sort((a, b) =>
+    (RUNTIME_PREFERENCE[a.runtime] ?? 99) - (RUNTIME_PREFERENCE[b.runtime] ?? 99),
+  );
+}
+
 export function selectModel(
   available: ModelInfo[],
   policy: SelectionPolicy,
@@ -77,7 +86,8 @@ export function selectModel(
     return null;
   }
 
-  const chatModels = available.filter((m) => m.capabilities.includes("chat"));
+  const sorted = preferLlamaCpp(available);
+  const chatModels = sorted.filter((m) => m.capabilities.includes("chat"));
 
   switch (policy) {
     case "fastest_local": {
@@ -86,7 +96,7 @@ export function selectModel(
       if (small) return small;
       const medium = chatModels.find((m) => m.size_class === "medium");
       if (medium) return medium;
-      return chatModels[0] ?? available[0] ?? null;
+      return chatModels[0] ?? sorted[0] ?? null;
     }
     case "best_reasoning_local": {
       // Prefer largest model
@@ -94,7 +104,7 @@ export function selectModel(
       if (large) return large;
       const medium = chatModels.find((m) => m.size_class === "medium");
       if (medium) return medium;
-      return chatModels[0] ?? available[0] ?? null;
+      return chatModels[0] ?? sorted[0] ?? null;
     }
     case "best_code_local": {
       // Prefer code-specialized, then largest
@@ -102,12 +112,12 @@ export function selectModel(
       if (codeModel) return codeModel;
       const large = chatModels.find((m) => m.size_class === "large");
       if (large) return large;
-      return chatModels[0] ?? available[0] ?? null;
+      return chatModels[0] ?? sorted[0] ?? null;
     }
     case "vision_local": {
-      const visionModel = available.find((m) => m.capabilities.includes("vision"));
+      const visionModel = sorted.find((m) => m.capabilities.includes("vision"));
       if (visionModel) return visionModel;
-      return chatModels[0] ?? available[0] ?? null;
+      return chatModels[0] ?? sorted[0] ?? null;
     }
     case "json_reliable_local": {
       // Prefer medium or larger models (better at structured output)
@@ -115,7 +125,7 @@ export function selectModel(
       if (medium) return medium;
       const large = chatModels.find((m) => m.size_class === "large");
       if (large) return large;
-      return chatModels[0] ?? available[0] ?? null;
+      return chatModels[0] ?? sorted[0] ?? null;
     }
     case "embedding_local": {
       return selectEmbeddingModel(available);
@@ -128,7 +138,7 @@ export function selectModel(
       if (medium) return medium;
       const small = chatModels.find((m) => m.size_class === "small");
       if (small) return small;
-      return chatModels[0] ?? available[0] ?? null;
+      return chatModels[0] ?? sorted[0] ?? null;
     }
   }
 }
@@ -236,8 +246,8 @@ export function selectByProfileWithEvidence(
 }
 
 export function selectEmbeddingModel(available: ModelInfo[]): ModelInfo | null {
-  // Prefer dedicated embedding models first
-  const dedicated = available.find((m) => m.capabilities.includes("embedding"));
+  // Prefer dedicated embedding models first, llamacpp preferred among equals
+  const dedicated = preferLlamaCpp(available).find((m) => m.capabilities.includes("embedding"));
   if (dedicated) return dedicated;
 
   // Do not silently fall back to chat models: many local runtimes expose

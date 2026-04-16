@@ -125,6 +125,38 @@ describe("InferenceGovernor", () => {
     expect(result.allowed).toBe(true);
   });
 
+  it("treats llamacpp as a local runtime", () => {
+    // Record llamacpp usage and verify it counts as local
+    governor.recordUsage({
+      timestamp: new Date().toISOString(),
+      model: "mistral-7b",
+      runtime: "llamacpp",
+      tokens_used: 500,
+      latency_ms: 200,
+      estimated_cost_usd: 0,
+    });
+
+    const state = governor.getState();
+    expect(state.local_percentage).toBe(1.0);
+    expect(state.total_requests).toBe(1);
+  });
+
+  it("allows llamacpp requests even when local percentage is low", () => {
+    for (let i = 0; i < 11; i++) {
+      governor.recordUsage({
+        timestamp: new Date().toISOString(),
+        model: `cloud-${i}`,
+        runtime: "openclaw",
+        tokens_used: 100,
+        latency_ms: 100,
+        estimated_cost_usd: 0.01,
+      });
+    }
+
+    const result = governor.checkRequest("llamacpp", 0);
+    expect(result.allowed).toBe(true);
+  });
+
   it("estimates cost correctly with overrides", () => {
     const gov = new InferenceGovernor({
       fallback_policy: "degrade",

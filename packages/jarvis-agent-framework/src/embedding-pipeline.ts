@@ -18,7 +18,7 @@ export type EmbedFn = (params: {
 export type EmbeddingPipelineConfig = {
   vectorStore: VectorStore;
   sparseStore: SparseStore;
-  /** Ollama or LM Studio base URL (e.g. "http://localhost:11434") */
+  /** Ollama, LM Studio, or llama.cpp base URL (e.g. "http://localhost:11434") */
   embeddingBaseUrl: string;
   /** Embedding model ID (e.g. "nomic-embed-text") */
   embeddingModel: string;

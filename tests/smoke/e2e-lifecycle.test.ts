@@ -611,6 +611,7 @@ describe("E2E: Config Validation", () => {
   it("validates production-ready config", () => {
     const config: JarvisRuntimeConfig = {
       lmstudio_url: "http://localhost:1234",
+      llamacpp_url: "http://localhost:8080",
       default_model: "auto",
       adapter_mode: "real",
       poll_interval_ms: 60000,
