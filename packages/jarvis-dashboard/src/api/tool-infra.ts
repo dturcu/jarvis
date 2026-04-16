@@ -17,6 +17,8 @@ import https from 'https'
 import os from 'os'
 import fs, { realpathSync } from 'fs'
 import { join, resolve, relative } from 'path'
+import dns from 'node:dns/promises'
+import net from 'node:net'
 
 // ─── Read-Only Tool Registry ──────────────────────────────────────────────────
 
@@ -75,36 +77,106 @@ export function getProjectRoot(): string {
 export interface FetchUrlOptions {
   userAgent?: string
   timeout?: number
+  /** Max response body size in bytes (default 5 MB). */
+  maxBytes?: number
   /** Internal: remaining redirect hops (default 5). */
   _redirectsLeft?: number
 }
 
 const MAX_REDIRECTS = 5
+const DEFAULT_MAX_BYTES = 5 * 1024 * 1024
 
-export function fetchUrl(url: string, opts: FetchUrlOptions = {}): Promise<string> {
+/**
+ * SSRF guard. Reject non-http(s), reject hostnames that resolve to
+ * RFC1918, loopback, link-local, or unspecified addresses. Allows
+ * env-var opt-out via JARVIS_ALLOW_PRIVATE_FETCH=1 for local test fixtures.
+ */
+export async function assertUrlSafe(url: string): Promise<void> {
+  if (process.env.JARVIS_ALLOW_PRIVATE_FETCH === '1') return
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    throw new Error(`Invalid URL: ${url}`)
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`Blocked URL scheme: ${parsed.protocol}`)
+  }
+  const hostname = parsed.hostname.replace(/^\[|\]$/g, '')
+  const targets: string[] = []
+  if (net.isIP(hostname)) {
+    targets.push(hostname)
+  } else {
+    const records = await dns.lookup(hostname, { all: true, verbatim: true })
+    for (const r of records) targets.push(r.address)
+  }
+  for (const ip of targets) {
+    if (isPrivateAddress(ip)) {
+      throw new Error(`Blocked host: ${hostname} resolves to private address ${ip}`)
+    }
+  }
+}
+
+function isPrivateAddress(ip: string): boolean {
+  if (net.isIPv4(ip)) {
+    const parts = ip.split('.').map(n => Number(n))
+    const [a, b] = parts as [number, number]
+    if (a === 10) return true
+    if (a === 127) return true
+    if (a === 0) return true
+    if (a === 169 && b === 254) return true
+    if (a === 172 && b >= 16 && b <= 31) return true
+    if (a === 192 && b === 168) return true
+    if (a === 100 && b >= 64 && b <= 127) return true
+    if (a >= 224) return true
+    return false
+  }
+  if (net.isIPv6(ip)) {
+    const lower = ip.toLowerCase()
+    if (lower === '::' || lower === '::1') return true
+    if (lower.startsWith('fe80')) return true
+    if (lower.startsWith('fc') || lower.startsWith('fd')) return true
+    const v4Mapped = lower.match(/^::ffff:([\d.]+)$/)
+    if (v4Mapped && net.isIPv4(v4Mapped[1]!)) return isPrivateAddress(v4Mapped[1]!)
+    return false
+  }
+  return true
+}
+
+export async function fetchUrl(url: string, opts: FetchUrlOptions = {}): Promise<string> {
+  await assertUrlSafe(url)
   const userAgent = opts.userAgent ?? 'Jarvis/1.0'
   const timeout = opts.timeout ?? 15000
   const redirectsLeft = opts._redirectsLeft ?? MAX_REDIRECTS
-  return new Promise((resolve, reject) => {
+  const maxBytes = opts.maxBytes ?? DEFAULT_MAX_BYTES
+  return new Promise((resolvePromise, rejectPromise) => {
     const mod = url.startsWith('https') ? https : http
     const req = mod.get(url, { headers: { 'User-Agent': userAgent } }, (res) => {
       if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
         if (redirectsLeft <= 0) {
-          reject(new Error(`Too many redirects (max ${MAX_REDIRECTS})`))
+          rejectPromise(new Error(`Too many redirects (max ${MAX_REDIRECTS})`))
           return
         }
-        // Resolve relative Location headers against the original URL
         const resolved = new URL(res.headers.location, url).href
-        fetchUrl(resolved, { ...opts, _redirectsLeft: redirectsLeft - 1 }).then(resolve).catch(reject)
+        fetchUrl(resolved, { ...opts, _redirectsLeft: redirectsLeft - 1 }).then(resolvePromise).catch(rejectPromise)
         return
       }
       let data = ''
-      res.on('data', (c: Buffer) => data += c.toString())
-      res.on('end', () => resolve(data))
-      res.on('error', reject)
+      let bytes = 0
+      res.on('data', (c: Buffer) => {
+        bytes += c.length
+        if (bytes > maxBytes) {
+          req.destroy()
+          rejectPromise(new Error(`Response exceeds max size of ${maxBytes} bytes`))
+          return
+        }
+        data += c.toString()
+      })
+      res.on('end', () => resolvePromise(data))
+      res.on('error', rejectPromise)
     })
-    req.on('error', reject)
-    req.setTimeout(timeout, () => { req.destroy(); reject(new Error('Timeout')) })
+    req.on('error', rejectPromise)
+    req.setTimeout(timeout, () => { req.destroy(); rejectPromise(new Error('Timeout')) })
   })
 }
 
