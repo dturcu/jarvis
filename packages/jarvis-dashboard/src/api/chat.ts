@@ -12,6 +12,8 @@ import https from 'https'
 import os from 'os'
 import fs from 'fs'
 import { join } from 'path'
+import { realpathSync } from 'fs'
+import { resolve } from 'path'
 import {
   fetchUrl,
   executeTool,
@@ -24,6 +26,7 @@ import {
   detectLlm,
   listLocalModels,
   listAllModels,
+  getProjectRoot,
   type FetchUrlOptions,
 } from './tool-infra.js'
 
@@ -395,10 +398,19 @@ async function executeAgentTool(name: string, params: Record<string, unknown>): 
     case 'read_file': {
       const filePath = params.path as string
       const maxChars = (params.max_chars as number) ?? 2000
+      if (!filePath) return 'Error: path is required'
       try {
-        const fs = await import('node:fs')
-        const content = fs.readFileSync(filePath, 'utf8')
-        return content.length > maxChars ? content.slice(0, maxChars) + '\n…(truncated)' : content
+        const PROJECT_ROOT = realpathSync(getProjectRoot())
+        const absPath = resolve(PROJECT_ROOT, filePath)
+        if (!absPath.startsWith(PROJECT_ROOT)) return 'Error: path must be within the project directory'
+        if (!fs.existsSync(absPath)) return `Error: file not found: ${filePath}`
+        const realPath = realpathSync(absPath)
+        if (!realPath.startsWith(PROJECT_ROOT)) return 'Error: path must be within the project directory'
+        const stat = fs.statSync(realPath)
+        if (stat.isDirectory()) return `Error: ${filePath} is a directory`
+        if (stat.size > 100_000) return `Error: file too large (${Math.round(stat.size / 1024)}KB). Max 100KB.`
+        const content = fs.readFileSync(realPath, 'utf8')
+        return content.length > maxChars ? content.slice(0, maxChars) + '\n\u2026(truncated)' : content
       } catch (e) {
         return `Cannot read ${filePath}: ${e instanceof Error ? e.message : String(e)}`
       }

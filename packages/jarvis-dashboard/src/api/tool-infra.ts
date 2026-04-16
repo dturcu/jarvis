@@ -370,22 +370,29 @@ export async function executeTool(
     }
 
     case 'list_files': {
-      const targetPath = (params.path as string) ?? join(os.homedir(), 'Desktop')
+      const requested = (params.path as string) ?? '.'
       try {
-        const entries = fs.readdirSync(targetPath, { withFileTypes: true })
+        const PROJECT_ROOT = realpathSync(getProjectRoot())
+        const absPath = resolve(PROJECT_ROOT, requested)
+        if (!absPath.startsWith(PROJECT_ROOT)) return 'Error: path must be within the project directory'
+        if (!fs.existsSync(absPath)) return `Error: directory not found: ${requested}`
+        const realAbs = realpathSync(absPath)
+        if (!realAbs.startsWith(PROJECT_ROOT)) return 'Error: path must be within the project directory'
+        if (!fs.statSync(realAbs).isDirectory()) return `Error: ${requested} is not a directory`
+        const entries = fs.readdirSync(realAbs, { withFileTypes: true })
         const items = entries.slice(0, 50).map(e => {
           const type = e.isDirectory() ? '\u{1F4C1}' : '\u{1F4C4}'
           try {
-            const stats = fs.statSync(join(targetPath, e.name))
+            const stats = fs.statSync(join(realAbs, e.name))
             const size = e.isDirectory() ? '' : ` (${Math.round(stats.size / 1024)}KB)`
             return `${type} ${e.name}${size}`
           } catch {
             return `${type} ${e.name}`
           }
         })
-        return `Files in ${targetPath}:\n${items.join('\n')}${entries.length > 50 ? `\n... and ${entries.length - 50} more` : ''}`
+        return `Files in ${requested}:\n${items.join('\n')}${entries.length > 50 ? `\n... and ${entries.length - 50} more` : ''}`
       } catch (e) {
-        return `Cannot list files at ${targetPath}: ${e instanceof Error ? e.message : String(e)}`
+        return `Cannot list files at ${requested}: ${e instanceof Error ? e.message : String(e)}`
       }
     }
 
