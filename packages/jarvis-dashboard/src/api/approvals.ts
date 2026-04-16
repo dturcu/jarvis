@@ -133,28 +133,17 @@ approvalsRouter.post('/:id/reject', (req, res) => {
 })
 
 // POST /:id/edit — approve with modifications
-approvalsRouter.post('/:id/edit', (req, res) => {
-  const db = getDb()
-  try {
-    const { modified_input } = req.body as { modified_input?: Record<string, unknown> }
-    if (!modified_input) {
-      res.status(400).json({ error: 'modified_input is required' })
-      return
-    }
-
-    // Resolve as approved with modification note
-    const ok = resolveApproval(db, req.params.id!, 'approved', 'dashboard',
-      `Approved with modifications: ${JSON.stringify(modified_input).slice(0, 500)}`)
-    if (!ok) {
-      res.status(404).json({ error: 'Approval not found or already resolved' })
-      return
-    }
-
-    const approvals = listApprovals(db)
-    const enriched = enrichApprovals(db, approvals)
-    const entry = enriched.find(a => a.id === req.params.id)
-    res.json(entry)
-  } finally {
-    try { db.close() } catch { /* best-effort */ }
-  }
+// Currently returns 501: the previous implementation accepted modified_input
+// but only recorded it in the resolution note. The job envelope was never
+// mutated, so the worker still executed the original payload — silently
+// misleading operators into thinking their edits took effect.
+// A correct implementation must (a) validate modified_input against the job
+// type's schema, (b) rewrite the envelope under a BEGIN IMMEDIATE transaction,
+// and (c) only then release the job to `queued`. Tracked as a high-priority
+// item in docs/ARCHITECTURE-UPDATE-2026-04.md.
+approvalsRouter.post('/:id/edit', (_req, res) => {
+  res.status(501).json({
+    error: 'Approve-with-modifications is temporarily disabled',
+    detail: 'Modifying approval payloads is not safely wired end-to-end. Use POST /:id/approve (unmodified) or POST /:id/reject for now. See docs/ARCHITECTURE-UPDATE-2026-04.md #2.',
+  })
 })

@@ -312,24 +312,81 @@ class JarvisState {
       "approved" | "rejected" | "expired" | "cancelled"
     >,
   ): ApprovalRecord | null {
-    const record = this.getApproval(approvalId);
-    if (!record) {
-      return null;
-    }
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const record = this.getApproval(approvalId);
+      if (!record) {
+        this.db.exec("ROLLBACK");
+        return null;
+      }
 
-    // State machine enforcement: only "pending" approvals can transition.
-    // Already-resolved approvals cannot be re-resolved (idempotent safety).
-    if (record.state !== "pending") {
-      return null;
-    }
+      // State machine enforcement: only "pending" approvals can transition.
+      if (record.state !== "pending") {
+        this.db.exec("ROLLBACK");
+        return null;
+      }
 
-    const updated: ApprovalRecord = {
-      ...record,
-      state,
-      resolved_at: nowIso()
-    };
-    this.writeApprovalRecord(updated);
-    return updated;
+      const updated: ApprovalRecord = {
+        ...record,
+        state,
+        resolved_at: nowIso()
+      };
+      this.writeApprovalRecord(updated);
+
+      // Promote (or cancel) any job envelopes that were parked awaiting
+      // this approval. Without this step, approval-gated submissions would
+      // sit in `awaiting_approval` forever even after an operator approved.
+      this.propagateApprovalToJobs(approvalId, state);
+
+      this.db.exec("COMMIT");
+      return updated;
+    } catch (e) {
+      try { this.db.exec("ROLLBACK"); } catch { /* best-effort */ }
+      throw e;
+    }
+  }
+
+  /**
+   * Scan jobs parked in `awaiting_approval` status that reference this
+   * approval_id, and transition them to match the approval outcome.
+   * `approved` → `queued` (worker can claim), other states → terminal.
+   * Scoped to the small awaiting_approval set so a full table scan is fine.
+   */
+  private propagateApprovalToJobs(
+    approvalId: string,
+    state: Extract<JarvisApprovalState, "approved" | "rejected" | "expired" | "cancelled">,
+  ): void {
+    const rows = this.db
+      .prepare("SELECT record_json FROM jobs WHERE status = 'awaiting_approval'")
+      .all() as Array<{ record_json: string }>;
+
+    for (const row of rows) {
+      const job = deserializeJson<JobRecord>(row.record_json);
+      if (job.result.approval_id !== approvalId) continue;
+
+      const now = nowIso();
+      if (state === "approved") {
+        job.envelope.approval_state = "approved";
+        job.result = {
+          ...job.result,
+          status: "queued",
+          summary: `Queued ${job.envelope.type} after approval.`,
+          metrics: { ...(job.result.metrics ?? {}), queued_at: now, attempt: job.envelope.attempt }
+        };
+      } else {
+        const terminal = state === "rejected" ? "cancelled" : state === "expired" ? "failed" : "cancelled";
+        job.result = {
+          ...job.result,
+          status: terminal,
+          summary: `${job.envelope.type} ${state} via approval ${approvalId}.`,
+          error: state === "expired"
+            ? { code: "APPROVAL_EXPIRED", message: "Approval expired before resolution.", retryable: false }
+            : job.result.error,
+          metrics: { ...(job.result.metrics ?? {}), attempt: job.envelope.attempt }
+        };
+      }
+      this.writeJobRecord(job, now);
+    }
   }
 
   getApproval(approvalId: string): ApprovalRecord | null {
@@ -357,16 +414,53 @@ class JarvisState {
     const approvalGranted = this.isApprovalGranted(params.approvalId);
 
     if (approvalRequirement === "required" && !approvalGranted) {
+      // Validate input BEFORE persisting the envelope so a bad payload can't
+      // sit in the queue waiting for an approval that would only fail later.
+      const validation = validateJobInput(params.type, params.input);
+      if (!validation.valid) {
+        return createToolResponse({
+          status: "failed",
+          summary: `Invalid input for ${params.type}: ${validation.errors.join("; ")}.`,
+          error: {
+            code: "INVALID_JOB_INPUT",
+            message: validation.errors.join("; "),
+            retryable: false
+          }
+        });
+      }
+
       const approval = this.requestApproval({
         title: `Approve ${params.type}`,
         description: `Approval required before queuing ${params.type}.`,
         severity: "critical",
         scopes: [params.type]
       });
+
+      // Persist the envelope in `awaiting_approval` status so that
+      // resolveApproval(approved) can promote it to `queued` without the
+      // caller needing to re-submit. This closes the bug where approval-
+      // gated submissions silently vanished until the caller re-issued them.
+      const envelope = this.buildEnvelope(params, false);
+      const result: JobResult = {
+        contract_version: CONTRACT_VERSION,
+        job_id: envelope.job_id,
+        job_type: envelope.type,
+        status: "awaiting_approval",
+        summary: `Awaiting approval ${approval.approval_id}.`,
+        attempt: envelope.attempt,
+        approval_id: approval.approval_id,
+        metrics: {
+          queued_at: nowIso(),
+          attempt: envelope.attempt
+        }
+      };
+      this.writeJobRecord({ envelope, result, claim: null });
+
       return createToolResponse({
         status: "awaiting_approval",
         summary: `Approval required before running ${params.type}.`,
-        approval_id: approval.approval_id
+        approval_id: approval.approval_id,
+        job_id: envelope.job_id
       });
     }
 
