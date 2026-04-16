@@ -28,6 +28,21 @@ type TokenEntry = {
   role: UserRole;
 };
 
+function sha256(input: string): Buffer {
+  return crypto.createHash("sha256").update(input, "utf8").digest();
+}
+
+function findTokenConstantTime(tokens: TokenEntry[], providedToken: string): TokenEntry | null {
+  const providedHash = sha256(providedToken);
+  let match: TokenEntry | null = null;
+  for (const entry of tokens) {
+    const entryHash = sha256(entry.token);
+    const equal = crypto.timingSafeEqual(entryHash, providedHash);
+    if (equal) match = entry;
+  }
+  return match;
+}
+
 /** Load API tokens from config. Supports single token or role-based token map. */
 export function loadTokens(): TokenEntry[] {
   // Check env first
@@ -316,7 +331,7 @@ export function createAuthMiddleware() {
       res.status(401).json({ error: "Missing or invalid Authorization header. Use: Bearer <token>" });
       return;
     }
-    const match = tokens.find(t => t.token === providedToken);
+    const match = findTokenConstantTime(tokens, providedToken);
 
     if (!match) {
       recordFailure(clientIp);
