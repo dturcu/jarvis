@@ -60,9 +60,24 @@ export function sanitizeForPrompt(text: string): string {
     .replace(/\[SYSTEM\][\s\S]*?\[\/SYSTEM\]/gi, '[content removed]')
     .replace(/\[INST\][\s\S]*?\[\/INST\]/gi, '[content removed]')
     .replace(/<\|im_start\|>[\s\S]*?<\|im_end\|>/gi, '[content removed]')
+    // Neutralize embedded tool-call syntax — attacker-controlled strings must
+    // not be able to re-trigger the tool loop the way assistant output can.
+    .replace(/\[TOOL:(\w+)\]/gi, '[TOOL-NEUTRALIZED:$1]')
     // Collapse whitespace
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+/**
+ * Wrap a tool result for safe re-injection into the LLM context. The result
+ * is sanitized (prompt-injection patterns neutralized) and wrapped in
+ * explicit untrusted_content delimiters so the model treats it as data,
+ * not as instructions.
+ */
+export function wrapToolResult(toolName: string, result: string): string {
+  const safe = sanitizeForPrompt(result);
+  const safeName = String(toolName).replace(/[^a-zA-Z0-9_-]/g, '');
+  return `<untrusted_content tool="${safeName}">\n${safe}\n</untrusted_content>`;
 }
 
 // ─── Project Root ──────────────────────────────────────────────────────────────
