@@ -46,11 +46,17 @@ describe("Copilot Surface: Frozen Read-Only Contract", () => {
     }
   });
 
-  it("trigger_agent is available as a tool in chat for agent delegation", () => {
+  it("trigger_agent is NOT declared as a callable tool in legacy chat", () => {
+    // trigger_agent was removed from the legacy Telegram chat surface because
+    // queuing agent runs from an un-approval-gated ingress bypassed the
+    // approval pipeline. The case branch still exists but now returns a
+    // user-facing refusal instead of inserting into agent_commands.
+    // See docs/ARCHITECTURE-UPDATE-2026-04.md #8.
     const chatSrc = fs.readFileSync(join(ROOT, "packages/jarvis-dashboard/src/api/chat.ts"), "utf8");
-    expect(chatSrc).toContain("case 'trigger_agent':");
-    // trigger_agent was re-enabled to allow chat to delegate tasks to agents
-    expect(new RegExp("name:\\s*'trigger_agent'").test(chatSrc)).toBe(true);
+    expect(new RegExp("name:\\s*'trigger_agent'").test(chatSrc)).toBe(false);
+    // The handler must still be present as a refusal so the LLM gets a
+    // deterministic response rather than an unhandled tool error.
+    expect(chatSrc).toContain("trigger_agent is disabled on the legacy chat surface");
   });
 });
 
