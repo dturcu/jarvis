@@ -24,6 +24,7 @@ import { listAllModels } from './tool-infra.js'
 import { createSessionChatRoute } from './session-chat-adapter.js'
 import { tasksRouter } from './tasks.js'
 import { modelsRouter } from './models.js'
+import { runtimesRouter } from './runtimes.js'
 import { queueRouter } from './queue.js'
 import { policyRouter } from './policy.js'
 import { workflowsRouter } from './workflows.js'
@@ -170,6 +171,7 @@ app.get('/api/godmode/models', async (_req, res) => {
 app.use('/api/godmode', createSessionChatRoute())
 app.use('/api/godmode/legacy', godmodeRouter)
 app.use('/api/models', modelsRouter)
+app.use('/api/runtimes', runtimesRouter)
 app.use('/api/queue', queueRouter)
 app.use('/api/policy', policyRouter)
 app.use('/api/workflows', workflowsRouter)
