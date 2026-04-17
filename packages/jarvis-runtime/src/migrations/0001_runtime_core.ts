@@ -12,7 +12,7 @@ export const migration0001: Migration = {
 -- ============================================================
 
 -- Approvals (replaces approvals.json)
-CREATE TABLE approvals (
+CREATE TABLE IF NOT EXISTS approvals (
   approval_id   TEXT PRIMARY KEY,
   run_id        TEXT,
   agent_id      TEXT,
@@ -26,11 +26,11 @@ CREATE TABLE approvals (
   resolved_by   TEXT,
   resolution_note TEXT
 );
-CREATE INDEX idx_approvals_run_id ON approvals(run_id);
-CREATE INDEX idx_approvals_status ON approvals(status);
+CREATE INDEX IF NOT EXISTS idx_approvals_run_id ON approvals(run_id);
+CREATE INDEX IF NOT EXISTS idx_approvals_status ON approvals(status);
 
 -- Agent commands (replaces trigger-*.json files)
-CREATE TABLE agent_commands (
+CREATE TABLE IF NOT EXISTS agent_commands (
   command_id        TEXT PRIMARY KEY,
   command_type      TEXT NOT NULL,
   target_agent_id   TEXT,
@@ -44,10 +44,10 @@ CREATE TABLE agent_commands (
   created_by        TEXT,
   idempotency_key   TEXT UNIQUE
 );
-CREATE INDEX idx_agent_commands_status_priority ON agent_commands(status, priority DESC);
+CREATE INDEX IF NOT EXISTS idx_agent_commands_status_priority ON agent_commands(status, priority DESC);
 
 -- Run events (enables replayable execution history)
-CREATE TABLE run_events (
+CREATE TABLE IF NOT EXISTS run_events (
   event_id      TEXT PRIMARY KEY,
   run_id        TEXT NOT NULL,
   agent_id      TEXT,
@@ -57,10 +57,10 @@ CREATE TABLE run_events (
   payload_json  TEXT,
   created_at    TEXT NOT NULL
 );
-CREATE INDEX idx_run_events_run_id ON run_events(run_id);
+CREATE INDEX IF NOT EXISTS idx_run_events_run_id ON run_events(run_id);
 
 -- Daemon heartbeats (replaces daemon-status.json)
-CREATE TABLE daemon_heartbeats (
+CREATE TABLE IF NOT EXISTS daemon_heartbeats (
   daemon_id       TEXT PRIMARY KEY,
   pid             INTEGER,
   host            TEXT,
@@ -73,7 +73,7 @@ CREATE TABLE daemon_heartbeats (
 );
 
 -- Notifications (replaces telegram-queue.json)
-CREATE TABLE notifications (
+CREATE TABLE IF NOT EXISTS notifications (
   notification_id TEXT PRIMARY KEY,
   channel         TEXT NOT NULL,
   kind            TEXT,
@@ -82,10 +82,10 @@ CREATE TABLE notifications (
   created_at      TEXT NOT NULL,
   delivered_at    TEXT
 );
-CREATE INDEX idx_notifications_status ON notifications(status);
+CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications(status);
 
 -- Plugin installs
-CREATE TABLE plugin_installs (
+CREATE TABLE IF NOT EXISTS plugin_installs (
   plugin_id     TEXT PRIMARY KEY,
   version       TEXT,
   install_path  TEXT,
@@ -96,7 +96,7 @@ CREATE TABLE plugin_installs (
 );
 
 -- Audit log
-CREATE TABLE audit_log (
+CREATE TABLE IF NOT EXISTS audit_log (
   audit_id      TEXT PRIMARY KEY,
   actor_type    TEXT NOT NULL,
   actor_id      TEXT,
@@ -106,17 +106,17 @@ CREATE TABLE audit_log (
   payload_json  TEXT,
   created_at    TEXT NOT NULL
 );
-CREATE INDEX idx_audit_log_created_at ON audit_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
 
 -- Settings
-CREATE TABLE settings (
+CREATE TABLE IF NOT EXISTS settings (
   key         TEXT PRIMARY KEY,
   value_json  TEXT,
   updated_at  TEXT NOT NULL
 );
 
 -- Model registry (populated by Phase 4 model discovery)
-CREATE TABLE model_registry (
+CREATE TABLE IF NOT EXISTS model_registry (
   model_id          TEXT PRIMARY KEY,
   runtime           TEXT,
   capabilities_json TEXT,
@@ -128,7 +128,7 @@ CREATE TABLE model_registry (
 );
 
 -- Model benchmarks (populated by Phase 4 benchmarking)
-CREATE TABLE model_benchmarks (
+CREATE TABLE IF NOT EXISTS model_benchmarks (
   benchmark_id      TEXT PRIMARY KEY,
   model_id          TEXT NOT NULL,
   runtime           TEXT,
@@ -142,7 +142,7 @@ CREATE TABLE model_benchmarks (
 );
 
 -- Schedules (replaces in-memory SchedulerStore Map)
-CREATE TABLE schedules (
+CREATE TABLE IF NOT EXISTS schedules (
   schedule_id     TEXT PRIMARY KEY,
   job_type        TEXT NOT NULL,
   input_json      TEXT,
@@ -154,10 +154,10 @@ CREATE TABLE schedules (
   created_at      TEXT NOT NULL,
   last_fired_at   TEXT
 );
-CREATE INDEX idx_schedules_next_fire ON schedules(next_fire_at, enabled);
+CREATE INDEX IF NOT EXISTS idx_schedules_next_fire ON schedules(next_fire_at, enabled);
 
 -- Agent memory (replaces in-memory AgentMemoryStore Maps)
-CREATE TABLE agent_memory (
+CREATE TABLE IF NOT EXISTS agent_memory (
   memory_id   TEXT PRIMARY KEY,
   agent_id    TEXT NOT NULL,
   memory_type TEXT NOT NULL CHECK (memory_type IN ('short_term', 'long_term')),
@@ -166,6 +166,6 @@ CREATE TABLE agent_memory (
   created_at  TEXT NOT NULL,
   expires_at  TEXT
 );
-CREATE INDEX idx_agent_memory_agent_type ON agent_memory(agent_id, memory_type);
+CREATE INDEX IF NOT EXISTS idx_agent_memory_agent_type ON agent_memory(agent_id, memory_type);
 `,
 };

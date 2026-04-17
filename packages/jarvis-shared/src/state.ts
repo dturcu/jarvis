@@ -118,11 +118,12 @@ function normalizePersistenceConfig(
     };
   }
 
+  const defaultLegacy = resolvedSource.replace(/\.(sqlite|db)$/i, ".json");
   return {
     databasePath: resolvedSource,
     legacySnapshotPath:
       legacySnapshotPath ??
-      resolvedSource.replace(/\.sqlite$/i, ".json")
+      (defaultLegacy !== resolvedSource ? defaultLegacy : undefined)
   };
 }
 
@@ -140,7 +141,16 @@ function readSnapshot(filePath: string): JarvisStateSnapshot | null {
     return null;
   }
 
-  const parsed = JSON.parse(raw) as unknown;
+  if (raw.startsWith("SQLite format")) {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
   if (
     !isRecord(parsed) ||
     parsed.contract_version !== CONTRACT_VERSION ||
@@ -312,24 +322,81 @@ class JarvisState {
       "approved" | "rejected" | "expired" | "cancelled"
     >,
   ): ApprovalRecord | null {
-    const record = this.getApproval(approvalId);
-    if (!record) {
-      return null;
-    }
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const record = this.getApproval(approvalId);
+      if (!record) {
+        this.db.exec("ROLLBACK");
+        return null;
+      }
 
-    // State machine enforcement: only "pending" approvals can transition.
-    // Already-resolved approvals cannot be re-resolved (idempotent safety).
-    if (record.state !== "pending") {
-      return null;
-    }
+      // State machine enforcement: only "pending" approvals can transition.
+      if (record.state !== "pending") {
+        this.db.exec("ROLLBACK");
+        return null;
+      }
 
-    const updated: ApprovalRecord = {
-      ...record,
-      state,
-      resolved_at: nowIso()
-    };
-    this.writeApprovalRecord(updated);
-    return updated;
+      const updated: ApprovalRecord = {
+        ...record,
+        state,
+        resolved_at: nowIso()
+      };
+      this.writeApprovalRecord(updated);
+
+      // Promote (or cancel) any job envelopes that were parked awaiting
+      // this approval. Without this step, approval-gated submissions would
+      // sit in `awaiting_approval` forever even after an operator approved.
+      this.propagateApprovalToJobs(approvalId, state);
+
+      this.db.exec("COMMIT");
+      return updated;
+    } catch (e) {
+      try { this.db.exec("ROLLBACK"); } catch { /* best-effort */ }
+      throw e;
+    }
+  }
+
+  /**
+   * Scan jobs parked in `awaiting_approval` status that reference this
+   * approval_id, and transition them to match the approval outcome.
+   * `approved` → `queued` (worker can claim), other states → terminal.
+   * Scoped to the small awaiting_approval set so a full table scan is fine.
+   */
+  private propagateApprovalToJobs(
+    approvalId: string,
+    state: Extract<JarvisApprovalState, "approved" | "rejected" | "expired" | "cancelled">,
+  ): void {
+    const rows = this.db
+      .prepare("SELECT record_json FROM jobs WHERE status = 'awaiting_approval'")
+      .all() as Array<{ record_json: string }>;
+
+    for (const row of rows) {
+      const job = deserializeJson<JobRecord>(row.record_json);
+      if (job.result.approval_id !== approvalId) continue;
+
+      const now = nowIso();
+      if (state === "approved") {
+        job.envelope.approval_state = "approved";
+        job.result = {
+          ...job.result,
+          status: "queued",
+          summary: `Queued ${job.envelope.type} after approval.`,
+          metrics: { ...(job.result.metrics ?? {}), queued_at: now, attempt: job.envelope.attempt }
+        };
+      } else {
+        const terminal = state === "rejected" ? "cancelled" : state === "expired" ? "failed" : "cancelled";
+        job.result = {
+          ...job.result,
+          status: terminal,
+          summary: `${job.envelope.type} ${state} via approval ${approvalId}.`,
+          error: state === "expired"
+            ? { code: "APPROVAL_EXPIRED", message: "Approval expired before resolution.", retryable: false }
+            : job.result.error,
+          metrics: { ...(job.result.metrics ?? {}), attempt: job.envelope.attempt }
+        };
+      }
+      this.writeJobRecord(job, now);
+    }
   }
 
   getApproval(approvalId: string): ApprovalRecord | null {
@@ -357,16 +424,53 @@ class JarvisState {
     const approvalGranted = this.isApprovalGranted(params.approvalId);
 
     if (approvalRequirement === "required" && !approvalGranted) {
+      // Validate input BEFORE persisting the envelope so a bad payload can't
+      // sit in the queue waiting for an approval that would only fail later.
+      const validation = validateJobInput(params.type, params.input);
+      if (!validation.valid) {
+        return createToolResponse({
+          status: "failed",
+          summary: `Invalid input for ${params.type}: ${validation.errors.join("; ")}.`,
+          error: {
+            code: "INVALID_JOB_INPUT",
+            message: validation.errors.join("; "),
+            retryable: false
+          }
+        });
+      }
+
       const approval = this.requestApproval({
         title: `Approve ${params.type}`,
         description: `Approval required before queuing ${params.type}.`,
         severity: "critical",
         scopes: [params.type]
       });
+
+      // Persist the envelope in `awaiting_approval` status so that
+      // resolveApproval(approved) can promote it to `queued` without the
+      // caller needing to re-submit. This closes the bug where approval-
+      // gated submissions silently vanished until the caller re-issued them.
+      const envelope = this.buildEnvelope(params, false);
+      const result: JobResult = {
+        contract_version: CONTRACT_VERSION,
+        job_id: envelope.job_id,
+        job_type: envelope.type,
+        status: "awaiting_approval",
+        summary: `Awaiting approval ${approval.approval_id}.`,
+        attempt: envelope.attempt,
+        approval_id: approval.approval_id,
+        metrics: {
+          queued_at: nowIso(),
+          attempt: envelope.attempt
+        }
+      };
+      this.writeJobRecord({ envelope, result, claim: null });
+
       return createToolResponse({
         status: "awaiting_approval",
         summary: `Approval required before running ${params.type}.`,
-        approval_id: approval.approval_id
+        approval_id: approval.approval_id,
+        job_id: envelope.job_id
       });
     }
 
@@ -561,7 +665,20 @@ class JarvisState {
     });
   }
 
+  /**
+   * Release jobs whose worker lease has expired. Bumps envelope.attempt,
+   * enforces retry_policy.max_attempts (default 3) by dead-lettering jobs
+   * that exceeded it, and sets retry_after_at with exponential backoff so
+   * a crash-looping worker doesn't immediately re-claim the same job.
+   *
+   * Returns the number of rows the reaper touched (re-queued OR
+   * dead-lettered). Use requeueExpiredJobsBreakdown() for the split.
+   */
   requeueExpiredJobs(): number {
+    return this.requeueExpiredJobsBreakdown().total;
+  }
+
+  requeueExpiredJobsBreakdown(): { total: number; requeued: number; deadLettered: number } {
     const now = nowIso();
     const rows = this.db
       .prepare(
@@ -569,24 +686,65 @@ class JarvisState {
       )
       .all(now) as Array<{ record_json: string }>;
 
+    let requeued = 0;
+    let deadLettered = 0;
     for (const row of rows) {
       const record = deserializeJson<JobRecord>(row.record_json);
+      const maxAttempts = Math.max(1, record.envelope.retry_policy?.max_attempts ?? 3);
+      const nextAttempt = Math.max(1, record.envelope.attempt ?? 1) + 1;
+
       record.claim = null;
-      record.result = {
-        ...record.result,
-        status: "queued",
-        summary: `Re-queued ${record.envelope.type} after lease expiry.`,
-        metrics: {
-          ...record.result.metrics,
-          worker_id: undefined,
-          started_at: undefined,
-          finished_at: undefined
-        }
-      };
+
+      if (nextAttempt > maxAttempts) {
+        // Dead-letter: leave status=failed with a specific error code so
+        // operators and metrics can distinguish exhausted-retry from
+        // ordinary failures. The JarvisJobStatus enum doesn't include a
+        // dead_letter state, so we signal via error.code.
+        record.result = {
+          ...record.result,
+          status: "failed",
+          summary: `Dead-lettered ${record.envelope.type}: exceeded ${maxAttempts} attempts.`,
+          attempt: record.envelope.attempt,
+          error: {
+            code: "DEAD_LETTER_MAX_ATTEMPTS_EXCEEDED",
+            message: `Job exceeded max_attempts=${maxAttempts} after lease expiry with no successful claim callback.`,
+            retryable: false,
+          },
+          metrics: {
+            ...record.result.metrics,
+            worker_id: undefined,
+            started_at: undefined,
+            finished_at: now,
+            attempt: record.envelope.attempt,
+            retry_after_at: undefined,
+          },
+        };
+        deadLettered++;
+      } else {
+        // Re-queue with exponential backoff: 5s, 15s, 45s, ... capped at 5 min.
+        const backoffSeconds = Math.min(300, 5 * Math.pow(3, Math.max(0, nextAttempt - 2)));
+        const retryAfterAt = addSeconds(now, backoffSeconds);
+        record.envelope = { ...record.envelope, attempt: nextAttempt };
+        record.result = {
+          ...record.result,
+          status: "queued",
+          summary: `Re-queued ${record.envelope.type} after lease expiry (attempt ${nextAttempt}/${maxAttempts}).`,
+          attempt: nextAttempt,
+          metrics: {
+            ...record.result.metrics,
+            worker_id: undefined,
+            started_at: undefined,
+            finished_at: undefined,
+            attempt: nextAttempt,
+            retry_after_at: retryAfterAt,
+          },
+        };
+        requeued++;
+      }
       this.writeJobRecord(record, now);
     }
 
-    return rows.length;
+    return { total: rows.length, requeued, deadLettered };
   }
 
   claimJob(request: JobClaimRequest): JobClaimResult | null {
@@ -613,10 +771,18 @@ class JarvisState {
         .all() as Array<{ record_json: string }>;
 
       const routes = resolveCandidateRoutes(request);
+      const nowForBackoff = request.requested_at ?? nowIso();
 
       for (const row of rows) {
         const record = deserializeJson<JobRecord>(row.record_json);
         if (!isJobClaimable(record, routes, request.run_group)) {
+          continue;
+        }
+        // Respect retry backoff: jobs re-queued after lease expiry have a
+        // retry_after_at timestamp; skip until the clock catches up so a
+        // crash-looping worker can't immediately re-claim them.
+        const retryAfter = record.result.metrics?.retry_after_at;
+        if (retryAfter && retryAfter > nowForBackoff) {
           continue;
         }
 

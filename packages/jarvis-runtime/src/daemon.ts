@@ -35,7 +35,7 @@ import { setWorkerHealthProvider } from "./health.js";
 import { resolveApproval } from "./approval-bridge.js";
 import { createNotificationDispatcher } from "./notify.js";
 import { sendSessionMessage } from "@jarvis/shared";
-import { taskflowRunsTotal, dreamingRunsTotal, dreamingSynthesisTotal } from "@jarvis/observability";
+import { taskflowRunsTotal, dreamingRunsTotal, dreamingSynthesisTotal, initTelemetry, shutdownTelemetry } from "@jarvis/observability";
 import { DreamingOrchestrator, PILOT_DREAMING_CONFIG, DEFAULT_DREAMING_CONFIG } from "./dreaming.js";
 import { OpenClawInferAdapter } from "@jarvis/inference";
 
@@ -104,6 +104,18 @@ async function main() {
   const logger = new Logger(config.log_level);
 
   logger.info("Jarvis daemon starting...");
+
+  // Initialize OpenTelemetry before any spans/metrics get recorded. Disabled
+  // via JARVIS_DISABLE_OTEL=1 for test runs or constrained environments.
+  if (process.env.JARVIS_DISABLE_OTEL !== "1") {
+    try {
+      const otelPort = Number(process.env.OTEL_PROMETHEUS_PORT ?? 9464);
+      initTelemetry({ prometheusPort: otelPort, serviceName: "jarvis-daemon" });
+      logger.info(`OpenTelemetry initialized (Prometheus on :${otelPort})`);
+    } catch (e) {
+      logger.warn(`Failed to initialize OpenTelemetry: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
 
   // Ensure ~/.jarvis exists
   if (!fs.existsSync(JARVIS_DIR)) {
@@ -450,6 +462,19 @@ async function main() {
       : undefined,
   });
 
+  // Route Logger.error() to the notification dispatcher so ERROR-level events
+  // actually page the operator. Without this the daemon writes alerts.jsonl
+  // with nothing consuming it. Rate-limit defaults to once per 60s per key.
+  const alertCooldownMs = Number(process.env.JARVIS_ALERT_COOLDOWN_MS ?? 60_000);
+  Logger.setAlertSink((entry) => {
+    const agent = entry.context.agent_id ?? "daemon";
+    const parts = [`ERROR: ${entry.msg}`];
+    if (entry.context.run_id) parts.push(`run=${entry.context.run_id}`);
+    if (entry.context.command_id) parts.push(`cmd=${entry.context.command_id}`);
+    return notifier.notify(agent, parts.join(" | "), runtimeDb);
+  }, { cooldownMs: alertCooldownMs });
+  logger.info(`Alert sink wired to ${telegramMode === "session" ? "session dispatcher" : "telegram queue"} (cooldown ${alertCooldownMs}ms)`);
+
   // ─── Memory boundary checker + Wiki bridge (Epics 7, 9) ────────────────────
   const { MemoryBoundaryChecker, GatewayWikiBridge } = await import("@jarvis/agent-framework");
   const boundaryMode = (process.env.JARVIS_MEMORY_BOUNDARY_MODE ?? "warn").toLowerCase() === "enforce" ? "enforce" : "warn";
@@ -786,6 +811,9 @@ async function main() {
     knowledgeStore.close();
     entityGraph.close();
     decisionLog.close();
+
+    // Flush OpenTelemetry
+    try { await shutdownTelemetry(); } catch { /* best-effort */ }
 
     logger.info("Daemon stopped cleanly");
     process.exit(0);

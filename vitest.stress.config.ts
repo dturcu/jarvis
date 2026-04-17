@@ -12,7 +12,9 @@ export default defineConfig({
       "@jarvis/dispatch": `${rootDir}packages/jarvis-dispatch/src/index.ts`,
       "@jarvis/office": `${rootDir}packages/jarvis-office/src/index.ts`,
       "@jarvis/files": `${rootDir}packages/jarvis-files/src/index.ts`,
+      "@jarvis/browser/openclaw-bridge": `${rootDir}packages/jarvis-browser/src/openclaw-bridge.ts`,
       "@jarvis/browser": `${rootDir}packages/jarvis-browser/src/index.ts`,
+      "@jarvis/security/credential-audit": `${rootDir}packages/jarvis-security/src/credential-audit.ts`,
       "@jarvis/device": `${rootDir}packages/jarvis-device/src/index.ts`,
       "@jarvis/desktop-host-worker": `${rootDir}packages/jarvis-desktop-host-worker/src/index.ts`,
       "@jarvis/supervisor": `${rootDir}packages/jarvis-supervisor/src/index.ts`,
@@ -27,6 +29,7 @@ export default defineConfig({
       "@jarvis/interpreter-worker": `${rootDir}packages/jarvis-interpreter-worker/src/index.ts`,
       "@jarvis/security": `${rootDir}packages/jarvis-security/src/index.ts`,
       "@jarvis/security-worker": `${rootDir}packages/jarvis-security-worker/src/index.ts`,
+
       "@jarvis/agent-framework": `${rootDir}packages/jarvis-agent-framework/src/index.ts`,
       "@jarvis/agent": `${rootDir}packages/jarvis-agent-plugin/src/index.ts`,
       "@jarvis/agent-worker": `${rootDir}packages/jarvis-agent-worker/src/index.ts`,
@@ -44,6 +47,9 @@ export default defineConfig({
       "@jarvis/office-worker": `${rootDir}packages/jarvis-office-worker/src/index.ts`,
       "@jarvis/browser-worker": `${rootDir}packages/jarvis-browser-worker/src/index.ts`,
       "@jarvis/social-worker": `${rootDir}packages/jarvis-social-worker/src/index.ts`,
+      "@jarvis/time-worker": `${rootDir}packages/jarvis-time-worker/src/index.ts`,
+      "@jarvis/drive-worker": `${rootDir}packages/jarvis-drive-worker/src/index.ts`,
+      "@jarvis/observability": `${rootDir}packages/jarvis-observability/src/index.ts`,
       "@jarvis/runtime": `${rootDir}packages/jarvis-runtime/src/index.ts`
     }
   },

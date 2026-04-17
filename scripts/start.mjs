@@ -15,6 +15,13 @@ import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import {
+  detectAllBinaries,
+  probeRuntime,
+  waitForReady,
+  readRuntimesConfig,
+  RUNTIME_DEFAULTS,
+} from "./runtime-detect.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const JARVIS_DIR = path.join(os.homedir(), ".jarvis");
@@ -108,6 +115,7 @@ function startService(name, cmd, args, env = {}) {
 }
 
 const children = [];
+const runtimeProcesses = []; // { name, child, startedByUs }
 let shuttingDown = false;
 
 function terminateChild(child) {
@@ -210,12 +218,113 @@ async function probeDashboard() {
   }
 }
 
+// ─── Runtime Auto-boot ──────────────────────────────────────────────────────
+
+async function bootSingleRuntime(name, binaryPath, spawnArgs, probeUrl) {
+  // Already running?
+  if (await probeRuntime(probeUrl)) {
+    return { name, status: "already_running" };
+  }
+
+  // Binary not found?
+  if (!binaryPath) {
+    return { name, status: "not_found" };
+  }
+
+  // Spawn the runtime
+  try {
+    const child = spawn(binaryPath, spawnArgs, {
+      cwd: repoRoot,
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: false,
+    });
+
+    // Collect stderr for error reporting
+    let stderrBuf = "";
+    child.stderr?.on("data", (chunk) => { stderrBuf += chunk.toString().slice(-500); });
+
+    // Wait for readiness
+    const ready = await waitForReady(probeUrl, { maxAttempts: 15, delayMs: 1000 });
+    if (!ready) {
+      terminateChild(child);
+      return { name, status: "timeout", error: stderrBuf.trim().slice(-200) || "readiness probe timed out" };
+    }
+
+    runtimeProcesses.push({ name, child, startedByUs: true });
+    return { name, status: "started", pid: child.pid };
+  } catch (err) {
+    return { name, status: "spawn_error", error: err.message };
+  }
+}
+
+async function bootRuntimes() {
+  const config = readRuntimesConfig();
+  const binaries = detectAllBinaries();
+
+  const runtimeDefs = [
+    {
+      name: "ollama",
+      enabled: config.ollama?.enabled !== false,
+      binary: binaries.ollama,
+      args: ["serve"],
+      probe: RUNTIME_DEFAULTS.ollama.probe,
+    },
+    {
+      name: "lmstudio",
+      enabled: config.lmstudio?.enabled !== false,
+      binary: binaries.lmstudio,
+      args: ["server", "start", "--port", "1234"],
+      probe: RUNTIME_DEFAULTS.lmstudio.probe,
+    },
+    {
+      name: "llamacpp",
+      enabled: config.llamacpp?.enabled !== false,
+      binary: binaries.llamacpp,
+      args: ["--host", "127.0.0.1", "--port", "8080"],
+      probe: RUNTIME_DEFAULTS.llamacpp.probe,
+    },
+  ];
+
+  const enabled = runtimeDefs.filter(r => r.enabled);
+  if (enabled.length === 0) {
+    console.log("  No runtimes enabled — skipping boot");
+    return;
+  }
+
+  console.log("  Booting runtimes...");
+
+  const results = await Promise.allSettled(
+    enabled.map(r => bootSingleRuntime(r.name, r.binary, r.args, r.probe))
+  );
+
+  // Status table
+  const icons = { started: "\x1b[32m+\x1b[0m", already_running: "\x1b[32m~\x1b[0m", not_found: "\x1b[33m-\x1b[0m", timeout: "\x1b[31m!\x1b[0m", spawn_error: "\x1b[31m!\x1b[0m" };
+  const labels = { started: "started", already_running: "already running", not_found: "binary not found", timeout: "timed out", spawn_error: "failed" };
+
+  for (const result of results) {
+    const r = result.status === "fulfilled" ? result.value : { name: "unknown", status: "spawn_error", error: result.reason?.message };
+    const icon = icons[r.status] ?? "\x1b[31m?\x1b[0m";
+    const label = labels[r.status] ?? r.status;
+    const extra = r.pid ? ` (PID ${r.pid})` : r.error ? ` — ${r.error.slice(0, 80)}` : "";
+    console.log(`    ${icon} ${r.name.padEnd(14)} ${label}${extra}`);
+  }
+  console.log("");
+}
+
 // Graceful shutdown
 function shutdown(reason = "Shutting down", exitCode = 0) {
   if (shuttingDown) return;
   shuttingDown = true;
 
   console.log(`\n  ${reason}...`);
+
+  // Kill only runtimes we started
+  for (const rt of runtimeProcesses) {
+    if (rt.startedByUs) {
+      terminateChild(rt.child);
+    }
+  }
+
   for (const child of children) {
     terminateChild(child);
   }
@@ -240,6 +349,9 @@ async function main() {
   console.log("");
   console.log("  \x1b[1m\x1b[36mJarvis\x1b[0m — Starting...");
   console.log("");
+
+  // Boot LLM runtimes (non-fatal — Jarvis works with partial runtimes)
+  await bootRuntimes();
 
   if (!dashboardOnly) {
     if (existingDaemon) {

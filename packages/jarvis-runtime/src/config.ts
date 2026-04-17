@@ -51,6 +51,21 @@ const ConfigSchema = Type.Object({
   mode: Type.Optional(Type.Union([Type.Literal("dev"), Type.Literal("production")])),
   bind_host: Type.Optional(Type.String()),
   trust_proxy: Type.Optional(Type.Boolean()),
+  runtimes: Type.Optional(Type.Object({
+    ollama: Type.Optional(Type.Object({
+      binary_path: Type.Optional(Type.String()),
+      enabled: Type.Optional(Type.Boolean()),
+    })),
+    lmstudio: Type.Optional(Type.Object({
+      binary_path: Type.Optional(Type.String()),
+      enabled: Type.Optional(Type.Boolean()),
+    })),
+    llamacpp: Type.Optional(Type.Object({
+      binary_path: Type.Optional(Type.String()),
+      enabled: Type.Optional(Type.Boolean()),
+      gguf_dirs: Type.Optional(Type.Array(Type.String())),
+    })),
+  })),
 });
 
 export type JarvisRuntimeConfig = Static<typeof ConfigSchema>;
@@ -165,6 +180,7 @@ export function loadConfig(): JarvisRuntimeConfig {
     mode: raw.mode === "dev" || raw.mode === "production" ? raw.mode : defaults.mode,
     bind_host: typeof raw.bind_host === "string" ? raw.bind_host : defaults.bind_host,
     trust_proxy: typeof raw.trust_proxy === "boolean" ? raw.trust_proxy : defaults.trust_proxy,
+    runtimes: raw.runtimes as JarvisRuntimeConfig["runtimes"],
   };
 
   // Environment overrides

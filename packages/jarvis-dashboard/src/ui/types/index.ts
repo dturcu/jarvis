@@ -276,6 +276,14 @@ export interface ModelHealthReport {
   degraded: boolean
 }
 
+export interface AvailableModel {
+  id: string
+  name?: string
+  path?: string
+  size?: string
+  size_bytes?: number
+}
+
 /* ── Utilities ────────────────────────────────────────────── */
 
 export const AGENT_LABELS: Record<string, string> = {

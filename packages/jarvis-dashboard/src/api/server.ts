@@ -24,6 +24,7 @@ import { listAllModels } from './tool-infra.js'
 import { createSessionChatRoute } from './session-chat-adapter.js'
 import { tasksRouter } from './tasks.js'
 import { modelsRouter } from './models.js'
+import { runtimesRouter } from './runtimes.js'
 import { queueRouter } from './queue.js'
 import { policyRouter } from './policy.js'
 import { workflowsRouter } from './workflows.js'
@@ -38,7 +39,7 @@ import { modeRouter } from './settings.js'
 import { conversationsRouter } from './conversations.js'
 import fs from 'fs'
 import { getHealthReport, getReadinessReport, loadConfig, writeTelegramQueue } from '@jarvis/runtime'
-import { getMetricsText, getMetricsContentType } from '@jarvis/observability'
+import { getMetricsText, getMetricsContentType, initTelemetry, shutdownTelemetry } from '@jarvis/observability'
 import { createAuthMiddleware, authRouter, getPreferredDashboardToken } from './middleware/auth.js'
 import { DatabaseSync } from 'node:sqlite'
 
@@ -170,6 +171,7 @@ app.get('/api/godmode/models', async (_req, res) => {
 app.use('/api/godmode', createSessionChatRoute())
 app.use('/api/godmode/legacy', godmodeRouter)
 app.use('/api/models', modelsRouter)
+app.use('/api/runtimes', runtimesRouter)
 app.use('/api/queue', queueRouter)
 app.use('/api/policy', policyRouter)
 app.use('/api/workflows', workflowsRouter)
@@ -209,8 +211,14 @@ app.post('/api/telegram/send', (req, res) => {
 
 app.get('/api/health', (_req, res) => {
   const report = getHealthReport()
-  res.json({
+  // Return 503 for any non-healthy status so load balancers, process
+  // managers, and uptime monitors pull us out of rotation when the daemon
+  // is stale, models are unavailable, or disk is low — previously we
+  // returned 200 for 'degraded', masking real outages.
+  const httpStatus = report.status === 'healthy' ? 200 : 503
+  res.status(httpStatus).json({
     ok: report.status !== 'unhealthy',
+    healthy: report.status === 'healthy',
     status: report.status,
     uptime_seconds: report.uptime_seconds,
     crm: report.crm,
@@ -307,7 +315,20 @@ if (hasUI) {
 // Production appliance must not accidentally listen on 0.0.0.0.
 const BIND_HOST = process.env.JARVIS_BIND_HOST ?? '127.0.0.1'
 
-app.listen(PORT, BIND_HOST, () => {
+// Initialize OpenTelemetry before accepting requests so HTTP spans and
+// metrics are captured for every route. Daemon uses port 9464, so the
+// dashboard defaults to 9465; override via DASHBOARD_OTEL_PROMETHEUS_PORT.
+if (process.env.JARVIS_DISABLE_OTEL !== '1') {
+  try {
+    const otelPort = Number(process.env.DASHBOARD_OTEL_PROMETHEUS_PORT ?? 9465)
+    initTelemetry({ prometheusPort: otelPort, serviceName: 'jarvis-dashboard' })
+    console.log(`  OTel:       Prometheus on :${otelPort}`)
+  } catch (e) {
+    console.warn(`  OTel:       init failed: ${e instanceof Error ? e.message : String(e)}`)
+  }
+}
+
+const server = app.listen(PORT, BIND_HOST, () => {
   console.log('')
   console.log(`  Jarvis Dashboard`)
   console.log(`  ─────────────────────────────────────`)
@@ -319,3 +340,12 @@ app.listen(PORT, BIND_HOST, () => {
   }
   console.log('')
 })
+
+async function shutdownDashboard(signal: NodeJS.Signals): Promise<void> {
+  console.log(`\n  Received ${signal}, shutting down dashboard...`)
+  server.close()
+  try { await shutdownTelemetry() } catch { /* best-effort */ }
+  process.exit(0)
+}
+process.on('SIGTERM', shutdownDashboard)
+process.on('SIGINT', shutdownDashboard)
