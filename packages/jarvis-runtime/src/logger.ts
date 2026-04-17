@@ -36,11 +36,41 @@ export type LogContext = {
   action?: string;
 };
 
+/**
+ * Callback invoked when Logger.error() fires. Receives the redacted
+ * message, severity, and merged context + data. Used to route ERROR-level
+ * events to an operator channel (Telegram, session dispatch, etc.).
+ */
+export type AlertSink = (entry: {
+  ts: string;
+  msg: string;
+  context: LogContext;
+  data?: Record<string, unknown>;
+}) => void | Promise<void>;
+
 export class Logger {
   private level: number;
   private logToFile: boolean;
   private alertOnError: boolean;
   private context: LogContext;
+
+  // Class-level alert sink so child loggers created via withContext() share
+  // the same paging channel. Avoids plumbing a dispatcher through every
+  // withContext() call site.
+  private static alertSink: AlertSink | null = null;
+  // Rate-limit key -> last-fired timestamp (ms). Prevents a loop error from
+  // pagertsunamiing the operator.
+  private static readonly alertCooldown = new Map<string, number>();
+  private static alertCooldownMs = 60_000;
+
+  /** Install the global alert sink. Pass null to disable paging. */
+  static setAlertSink(sink: AlertSink | null, opts?: { cooldownMs?: number }): void {
+    Logger.alertSink = sink;
+    if (opts?.cooldownMs !== undefined) {
+      Logger.alertCooldownMs = Math.max(0, opts.cooldownMs);
+    }
+    Logger.alertCooldown.clear();
+  }
 
   constructor(level: LogLevel = "info", options?: { logToFile?: boolean; alertOnError?: boolean; context?: LogContext }) {
     this.level = LEVELS[level];
@@ -108,18 +138,41 @@ export class Logger {
 
   /** Push critical errors as alerts (notification system handles delivery) */
   private sendAlert(msg: string, data?: Record<string, unknown>): void {
+    const ts = new Date().toISOString();
+    const redactedMsg = redact(msg);
+    const redactedData = data
+      ? (JSON.parse(redact(JSON.stringify(data))) as Record<string, unknown>)
+      : undefined;
+
+    // Durable trace to file first, before any network-y work.
     try {
-      // Write to a simple alert file that the notification system picks up
       const alertFile = join(JARVIS_DIR, "alerts.jsonl");
       const entry = JSON.stringify({
-        ts: new Date().toISOString(),
+        ts,
         level: "ERROR",
-        msg: redact(msg),
+        msg: redactedMsg,
         agent_id: this.context.agent_id ?? "daemon",
         run_id: this.context.run_id,
-        data: data ? JSON.parse(redact(JSON.stringify(data))) : undefined,
+        data: redactedData,
       });
       fs.appendFileSync(alertFile, entry + "\n");
+    } catch { /* non-fatal */ }
+
+    // Fire the global alert sink (notification dispatcher, etc.) with
+    // rate-limiting keyed on the message + agent so a loop error doesn't
+    // flood the operator channel.
+    const sink = Logger.alertSink;
+    if (!sink) return;
+    const key = `${this.context.agent_id ?? "daemon"}::${redactedMsg}`;
+    const now = Date.now();
+    const last = Logger.alertCooldown.get(key) ?? 0;
+    if (Logger.alertCooldownMs > 0 && now - last < Logger.alertCooldownMs) return;
+    Logger.alertCooldown.set(key, now);
+    try {
+      const result = sink({ ts, msg: redactedMsg, context: this.context, data: redactedData });
+      if (result && typeof (result as Promise<void>).catch === "function") {
+        (result as Promise<void>).catch(() => { /* delivery failure already traced to file */ });
+      }
     } catch { /* non-fatal */ }
   }
 }

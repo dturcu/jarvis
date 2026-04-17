@@ -462,6 +462,19 @@ async function main() {
       : undefined,
   });
 
+  // Route Logger.error() to the notification dispatcher so ERROR-level events
+  // actually page the operator. Without this the daemon writes alerts.jsonl
+  // with nothing consuming it. Rate-limit defaults to once per 60s per key.
+  const alertCooldownMs = Number(process.env.JARVIS_ALERT_COOLDOWN_MS ?? 60_000);
+  Logger.setAlertSink((entry) => {
+    const agent = entry.context.agent_id ?? "daemon";
+    const parts = [`ERROR: ${entry.msg}`];
+    if (entry.context.run_id) parts.push(`run=${entry.context.run_id}`);
+    if (entry.context.command_id) parts.push(`cmd=${entry.context.command_id}`);
+    return notifier.notify(agent, parts.join(" | "), runtimeDb);
+  }, { cooldownMs: alertCooldownMs });
+  logger.info(`Alert sink wired to ${telegramMode === "session" ? "session dispatcher" : "telegram queue"} (cooldown ${alertCooldownMs}ms)`);
+
   // ─── Memory boundary checker + Wiki bridge (Epics 7, 9) ────────────────────
   const { MemoryBoundaryChecker, GatewayWikiBridge } = await import("@jarvis/agent-framework");
   const boundaryMode = (process.env.JARVIS_MEMORY_BOUNDARY_MODE ?? "warn").toLowerCase() === "enforce" ? "enforce" : "warn";
