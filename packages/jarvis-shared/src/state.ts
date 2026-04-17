@@ -118,11 +118,12 @@ function normalizePersistenceConfig(
     };
   }
 
+  const defaultLegacy = resolvedSource.replace(/\.(sqlite|db)$/i, ".json");
   return {
     databasePath: resolvedSource,
     legacySnapshotPath:
       legacySnapshotPath ??
-      resolvedSource.replace(/\.sqlite$/i, ".json")
+      (defaultLegacy !== resolvedSource ? defaultLegacy : undefined)
   };
 }
 
@@ -140,7 +141,16 @@ function readSnapshot(filePath: string): JarvisStateSnapshot | null {
     return null;
   }
 
-  const parsed = JSON.parse(raw) as unknown;
+  if (raw.startsWith("SQLite format")) {
+    return null;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
   if (
     !isRecord(parsed) ||
     parsed.contract_version !== CONTRACT_VERSION ||
