@@ -11,10 +11,10 @@ param(
 $Host.UI.RawUI.WindowTitle = "Jarvis"
 
 Write-Host ""
-Write-Host "  ╔═══════════════════════════════════╗" -ForegroundColor DarkCyan
-Write-Host "  ║       JARVIS DASHBOARD            ║" -ForegroundColor Cyan
-Write-Host "  ║   Thinking in Code - Agent Hub    ║" -ForegroundColor DarkCyan
-Write-Host "  ╚═══════════════════════════════════╝" -ForegroundColor DarkCyan
+Write-Host "  +-----------------------------------+" -ForegroundColor DarkCyan
+Write-Host "  |       JARVIS DASHBOARD            |" -ForegroundColor Cyan
+Write-Host "  |   Thinking in Code - Agent Hub    |" -ForegroundColor DarkCyan
+Write-Host "  +-----------------------------------+" -ForegroundColor DarkCyan
 Write-Host ""
 
 $root = $PSScriptRoot
@@ -34,6 +34,21 @@ if (-not (Test-Path (Join-Path $jarvisDir "crm.db"))) {
     npx tsx scripts/init-jarvis.ts
     Write-Host ""
 }
+
+# Preflight: verify runtime prereqs with retries before launch.
+Write-Host "  [~] Running preflight..." -ForegroundColor DarkYellow
+node scripts/ops/preflight.mjs --profile=runtime --fast
+if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "  [!] Preflight reported required-check failures." -ForegroundColor Yellow
+    Write-Host "      Fix the issues above, or re-run: npm run preflight" -ForegroundColor DarkGray
+    Write-Host ""
+    if (-not ($all -or $daemon)) {
+        $answer = Read-Host "  Continue anyway? (y/N)"
+        if ($answer -ne "y" -and $answer -ne "Y") { exit 1 }
+    }
+}
+Write-Host ""
 
 # Rebuild if requested or if dist doesn't exist
 $distPath = Join-Path $root "packages\jarvis-dashboard\dist\index.html"
