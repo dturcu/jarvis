@@ -655,7 +655,20 @@ class JarvisState {
     });
   }
 
+  /**
+   * Release jobs whose worker lease has expired. Bumps envelope.attempt,
+   * enforces retry_policy.max_attempts (default 3) by dead-lettering jobs
+   * that exceeded it, and sets retry_after_at with exponential backoff so
+   * a crash-looping worker doesn't immediately re-claim the same job.
+   *
+   * Returns the number of rows the reaper touched (re-queued OR
+   * dead-lettered). Use requeueExpiredJobsBreakdown() for the split.
+   */
   requeueExpiredJobs(): number {
+    return this.requeueExpiredJobsBreakdown().total;
+  }
+
+  requeueExpiredJobsBreakdown(): { total: number; requeued: number; deadLettered: number } {
     const now = nowIso();
     const rows = this.db
       .prepare(
@@ -663,24 +676,65 @@ class JarvisState {
       )
       .all(now) as Array<{ record_json: string }>;
 
+    let requeued = 0;
+    let deadLettered = 0;
     for (const row of rows) {
       const record = deserializeJson<JobRecord>(row.record_json);
+      const maxAttempts = Math.max(1, record.envelope.retry_policy?.max_attempts ?? 3);
+      const nextAttempt = Math.max(1, record.envelope.attempt ?? 1) + 1;
+
       record.claim = null;
-      record.result = {
-        ...record.result,
-        status: "queued",
-        summary: `Re-queued ${record.envelope.type} after lease expiry.`,
-        metrics: {
-          ...record.result.metrics,
-          worker_id: undefined,
-          started_at: undefined,
-          finished_at: undefined
-        }
-      };
+
+      if (nextAttempt > maxAttempts) {
+        // Dead-letter: leave status=failed with a specific error code so
+        // operators and metrics can distinguish exhausted-retry from
+        // ordinary failures. The JarvisJobStatus enum doesn't include a
+        // dead_letter state, so we signal via error.code.
+        record.result = {
+          ...record.result,
+          status: "failed",
+          summary: `Dead-lettered ${record.envelope.type}: exceeded ${maxAttempts} attempts.`,
+          attempt: record.envelope.attempt,
+          error: {
+            code: "DEAD_LETTER_MAX_ATTEMPTS_EXCEEDED",
+            message: `Job exceeded max_attempts=${maxAttempts} after lease expiry with no successful claim callback.`,
+            retryable: false,
+          },
+          metrics: {
+            ...record.result.metrics,
+            worker_id: undefined,
+            started_at: undefined,
+            finished_at: now,
+            attempt: record.envelope.attempt,
+            retry_after_at: undefined,
+          },
+        };
+        deadLettered++;
+      } else {
+        // Re-queue with exponential backoff: 5s, 15s, 45s, ... capped at 5 min.
+        const backoffSeconds = Math.min(300, 5 * Math.pow(3, Math.max(0, nextAttempt - 2)));
+        const retryAfterAt = addSeconds(now, backoffSeconds);
+        record.envelope = { ...record.envelope, attempt: nextAttempt };
+        record.result = {
+          ...record.result,
+          status: "queued",
+          summary: `Re-queued ${record.envelope.type} after lease expiry (attempt ${nextAttempt}/${maxAttempts}).`,
+          attempt: nextAttempt,
+          metrics: {
+            ...record.result.metrics,
+            worker_id: undefined,
+            started_at: undefined,
+            finished_at: undefined,
+            attempt: nextAttempt,
+            retry_after_at: retryAfterAt,
+          },
+        };
+        requeued++;
+      }
       this.writeJobRecord(record, now);
     }
 
-    return rows.length;
+    return { total: rows.length, requeued, deadLettered };
   }
 
   claimJob(request: JobClaimRequest): JobClaimResult | null {
@@ -707,10 +761,18 @@ class JarvisState {
         .all() as Array<{ record_json: string }>;
 
       const routes = resolveCandidateRoutes(request);
+      const nowForBackoff = request.requested_at ?? nowIso();
 
       for (const row of rows) {
         const record = deserializeJson<JobRecord>(row.record_json);
         if (!isJobClaimable(record, routes, request.run_group)) {
+          continue;
+        }
+        // Respect retry backoff: jobs re-queued after lease expiry have a
+        // retry_after_at timestamp; skip until the clock catches up so a
+        // crash-looping worker can't immediately re-claim them.
+        const retryAfter = record.result.metrics?.retry_after_at;
+        if (retryAfter && retryAfter > nowForBackoff) {
           continue;
         }
 

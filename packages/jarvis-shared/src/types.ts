@@ -104,6 +104,12 @@ export type Metrics = {
   run_seconds?: number;
   attempt?: number;
   worker_id?: string;
+  /**
+   * Earliest ISO timestamp at which the job is eligible to be claimed.
+   * Used by the lease-expiry reaper to apply exponential backoff between
+   * retry attempts. Absent/past values mean "claimable now".
+   */
+  retry_after_at?: string;
 };
 
 export type JobClaim = {
