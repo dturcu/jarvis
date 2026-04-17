@@ -211,8 +211,14 @@ app.post('/api/telegram/send', (req, res) => {
 
 app.get('/api/health', (_req, res) => {
   const report = getHealthReport()
-  res.json({
+  // Return 503 for any non-healthy status so load balancers, process
+  // managers, and uptime monitors pull us out of rotation when the daemon
+  // is stale, models are unavailable, or disk is low — previously we
+  // returned 200 for 'degraded', masking real outages.
+  const httpStatus = report.status === 'healthy' ? 200 : 503
+  res.status(httpStatus).json({
     ok: report.status !== 'unhealthy',
+    healthy: report.status === 'healthy',
     status: report.status,
     uptime_seconds: report.uptime_seconds,
     crm: report.crm,
