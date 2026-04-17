@@ -95,7 +95,7 @@ describe("StatusWriter", () => {
 
   it("tracks single run lifecycle", () => {
     const logger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as any;
-    const writer = new StatusWriter(14, 8, logger, db);
+    const writer = new StatusWriter(14, () => 8, logger, db);
 
     writer.setCurrentRun("bd-pipeline", 5);
     writer.updateStep(1, "email.search");
@@ -111,7 +111,7 @@ describe("StatusWriter", () => {
 
   it("safe mode toggling", () => {
     const logger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as any;
-    const writer = new StatusWriter(14, 8, logger, db);
+    const writer = new StatusWriter(14, () => 8, logger, db);
 
     writer.setSafeMode(true, "Database migration in progress");
     writer.setSafeMode(false, null);
@@ -121,7 +121,7 @@ describe("StatusWriter", () => {
 
   it("multiple runs tracked concurrently", () => {
     const logger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as any;
-    const writer = new StatusWriter(14, 8, logger, db);
+    const writer = new StatusWriter(14, () => 8, logger, db);
 
     // Start 3 runs
     writer.setCurrentRun("bd-pipeline", 5);
@@ -144,7 +144,7 @@ describe("StatusWriter", () => {
 
   it("updateTotalSteps mid-run", () => {
     const logger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as any;
-    const writer = new StatusWriter(14, 8, logger, db);
+    const writer = new StatusWriter(14, () => 8, logger, db);
 
     writer.setCurrentRun("bd-pipeline", 3);
     writer.updateStep(1, "email.search");
@@ -155,7 +155,7 @@ describe("StatusWriter", () => {
 
   it("rapid status updates don't crash", () => {
     const logger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as any;
-    const writer = new StatusWriter(14, 8, logger, db);
+    const writer = new StatusWriter(14, () => 8, logger, db);
 
     // Simulate rapid-fire updates
     for (let i = 0; i < 100; i++) {
@@ -183,7 +183,7 @@ describe("Run Lifecycle + Status", () => {
   it("10 sequential runs with full status tracking", () => {
     const store = new RunStore(db);
     const logger = { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} } as any;
-    const writer = new StatusWriter(14, 8, logger, db);
+    const writer = new StatusWriter(14, () => 8, logger, db);
     const agents = [
       "bd-pipeline", "proposal-engine", "evidence-auditor",
       "contract-reviewer", "staffing-monitor", "content-engine",
