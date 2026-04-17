@@ -10,6 +10,7 @@ export { buildPlanMultiViewpoint, type MultiPlanResult } from "./planner-multi.j
 export { scorePlan, rankPlans, detectDisagreement, type PlanScore } from "./plan-evaluator.js";
 export { runAgent, type OrchestratorDeps } from "./orchestrator.js";
 export { RunStore, type RunStatus, type RunEventType } from "./run-store.js";
+export { runDeadlockDetector, DEADLOCK_DETECTED, type DeadlockReport, type DeadlockOptions } from "./deadlock-detector.js";
 export { requestApproval, waitForApproval, resolveApproval, delegateApproval, listApprovals, listApprovalsByAssignee, getApprovalMetrics, type ApprovalEntry, type ApprovalMetrics } from "./approval-bridge.js";
 export { writeTelegramQueue, createNotificationDispatcher, type NotificationChannel, type NotificationDispatcher } from "./notify.js";
 export { createFilesWorkerBridge } from "./files-bridge.js";
