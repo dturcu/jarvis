@@ -23,7 +23,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
-import { RunStore, requestApproval, JobGraph } from "@jarvis/runtime";
+import { RunStore, requestApproval, JobGraph, runDeadlockDetector, DEADLOCK_DETECTED } from "@jarvis/runtime";
 import type { JobGraphData } from "@jarvis/runtime";
 import { createStressDb, cleanupDb } from "./helpers.js";
 
@@ -202,28 +202,59 @@ describe("Agent DAG Deadlock Detection", () => {
     expect(pending!.run_id).toBe(runIds[0]);
   });
 
-  // ── MISSING-API documentation (.skip) ─────────────────────────────────────
-  // These tests should be enabled once a production detector is added at
-  // packages/jarvis-runtime/src/deadlock-detector.ts or similar.
+  // ── Runtime deadlock detector ─────────────────────────────────────────────
 
-  it.skip("DEADLOCK_DETECTED error surfaces to one participant within 2s — NEEDS API: runtime deadlock-detector + DEADLOCK_DETECTED error code", () => {
-    // Expected: detector scans approvals+runs for wait-for cycles, fails-fast
-    // one participant (lowest priority), records run_deadlocked event, cascades
-    // cancellation to the rest. All within DETECTION_BUDGET_MS.
-    //
-    // Pseudocode:
-    //   const { runIds } = buildRuntimeCycleChain(db, store, "prod", 3);
-    //   await runDeadlockDetector(db);  // <-- missing API
-    //   const statuses = runIds.map(r => store.getStatus(r));
-    //   expect(statuses.filter(s => s === "failed")).toHaveLength(1);
-    //   const failed = runIds[statuses.indexOf("failed")];
-    //   expect(store.getRun(failed)?.error).toContain("DEADLOCK_DETECTED");
+  it("DEADLOCK_DETECTED error surfaces to one participant within 2s", () => {
+    const { runIds } = buildRuntimeCycleChain(db, store, "prod", 3);
+    const report = runDeadlockDetector(db, { budgetMs: DETECTION_BUDGET_MS });
+    expect(report.elapsedMs).toBeLessThan(DETECTION_BUDGET_MS);
+    expect(report.cyclesFound).toBeGreaterThanOrEqual(1);
+    expect(report.runsFailed).toContain(runIds[0]);
+
+    const statuses = runIds.map((r) => store.getStatus(r));
+    expect(statuses.filter((s) => s === "failed")).toHaveLength(1);
+
+    const failedIdx = statuses.indexOf("failed");
+    expect(failedIdx).toBe(0);
+    const failed = runIds[failedIdx];
+    expect(store.getRun(failed)?.error).toContain(DEADLOCK_DETECTED);
+
+    const events = store.getRunEvents(failed);
+    expect(events.find((e) => e.event_type === "run_deadlocked")).toBeTruthy();
+    expect(events.find((e) => e.event_type === "run_failed")).toBeTruthy();
   });
 
-  it.skip("cascade cancellation on deadlock propagates to dependents — NEEDS API: runtime deadlock-detector with cascade policy", () => {
-    // After one participant fails with DEADLOCK_DETECTED, cascade policy
-    // must transition remaining cycle participants to 'cancelled' with
-    // reason='cycle partner failed'. Missing: the detector + cascade hook.
+  it("cascade cancellation on deadlock propagates to dependents", () => {
+    const { runIds } = buildRuntimeCycleChain(db, store, "cascade", 3);
+    const report = runDeadlockDetector(db, { budgetMs: DETECTION_BUDGET_MS });
+
+    expect(report.runsFailed).toEqual([runIds[0]]);
+    expect(report.runsCancelled).toEqual(expect.arrayContaining([runIds[1], runIds[2]]));
+    expect(report.runsCancelled).toHaveLength(2);
+
+    expect(store.getStatus(runIds[0])).toBe("failed");
+    expect(store.getStatus(runIds[1])).toBe("cancelled");
+    expect(store.getStatus(runIds[2])).toBe("cancelled");
+
+    for (let i = 1; i < runIds.length; i++) {
+      const events = store.getRunEvents(runIds[i]);
+      const cancelled = events.find((e) => e.event_type === "run_cancelled");
+      expect(cancelled).toBeTruthy();
+      const details = cancelled?.payload_json ? JSON.parse(cancelled.payload_json) : null;
+      expect(details?.reason).toBe("cycle partner failed");
+      expect(details?.cycle_victim).toBe(runIds[0]);
+    }
+  });
+
+  it("no cycles: detector is a safe no-op", () => {
+    for (let i = 0; i < 3; i++) {
+      const rid = store.startRun(`clean-${i}`, "no-cycle");
+      store.transition(rid, `clean-${i}`, "executing", "plan_built");
+    }
+    const report = runDeadlockDetector(db, { budgetMs: DETECTION_BUDGET_MS });
+    expect(report.cyclesFound).toBe(0);
+    expect(report.runsFailed).toEqual([]);
+    expect(report.runsCancelled).toEqual([]);
   });
 
   // ── Current-system behavior probe (documented gap) ────────────────────────
