@@ -102,11 +102,12 @@ describe("Planning Stress", () => {
   });
 
   it("max_steps=100 allows many steps", async () => {
+    const VALID_ACTIONS = ["email.search", "email.draft"];
     const bigPlan = JSON.stringify(
       Array.from({ length: 50 }, (_, i) => ({
         step: i + 1,
-        action: `email.op_${i}`,
-        input: { index: i },
+        action: VALID_ACTIONS[i % VALID_ACTIONS.length],
+        input: { query: `query ${i}` },
         reasoning: `Step ${i + 1}: detailed reasoning about what needs to happen`,
       })),
     );

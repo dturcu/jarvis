@@ -21,7 +21,7 @@ const ALL_STATUSES: RunStatus[] = [
 
 const VALID_TRANSITIONS: Record<RunStatus, RunStatus[]> = {
   queued: ["planning", "cancelled"],
-  planning: ["executing", "failed", "cancelled"],
+  planning: ["awaiting_approval", "executing", "failed", "cancelled"],
   executing: ["awaiting_approval", "completed", "failed", "cancelled"],
   awaiting_approval: ["executing", "cancelled", "failed"],
   completed: [],

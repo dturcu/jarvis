@@ -10,12 +10,14 @@ import { MockAgentAdapter } from "@jarvis/agent-worker";
 import { range } from "./helpers.js";
 
 describe("Worker Pool Stress", () => {
+  const TEST_AGENTS = [
+    "bd-pipeline", "proposal-engine", "evidence-auditor", "contract-reviewer",
+    "staffing-monitor", "content-engine", "portfolio-monitor", "garden-calendar",
+  ];
+
   it("8 agents started and stepped simultaneously", async () => {
-    const adapter = new MockAgentAdapter();
-    const agents = [
-      "bd-pipeline", "proposal-engine", "evidence-auditor", "contract-reviewer",
-      "staffing-monitor", "content-engine", "portfolio-monitor", "garden-calendar",
-    ];
+    const adapter = new MockAgentAdapter({ registered_agents: TEST_AGENTS });
+    const agents = TEST_AGENTS;
 
     // Start all 8 in parallel
     const startResults = await Promise.all(
@@ -46,7 +48,7 @@ describe("Worker Pool Stress", () => {
   });
 
   it("50 burst starts for the same agent", async () => {
-    const adapter = new MockAgentAdapter();
+    const adapter = new MockAgentAdapter({ registered_agents: ["bd-pipeline"] });
     const errors: string[] = [];
 
     const results = await Promise.all(
@@ -74,8 +76,8 @@ describe("Worker Pool Stress", () => {
   });
 
   it("200 interleaved start/step/status operations", async () => {
-    const adapter = new MockAgentAdapter();
     const agents = ["bd-pipeline", "proposal-engine", "evidence-auditor", "contract-reviewer"];
+    const adapter = new MockAgentAdapter({ registered_agents: agents });
     const errors: string[] = [];
 
     // Start 4 agents first
@@ -119,7 +121,7 @@ describe("Worker Pool Stress", () => {
   });
 
   it("pause and resume under load", async () => {
-    const adapter = new MockAgentAdapter();
+    const adapter = new MockAgentAdapter({ registered_agents: TEST_AGENTS });
     const errors: string[] = [];
 
     // Start 10 runs
@@ -159,8 +161,8 @@ describe("Worker Pool Stress", () => {
   });
 
   it("configure multiple agents concurrently", async () => {
-    const adapter = new MockAgentAdapter();
     const agents = ["bd-pipeline", "proposal-engine", "evidence-auditor", "contract-reviewer"];
+    const adapter = new MockAgentAdapter({ registered_agents: agents });
 
     await Promise.all(
       agents.map(async (agentId, i) => {
